@@ -36,6 +36,9 @@ create table public.rooms (
   title text not null default 'Watch Room' check (char_length(title) between 1 and 60),
   visibility text not null default 'private' check (visibility in ('public', 'private')),
   status text not null default 'active' check (status in ('active', 'closed')),
+  max_participants integer not null default 8 check (max_participants between 2 and 32),
+  -- who may play/pause/seek/change media: everyone, the owner plus members they pick, or the owner only
+  control_mode text not null default 'everyone' check (control_mode in ('everyone', 'selected', 'owner')),
   revision integer not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -55,11 +58,19 @@ create table public.room_members (
   room_id uuid not null references public.rooms (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   role text not null check (role in ('owner', 'member')),
+  can_control boolean not null default false,
   joined_at timestamptz not null default now(),
-  last_active_at timestamptz not null default now(),
   primary key (room_id, user_id)
 );
 create index room_members_user_idx on public.room_members (user_id);
+
+-- Heartbeats live here, not in room_members, so they never fan out through Realtime.
+create table public.member_activity (
+  room_id uuid not null references public.rooms (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  last_active_at timestamptz not null default now(),
+  primary key (room_id, user_id)
+);
 
 create table public.playback_state (
   room_id uuid primary key references public.rooms (id) on delete cascade,
@@ -129,6 +140,13 @@ as $$ select floor(extract(epoch from clock_timestamp()) * 1000)::bigint $$;
 create function public.seat_active_cutoff() returns timestamptz
 language sql stable
 as $$ select now() - interval '90 seconds' $$;
+
+create function public.mark_active(p_room uuid, p_user uuid, p_at timestamptz default now()) returns void
+language sql security definer set search_path = public
+as $$
+  insert into public.member_activity (room_id, user_id, last_active_at) values (p_room, p_user, p_at)
+  on conflict (room_id, user_id) do update set last_active_at = excluded.last_active_at
+$$;
 
 create function public.is_room_member(p_room uuid) returns boolean
 language sql stable security definer set search_path = public
@@ -284,7 +302,7 @@ end $$;
 create function public.active_seat_count(p_room uuid) returns integer
 language sql stable security definer set search_path = public
 as $$
-  select count(*)::int from public.room_members
+  select count(*)::int from public.member_activity
   where room_id = p_room and last_active_at > public.seat_active_cutoff()
 $$;
 
@@ -301,6 +319,8 @@ as $$
     'createdAt', p_room.created_at,
     'updatedAt', p_room.updated_at,
     'participantCount', public.active_seat_count(p_room.id),
+    'maxParticipants', p_room.max_participants,
+    'controlMode', p_room.control_mode,
     'revision', p_room.revision
   )
 $$;
@@ -320,6 +340,22 @@ as $$
   )
 $$;
 
+create function public.can_control_playback(p_room_id uuid, p_user uuid) returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce((
+    select case
+      when m.role = 'owner' then true
+      when r.control_mode = 'everyone' then true
+      when r.control_mode = 'selected' then m.can_control
+      else false
+    end
+    from public.room_members m
+    join public.rooms r on r.id = m.room_id
+    where m.room_id = p_room_id and m.user_id = p_user
+  ), false)
+$$;
+
 create function public.build_snapshot(p_room_id uuid, p_viewer uuid) returns jsonb
 language plpgsql stable security definer set search_path = public
 as $$
@@ -332,16 +368,19 @@ begin
   return jsonb_build_object(
     'room', public.room_dto(v_room),
     'isOwner', v_room.owner_id = p_viewer,
+    'canControl', public.can_control_playback(p_room_id, p_viewer),
     'participants', coalesce((
       select jsonb_agg(jsonb_build_object(
         'userId', m.user_id,
         'displayName', p.display_name,
         'role', m.role,
+        'canControl', m.role = 'owner' or m.can_control,
         'joinedAt', m.joined_at,
-        'isOnline', m.last_active_at > public.seat_active_cutoff()
+        'isOnline', coalesce(a.last_active_at > public.seat_active_cutoff(), false)
       ) order by m.joined_at)
       from public.room_members m
       join public.profiles p on p.id = m.user_id
+      left join public.member_activity a on a.room_id = m.room_id and a.user_id = m.user_id
       where m.room_id = p_room_id
     ), '[]'::jsonb),
     'playback', case when v_state.room_id is null then null else public.playback_dto(v_state) end
@@ -373,7 +412,9 @@ end $$;
 create function public.create_room(
   p_title text default 'Watch Room',
   p_visibility text default 'private',
-  p_request_id uuid default null
+  p_request_id uuid default null,
+  p_max_participants integer default 8,
+  p_control_mode text default 'everyone'
 ) returns jsonb
 language plpgsql security definer set search_path = public
 as $$
@@ -394,7 +435,9 @@ begin
     end if;
   end if;
 
-  if p_visibility not in ('public', 'private') then
+  if p_visibility not in ('public', 'private')
+     or p_max_participants is null or p_max_participants not between 2 and 32
+     or p_control_mode not in ('everyone', 'selected', 'owner') then
     raise exception 'INVALID_PAYLOAD';
   end if;
   v_title := coalesce(v_title, 'Watch Room');
@@ -413,11 +456,12 @@ begin
     end if;
   end loop;
 
-  insert into public.rooms (global_id, owner_id, title, visibility)
-    values (v_global, v_uid, v_title, p_visibility)
+  insert into public.rooms (global_id, owner_id, title, visibility, max_participants, control_mode)
+    values (v_global, v_uid, v_title, p_visibility, p_max_participants, p_control_mode)
     returning * into v_room;
 
-  insert into public.room_members (room_id, user_id, role) values (v_room.id, v_uid, 'owner');
+  insert into public.room_members (room_id, user_id, role, can_control) values (v_room.id, v_uid, 'owner', true);
+  perform public.mark_active(v_room.id, v_uid);
   insert into public.playback_state (room_id, anchor_server_time) values (v_room.id, public.server_time_ms());
 
   if p_visibility = 'private' then
@@ -481,19 +525,18 @@ begin
     end if;
   end if;
 
-  -- Seats: two active participants at most; a returning member must find a free seat too.
+  -- Seats: at most rooms.max_participants active participants; a returning member must find a free seat too.
   select count(*) into v_active
-    from public.room_members
+    from public.member_activity
     where room_id = v_room.id and user_id <> v_uid and last_active_at > public.seat_active_cutoff();
-  if v_active >= 2 then
+  if v_active >= v_room.max_participants then
     return jsonb_build_object('error', 'ROOM_FULL');
   end if;
 
   if v_member.user_id is null then
     insert into public.room_members (room_id, user_id, role) values (v_room.id, v_uid, 'member');
-  else
-    update public.room_members set last_active_at = now() where room_id = v_room.id and user_id = v_uid;
   end if;
+  perform public.mark_active(v_room.id, v_uid);
 
   return public.build_snapshot(v_room.id, v_uid);
 end $$;
@@ -515,8 +558,9 @@ language plpgsql security definer set search_path = public
 as $$
 declare v_uid uuid := public.require_uid();
 begin
-  update public.room_members set last_active_at = now()
-    where room_id = p_room_id and user_id = v_uid;
+  if exists (select 1 from public.room_members where room_id = p_room_id and user_id = v_uid) then
+    perform public.mark_active(p_room_id, v_uid);
+  end if;
 end $$;
 
 create function public.leave_room(p_room_id uuid) returns void
@@ -525,7 +569,7 @@ as $$
 declare v_uid uuid := public.require_uid();
 begin
   -- Membership stays (the owner and returning guests keep their place); the seat is freed.
-  update public.room_members set last_active_at = to_timestamp(0)
+  update public.member_activity set last_active_at = to_timestamp(0)
     where room_id = p_room_id and user_id = v_uid;
 end $$;
 
@@ -599,6 +643,53 @@ begin
   );
 end $$;
 
+-- Owner-only: group size and who controls playback.
+create function public.update_room_settings(
+  p_room_id uuid,
+  p_max_participants integer,
+  p_control_mode text
+) returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid uuid := public.require_uid();
+  v_room public.rooms;
+begin
+  v_room := public.owned_active_room(p_room_id, v_uid);
+  if p_max_participants is null or p_max_participants not between 2 and 32
+     or p_control_mode not in ('everyone', 'selected', 'owner') then
+    raise exception 'INVALID_PAYLOAD';
+  end if;
+  -- Never below the number of people currently inside
+  if p_max_participants < public.active_seat_count(p_room_id) then
+    raise exception 'INVALID_PAYLOAD';
+  end if;
+
+  update public.rooms
+    set max_participants = p_max_participants, control_mode = p_control_mode,
+        revision = revision + 1, updated_at = now()
+    where id = v_room.id
+    returning * into v_room;
+  return public.room_dto(v_room);
+end $$;
+
+-- Owner-only: allow/deny one member to control playback (used in 'selected' mode).
+create function public.set_member_control(p_room_id uuid, p_user_id uuid, p_can_control boolean)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid uuid := public.require_uid();
+  v_room public.rooms;
+begin
+  v_room := public.owned_active_room(p_room_id, v_uid);
+  update public.room_members set can_control = coalesce(p_can_control, false)
+    where room_id = v_room.id and user_id = p_user_id and role = 'member';
+  if not found then
+    raise exception 'USER_NOT_FOUND';
+  end if;
+end $$;
+
 create function public.rotate_private_code(p_room_id uuid) returns jsonb
 language plpgsql security definer set search_path = public
 as $$
@@ -664,7 +755,7 @@ begin
     where r.status = 'active'
       and r.updated_at < now() - p_max_idle
       and not exists (
-        select 1 from public.room_members m
+        select 1 from public.member_activity m
         where m.room_id = r.id and m.last_active_at > now() - p_max_idle
       )
   ), closed as (
@@ -713,6 +804,9 @@ declare
   v_media jsonb;
 begin
   perform public.assert_active_member(p_room_id, v_uid);
+  if not public.can_control_playback(p_room_id, v_uid) then
+    raise exception 'FORBIDDEN';
+  end if;
 
   if p_type not in ('play', 'pause', 'seek', 'change-media', 'set-rate', 'buffering') then
     raise exception 'INVALID_PAYLOAD';
@@ -729,8 +823,7 @@ begin
       returning * into v_state;
   end if;
 
-  update public.room_members set last_active_at = now()
-    where room_id = p_room_id and user_id = v_uid;
+  perform public.mark_active(p_room_id, v_uid);
 
   -- Duplicate delivery of the same command never applies twice.
   if exists (select 1 from public.processed_commands where room_id = p_room_id and command_id = p_command_id) then
@@ -934,6 +1027,7 @@ alter table public.room_members enable row level security;
 alter table public.playback_state enable row level security;
 alter table public.processed_commands enable row level security;
 alter table public.chat_messages enable row level security;
+alter table public.member_activity enable row level security;
 alter table public.idempotency_keys enable row level security;
 alter table public.rate_events enable row level security;
 
@@ -956,7 +1050,8 @@ create policy chat_read on public.chat_messages for select to authenticated
   using (public.is_room_member(room_id));
 
 -- Internal tables: no policies => no client access. Also drop table privileges.
-revoke all on public.room_secrets, public.processed_commands, public.idempotency_keys, public.rate_events
+revoke all on public.room_secrets, public.processed_commands, public.idempotency_keys, public.rate_events,
+  public.member_activity
   from anon, authenticated;
 -- Clients never write tables directly.
 revoke insert, update, delete, truncate on
@@ -974,7 +1069,9 @@ revoke execute on all functions in schema public from public, anon, authenticate
 grant execute on function
   public.server_time_ms(),
   public.update_display_name(text),
-  public.create_room(text, text, uuid),
+  public.create_room(text, text, uuid, integer, text),
+  public.update_room_settings(uuid, integer, text),
+  public.set_member_control(uuid, uuid, boolean),
   public.join_room(text, text),
   public.get_room_snapshot(uuid),
   public.touch_room(uuid),

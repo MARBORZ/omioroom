@@ -42,6 +42,8 @@ export interface VideoPlayerFrameProps {
   playbackState: RoomPlaybackStateDto | null;
   getEstimatedServerNow: () => number;
   onUserAction?: (action: UserPlayerAction) => void;
+  /** Without control permission, local actions in the player are undone instead of reported. */
+  canControl?: boolean;
   onPositionUpdate: (currentTime: number, duration: number) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
@@ -55,6 +57,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       playbackState,
       getEstimatedServerNow,
       onUserAction,
+      canControl = true,
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
@@ -70,6 +73,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     // Latest props/state for handlers bound once at adapter creation
     const latest = useRef({
       playbackState,
+      canControl,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -78,6 +82,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     });
     latest.current = {
       playbackState,
+      canControl,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -90,6 +95,17 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const adapterPlayingRef = useRef(false);
     const appliedRateRef = useRef(1);
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
+
+    // A local action in the player: report it when allowed, otherwise snap back to the room state
+    const handleLocalAction = (action: UserPlayerAction) => {
+      const cur = latest.current;
+      if (cur.canControl) {
+        cur.onUserAction?.(action);
+      } else {
+        revertRef.current();
+      }
+    };
+    const revertRef = useRef<() => void>(() => {});
 
     const armGuard = () => {
       guardUntilRef.current = Date.now() + REMOTE_APPLY_GUARD_MS;
@@ -182,7 +198,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
             const expectedDelta = ((now - prev.wall) / 1000) * rate;
             const jump = event.currentTime - prev.time - expectedDelta;
             if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS) {
-              cur.onUserAction?.({ type: "seek", position: event.currentTime });
+              handleLocalAction({ type: "seek", position: event.currentTime });
             }
           }
         } else if (event.type === "play") {
@@ -190,13 +206,13 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           cur.onBufferingChange?.(false);
           cur.onPlayStateChange?.(true);
           if (!isGuarded() && server?.media && server.status !== PlaybackStatus.PLAYING) {
-            cur.onUserAction?.({ type: "play", position: event.currentTime });
+            handleLocalAction({ type: "play", position: event.currentTime });
           }
         } else if (event.type === "pause") {
           adapterPlayingRef.current = false;
           cur.onPlayStateChange?.(false);
           if (!isGuarded() && server?.media && server.status === PlaybackStatus.PLAYING) {
-            cur.onUserAction?.({ type: "pause", position: event.currentTime });
+            handleLocalAction({ type: "pause", position: event.currentTime });
           }
         } else if (event.type === "ended") {
           adapterPlayingRef.current = false;
@@ -228,30 +244,35 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
   // Apply authoritative server state. Runs only when the server state changes,
   // never on local position ticks, and only touches the player when it differs.
-  useEffect(() => {
+  const applyServerState = useCallback(() => {
     const adapter = adapterRef.current;
-    if (!adapter || !playbackState || !playbackState.media) return;
+    const state = latest.current.playbackState;
+    if (!adapter || !state || !state.media) return;
 
     armGuard();
-    const expected = calculateExpectedPosition(playbackState, latest.current.getEstimatedServerNow());
+    const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
 
-    if (playbackState.status === PlaybackStatus.PLAYING) {
+    if (state.status === PlaybackStatus.PLAYING) {
       if (!adapterPlayingRef.current) adapter.play().catch(() => {});
     } else if (adapterPlayingRef.current) {
       adapter.pause().catch(() => {});
     }
 
-    if (appliedRateRef.current !== playbackState.playbackRate) {
-      appliedRateRef.current = playbackState.playbackRate;
-      adapter.setPlaybackRate(playbackState.playbackRate).catch(() => {});
+    if (appliedRateRef.current !== state.playbackRate) {
+      appliedRateRef.current = state.playbackRate;
+      adapter.setPlaybackRate(state.playbackRate).catch(() => {});
     }
 
-    const target =
-      playbackState.status === PlaybackStatus.PLAYING ? expected : playbackState.anchorPosition;
+    const target = state.status === PlaybackStatus.PLAYING ? expected : state.anchorPosition;
     if (Math.abs(adapter.getCurrentTime() - target) > SYNC_THRESHOLD_DRIFT_RATE_MS / 1000) {
       adapter.seek(target).catch(() => {});
     }
-  }, [playbackState]);
+  }, []);
+  revertRef.current = applyServerState;
+
+  useEffect(() => {
+    applyServerState();
+  }, [playbackState, applyServerState]);
 
   // Periodic drift correction while playing
   useEffect(() => {

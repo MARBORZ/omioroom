@@ -1,6 +1,14 @@
-import type { ChatMessageDto, RoomPlaybackStateDto } from "@omioroom/contracts";
+import type { ChatMessageDto, ControlMode, RoomPlaybackStateDto } from "@omioroom/contracts";
 import { supabase } from "./supabase.js";
 import { mapChatRow } from "./backend.js";
+
+export interface RoomRowChange {
+  visibility: "public" | "private";
+  status: "active" | "closed";
+  revision: number;
+  maxParticipants: number;
+  controlMode: ControlMode;
+}
 
 export type RoomChannelStatus = "connected" | "connecting" | "reconnecting" | "disconnected";
 
@@ -8,9 +16,9 @@ export interface RoomChannelHandlers {
   onPlayback: (state: RoomPlaybackStateDto) => void;
   onChat: (message: ChatMessageDto) => void;
   /** Visibility, closure or revision changes of the room row. */
-  onRoomChanged: (row: { visibility: "public" | "private"; status: "active" | "closed"; revision: number }) => void;
-  /** Someone new took a seat; refetch participants. */
-  onMemberAdded: () => void;
+  onRoomChanged: (row: RoomRowChange) => void;
+  /** A member joined or had their permissions changed; refetch participants. */
+  onMemberChanged: () => void;
   /** User ids currently present in the room channel. */
   onPresence: (userIds: string[]) => void;
   onStatus: (status: RoomChannelStatus) => void;
@@ -63,12 +71,27 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
     .on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-      (payload) => handlers.onRoomChanged(payload.new as Parameters<RoomChannelHandlers["onRoomChanged"]>[0])
+      (payload) => {
+        const row = payload.new as {
+          visibility: RoomRowChange["visibility"];
+          status: RoomRowChange["status"];
+          revision: number;
+          max_participants: number;
+          control_mode: ControlMode;
+        };
+        handlers.onRoomChanged({
+          visibility: row.visibility,
+          status: row.status,
+          revision: row.revision,
+          maxParticipants: row.max_participants,
+          controlMode: row.control_mode,
+        });
+      }
     )
     .on(
       "postgres_changes",
-      { event: "INSERT", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
-      () => handlers.onMemberAdded()
+      { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
+      () => handlers.onMemberChanged()
     )
     .on("presence", { event: "sync" }, () => handlers.onPresence(Object.keys(channel.presenceState())))
     .subscribe((status) => {

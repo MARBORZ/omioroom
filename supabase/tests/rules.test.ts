@@ -15,8 +15,12 @@ const code = (p: Promise<unknown>) =>
     (e: Error) => e.message.replace(/^.*?(?=[A-Z_]{5,}$)/, "")
   );
 
-async function room(owner: string, visibility: "public" | "private" = "public") {
-  const res = await t.as(owner).rpc("create_room", { p_title: "Movie", p_visibility: visibility });
+async function room(
+  owner: string,
+  visibility: "public" | "private" = "public",
+  extra: Record<string, unknown> = {}
+) {
+  const res = await t.as(owner).rpc("create_room", { p_title: "Movie", p_visibility: visibility, ...extra });
   return {
     id: res.snapshot.room.id as string,
     globalId: res.snapshot.room.globalId as string,
@@ -160,18 +164,54 @@ describe("rooms and private access", () => {
     ).toBe("REVISION_CONFLICT");
   });
 
-  it("enforces two seats and does not let a returning member bypass the limit", async () => {
+  it("enforces the room's participant limit and does not let a returning member bypass it", async () => {
+    // limit 3 = owner + 2 guests
     const owner = await t.newUser();
     const a = await t.newUser();
     const b = await t.newUser();
-    const r = await room(owner, "public");
+    const c = await t.newUser();
+    const r = await room(owner, "public", { p_max_participants: 3 });
 
     await t.as(a).rpc("join_room", { p_global_id: r.globalId });
-    expect(await code(t.as(b).rpc("join_room", { p_global_id: r.globalId }))).toBe("ROOM_FULL");
+    await t.as(b).rpc("join_room", { p_global_id: r.globalId });
+    expect(await code(t.as(c).rpc("join_room", { p_global_id: r.globalId }))).toBe("ROOM_FULL");
 
     await t.as(a).rpc("leave_room", { p_room_id: r.id });
-    await t.as(b).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(c).rpc("join_room", { p_global_id: r.globalId });
     expect(await code(t.as(a).rpc("join_room", { p_global_id: r.globalId }))).toBe("ROOM_FULL");
+  });
+
+  it("supports groups up to 32 and rejects out-of-range limits", async () => {
+    const owner = await t.newUser();
+    expect(await code(t.as(owner).rpc("create_room", { p_max_participants: 33 }))).toBe("INVALID_PAYLOAD");
+    expect(await code(t.as(owner).rpc("create_room", { p_max_participants: 1 }))).toBe("INVALID_PAYLOAD");
+    expect(await code(t.as(owner).rpc("create_room", { p_control_mode: "nobody" }))).toBe("INVALID_PAYLOAD");
+
+    const r = await room(owner, "public", { p_max_participants: 32 });
+    // 31 guests fit; seats are not capped at two
+    for (let i = 0; i < 31; i++) {
+      const g = await t.newUser();
+      await t.as(g).rpc("join_room", { p_global_id: r.globalId });
+    }
+    const extra = await t.newUser();
+    expect(await code(t.as(extra).rpc("join_room", { p_global_id: r.globalId }))).toBe("ROOM_FULL");
+  });
+
+  it("lets only the owner change settings, never below the people inside", async () => {
+    const owner = await t.newUser();
+    const guest = await t.newUser();
+    const r = await room(owner, "public", { p_max_participants: 8 });
+    await t.as(guest).rpc("join_room", { p_global_id: r.globalId });
+
+    expect(
+      await code(t.as(guest).rpc("update_room_settings", { p_room_id: r.id, p_max_participants: 10, p_control_mode: "owner" }))
+    ).toBe("FORBIDDEN");
+    expect(
+      await code(t.as(owner).rpc("update_room_settings", { p_room_id: r.id, p_max_participants: 1, p_control_mode: "owner" }))
+    ).toBe("INVALID_PAYLOAD");
+    // two people are inside (owner + guest): limit 2 is allowed, 3 would be fine, below 2 is not
+    const ok = await t.as(owner).rpc("update_room_settings", { p_room_id: r.id, p_max_participants: 2, p_control_mode: "selected" });
+    expect(ok).toMatchObject({ maxParticipants: 2, controlMode: "selected" });
   });
 
   it("rate limits join attempts (room id brute force)", async () => {
@@ -295,6 +335,40 @@ describe("playback", () => {
   });
 });
 
+describe("playback control modes", () => {
+  it("'everyone' lets any member control; 'owner' only the owner; 'selected' only picked members", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const b = await t.newUser();
+    const r = await room(owner, "public", { p_control_mode: "everyone", p_max_participants: 5 });
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(b).rpc("join_room", { p_global_id: r.globalId });
+
+    expect((await play(a, r.id)).status).toBe("playing");
+
+    const setMode = (mode: string) =>
+      t.as(owner).rpc("update_room_settings", { p_room_id: r.id, p_max_participants: 5, p_control_mode: mode });
+
+    await setMode("owner");
+    expect(await code(play(a, r.id))).toBe("FORBIDDEN");
+    expect((await play(owner, r.id)).revision).toBeGreaterThan(0);
+
+    await setMode("selected");
+    expect(await code(play(a, r.id))).toBe("FORBIDDEN");
+    await t.as(owner).rpc("set_member_control", { p_room_id: r.id, p_user_id: a, p_can_control: true });
+    expect((await play(a, r.id)).status).toBe("playing");
+    expect(await code(play(b, r.id))).toBe("FORBIDDEN");
+
+    // Only the owner hands out control
+    expect(await code(t.as(a).rpc("set_member_control", { p_room_id: r.id, p_user_id: b, p_can_control: true }))).toBe("FORBIDDEN");
+
+    // Snapshot reports the viewer's own permission
+    expect((await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).canControl).toBe(true);
+    expect((await t.as(b).rpc("get_room_snapshot", { p_room_id: r.id })).canControl).toBe(false);
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id })).canControl).toBe(true);
+  });
+});
+
 describe("chat", () => {
   it("members chat; outsiders cannot; urls are validated; history capped at 100", async () => {
     const owner = await t.newUser();
@@ -373,7 +447,7 @@ describe("maintenance", () => {
     const idle = await room(owner, "public");
     const live = await room(owner, "public");
     await t.db.query(
-      `update public.room_members set last_active_at = now() - interval '2 hours' where room_id = $1`,
+      `update public.member_activity set last_active_at = now() - interval '2 hours' where room_id = $1`,
       [idle.id]
     );
     await t.db.query(`update public.rooms set updated_at = now() - interval '2 hours' where id = $1`, [idle.id]);

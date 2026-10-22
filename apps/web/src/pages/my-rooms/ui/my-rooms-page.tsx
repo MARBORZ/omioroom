@@ -106,9 +106,9 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
                     {room.visibility === "private" ? <Lock size={10} style={{ marginRight: 2 }} /> : <Globe size={10} style={{ marginRight: 2 }} />}
                     {room.visibility === "private" ? t.common.private : t.common.public}
                   </Pill>
-                  <Pill variant={room.participantCount >= 2 ? "success" : "default"}>
+                  <Pill variant={room.participantCount >= room.maxParticipants ? "success" : "default"}>
                     <Users size={10} style={{ marginRight: 2 }} />
-                    {room.participantCount} / 2
+                    {room.participantCount} / {room.maxParticipants}
                   </Pill>
                 </div>
               </div>

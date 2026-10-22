@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { roomVisibilitySchema } from "./access.js";
-import { participantDtoSchema } from "./participant.js";
+import {
+  participantDtoSchema,
+  MIN_ROOM_PARTICIPANTS,
+  MAX_ROOM_PARTICIPANTS,
+  DEFAULT_ROOM_PARTICIPANTS,
+} from "./participant.js";
 import { roomPlaybackStateDtoSchema } from "./playback.js";
 
 export const globalRoomIdSchema = z
@@ -23,6 +28,22 @@ export type RoomStatus = (typeof RoomStatus)[keyof typeof RoomStatus];
 
 export const roomStatusSchema = z.nativeEnum(RoomStatus);
 
+export const ControlMode = {
+  EVERYONE: "everyone",
+  SELECTED: "selected",
+  OWNER: "owner",
+} as const;
+
+export type ControlMode = (typeof ControlMode)[keyof typeof ControlMode];
+
+export const controlModeSchema = z.nativeEnum(ControlMode);
+
+export const maxParticipantsSchema = z
+  .number()
+  .int()
+  .min(MIN_ROOM_PARTICIPANTS)
+  .max(MAX_ROOM_PARTICIPANTS);
+
 export const roomSummaryDtoSchema = z.object({
   id: z.string().uuid(),
   globalId: globalRoomIdSchema,
@@ -32,7 +53,9 @@ export const roomSummaryDtoSchema = z.object({
   status: roomStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  participantCount: z.number().int().min(0).max(2),
+  participantCount: z.number().int().min(0).max(MAX_ROOM_PARTICIPANTS),
+  maxParticipants: maxParticipantsSchema,
+  controlMode: controlModeSchema,
   revision: z.number().int().nonnegative(),
 });
 
@@ -41,6 +64,8 @@ export type RoomSummaryDto = z.infer<typeof roomSummaryDtoSchema>;
 export const roomSnapshotDtoSchema = z.object({
   room: roomSummaryDtoSchema,
   isOwner: z.boolean(),
+  /** The viewer's own permission to control playback. */
+  canControl: z.boolean(),
   participants: z.array(participantDtoSchema),
   playback: roomPlaybackStateDtoSchema.nullable(),
 });
@@ -50,6 +75,8 @@ export type RoomSnapshotDto = z.infer<typeof roomSnapshotDtoSchema>;
 export const createRoomPayloadSchema = z.object({
   title: roomTitleSchema.optional().default("Watch Room"),
   visibility: roomVisibilitySchema.default("private"),
+  maxParticipants: maxParticipantsSchema.default(DEFAULT_ROOM_PARTICIPANTS),
+  controlMode: controlModeSchema.default("everyone"),
 });
 
 export type CreateRoomPayload = z.infer<typeof createRoomPayloadSchema>;
@@ -81,3 +108,11 @@ export const closeRoomPayloadSchema = z.object({
 });
 
 export type CloseRoomPayload = z.infer<typeof closeRoomPayloadSchema>;
+
+export const updateRoomSettingsPayloadSchema = z.object({
+  roomId: z.string().uuid(),
+  maxParticipants: maxParticipantsSchema,
+  controlMode: controlModeSchema,
+});
+
+export type UpdateRoomSettingsPayload = z.infer<typeof updateRoomSettingsPayloadSchema>;

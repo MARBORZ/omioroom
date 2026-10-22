@@ -4,11 +4,18 @@ import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
+import { ControlModeSelect } from "../../../shared/ui/control-mode-select/control-mode-select.js";
 import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { backend } from "../../../shared/api/backend.js";
-import type { RoomSnapshotDto } from "@omioroom/contracts";
+import {
+  DEFAULT_ROOM_PARTICIPANTS,
+  MIN_ROOM_PARTICIPANTS,
+  MAX_ROOM_PARTICIPANTS,
+  type ControlMode,
+  type RoomSnapshotDto,
+} from "@omioroom/contracts";
 import styles from "./home-page.module.scss";
 
 interface HomePageProps {
@@ -33,6 +40,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Create room state
   const [roomTitle, setRoomTitle] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
+  const [maxParticipants, setMaxParticipants] = useState(String(DEFAULT_ROOM_PARTICIPANTS));
+  const [controlMode, setControlMode] = useState<ControlMode>("everyone");
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -61,7 +70,10 @@ export const HomePage: React.FC<HomePageProps> = ({
     setCreateLoading(true);
 
     try {
-      const result = await backend.createRoom(roomTitle.trim() || "Watch Room", visibility);
+      const result = await backend.createRoom(roomTitle.trim() || "Watch Room", visibility, {
+        maxParticipants: Number(maxParticipants),
+        controlMode,
+      });
 
       onRoomJoined(result.snapshot, result.ownerAccess?.privateCode ?? null);
     } catch (err: any) {
@@ -225,6 +237,16 @@ export const HomePage: React.FC<HomePageProps> = ({
             </Button>
           </div>
 
+          <TextField
+            label={t.group.createLimit}
+            type="number"
+            min={MIN_ROOM_PARTICIPANTS}
+            max={MAX_ROOM_PARTICIPANTS}
+            value={maxParticipants}
+            onChange={(e) => setMaxParticipants(e.target.value)}
+          />
+          <ControlModeSelect value={controlMode} onChange={setControlMode} />
+
           {createError && (
             <div style={{ fontSize: "13px", color: "var(--color-danger)" }}>
               {createError}
@@ -235,7 +257,12 @@ export const HomePage: React.FC<HomePageProps> = ({
             type="submit"
             variant="primary"
             loading={createLoading}
-            disabled={connectionStatus !== "connected"}
+            disabled={
+              connectionStatus !== "connected" ||
+              !Number.isInteger(Number(maxParticipants)) ||
+              Number(maxParticipants) < MIN_ROOM_PARTICIPANTS ||
+              Number(maxParticipants) > MAX_ROOM_PARTICIPANTS
+            }
             icon={<Plus size={16} />}
           >
             {t.home.createBtn}

@@ -143,4 +143,22 @@ export interface Translations {
     toHome: string;
     rateLimited: string;
   };
+  group: {
+    participants: string;
+    you: string;
+    owner: string;
+    online: string;
+    offline: string;
+    canControl: string;
+    settings: string;
+    maxLabel: string;
+    modeLabel: string;
+    modeEveryone: string;
+    modeSelected: string;
+    modeOwner: string;
+    save: string;
+    saveFailed: string;
+    viewOnly: string;
+    createLimit: string;
+  };
 }

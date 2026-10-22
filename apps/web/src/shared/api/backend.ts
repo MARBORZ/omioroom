@@ -1,4 +1,5 @@
 import type {
+  ControlMode,
   ChatMessageDto,
   FriendDto,
   MediaSourceInfo,
@@ -27,8 +28,27 @@ export const backend = {
   updateDisplayName: (name: string) =>
     rpc<{ id: string; kind: User["kind"]; displayName: string }>("update_display_name", { p_name: name }),
 
-  createRoom: (title: string, visibility: RoomVisibility, requestId = generateClientRequestId()) =>
-    rpc<RoomCreateResult>("create_room", { p_title: title, p_visibility: visibility, p_request_id: requestId }),
+  createRoom: (
+    title: string,
+    visibility: RoomVisibility,
+    options: { maxParticipants: number; controlMode: ControlMode },
+    requestId = generateClientRequestId()
+  ) =>
+    rpc<RoomCreateResult>("create_room", {
+      p_title: title,
+      p_visibility: visibility,
+      p_request_id: requestId,
+      p_max_participants: options.maxParticipants,
+      p_control_mode: options.controlMode,
+    }),
+  updateRoomSettings: (roomId: string, maxParticipants: number, controlMode: ControlMode) =>
+    rpc<RoomSummaryDto>("update_room_settings", {
+      p_room_id: roomId,
+      p_max_participants: maxParticipants,
+      p_control_mode: controlMode,
+    }),
+  setMemberControl: (roomId: string, userId: string, canControl: boolean) =>
+    rpc<null>("set_member_control", { p_room_id: roomId, p_user_id: userId, p_can_control: canControl }),
   joinRoom: (globalId: string, privateCode?: string) =>
     rpc<RoomSnapshotDto>("join_room", { p_global_id: globalId, p_private_code: privateCode ?? null }),
   getSnapshot: (roomId: string) => rpc<RoomSnapshotDto>("get_room_snapshot", { p_room_id: roomId }),

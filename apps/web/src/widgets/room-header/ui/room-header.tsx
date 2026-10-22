@@ -9,6 +9,7 @@ import styles from "./room-header.module.scss";
 interface RoomHeaderProps {
   globalRoomId?: string;
   participantCount?: number;
+  maxParticipants?: number;
   connectionStatus: ConnectionStatusType;
   onNavigateHome?: () => void;
   onNavigateMyRooms?: () => void;
@@ -18,6 +19,7 @@ interface RoomHeaderProps {
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
   globalRoomId,
   participantCount = 1,
+  maxParticipants = 2,
   connectionStatus,
   onNavigateHome,
   onNavigateMyRooms,
@@ -58,9 +60,9 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
         <StatusIndicator status={connectionStatus} />
 
         {globalRoomId && (
-          <Pill variant={participantCount >= 2 ? "success" : "default"}>
+          <Pill variant={participantCount >= maxParticipants ? "success" : "default"}>
             <Users size={12} style={{ marginRight: 2 }} />
-            {participantCount} / 2
+            {participantCount} / {maxParticipants}
           </Pill>
         )}
 

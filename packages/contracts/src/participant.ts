@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { displayNameSchema } from "./user.js";
 
-export const MAX_ROOM_PARTICIPANTS = 2;
+/** Room size is chosen by the owner within these bounds. */
+export const MIN_ROOM_PARTICIPANTS = 2;
+export const MAX_ROOM_PARTICIPANTS = 32;
+export const DEFAULT_ROOM_PARTICIPANTS = 8;
 
 export const RoomRole = {
   OWNER: "owner",
@@ -16,6 +19,8 @@ export const participantDtoSchema = z.object({
   userId: z.string().uuid(),
   displayName: displayNameSchema,
   role: roomRoleSchema,
+  /** May play/pause/seek/change media under the room's control mode. */
+  canControl: z.boolean(),
   joinedAt: z.string().datetime(),
   isOnline: z.boolean(),
 });

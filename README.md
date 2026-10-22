@@ -1,10 +1,10 @@
 # OMIOROOM
 
-Minimalist watch party for two. Open source, no servers to run: **React on Vercel + Supabase** (Auth, Postgres, Realtime).
+Watch videos together with friends: 2 to 32 people per room. Open source, no servers to run: **React on Vercel + Supabase** (Auth, Postgres, Realtime).
 
 - Anonymous, nickname, or registered accounts (Supabase Auth; the anonymous identity lives in the browser's storage).
 - Public and private rooms with a secret code only the owner sees; room id stays stable when the code is rotated/revoked.
-- Two participants per room, synchronized playback (YouTube, VK Video, RuTube, Twitch, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
+- Rooms of 2–32 participants (set by the owner); the owner also picks who controls playback (everyone / owner + selected / owner only); synchronized playback (YouTube, VK Video, RuTube, Twitch, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
 
 ## How it works
 
@@ -15,7 +15,7 @@ Minimalist watch party for two. Open source, no servers to run: **React on Verce
 | `packages/contracts` | shared | DTO types, Zod schemas, media URL parsing, drift math |
 
 All writes go through database functions (`create_room`, `join_room`, `player_command`, `send_chat`, ...). They check the caller,
-enforce the rules (2 seats, private codes, revisions, command dedup, rate limits) and keep the **authoritative playback state** in
+enforce the rules (room size limit, control modes, private codes, revisions, command dedup, rate limits) and keep the **authoritative playback state** in
 Postgres. Clients read through RLS-protected tables and Realtime (`postgres_changes`), so only room members receive updates.
 Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
 
@@ -23,7 +23,7 @@ Playback correction is client-side against the database clock (`server_time_ms()
 
 1. **Supabase project.** Create one at supabase.com (or run it yourself).
    - Authentication > Sign In / Providers: enable **Allow anonymous sign-ins**. For the simplest beta, disable **Confirm email**.
-   - Apply the schema: `supabase link --project-ref <ref> && supabase db push` (or paste `supabase/migrations/*.sql` into the SQL editor).
+   - Apply the schema: paste `supabase/setup.sql` into the SQL editor of an empty project, or `supabase link --project-ref <ref> && supabase db push`.
    - Database > Extensions: enable `pg_cron` if you want idle rooms closed automatically (the second migration schedules it).
 2. **Vercel.** Import the repo. Set **Root Directory** to `apps/web` (Vite preset; `apps/web/vercel.json` adds the SPA rewrite and the build also compiles `packages/contracts`). Add env vars:
    - `VITE_SUPABASE_URL` = project URL

@@ -7,11 +7,12 @@ import { VideoPlayerFrame, type VideoPlayerHandle } from "../../../widgets/video
 import { PlaybackControls } from "../../../shared/ui/playback-controls/playback-controls.js";
 import { ChangeMediaInput } from "../../../features/change-media/ui/change-media-input.js";
 import { RoomChat } from "../../../widgets/room-chat/ui/room-chat.js";
+import { ParticipantsPanel } from "../../../widgets/participants-panel/ui/participants-panel.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
-import { PlaybackStatus, type ChatMessageDto, type RoomSnapshotDto, type RoomPlaybackStateDto, type PlayerCommandPayload, type MediaSourceInfo } from "@omioroom/contracts";
+import { PlaybackStatus, type ChatMessageDto, type RoomSnapshotDto, type RoomPlaybackStateDto, type PlayerCommandPayload, type MediaSourceInfo, type ControlMode } from "@omioroom/contracts";
 import styles from "./room-page.module.scss";
 
 interface RoomPageProps {
@@ -128,9 +129,20 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           onLeaveRef.current();
           return;
         }
-        setSnapshot((prev) => ({ ...prev, room: { ...prev.room, visibility: row.visibility, revision: row.revision } }));
+        setSnapshot((prev) => ({
+          ...prev,
+          room: {
+            ...prev.room,
+            visibility: row.visibility,
+            revision: row.revision,
+            maxParticipants: row.maxParticipants,
+            controlMode: row.controlMode,
+          },
+        }));
+        // Permissions depend on the control mode: refresh our own flag and the member list
+        void reload();
       },
-      onMemberAdded: () => void reload(),
+      onMemberChanged: () => void reload(),
       onPresence: setPresentIds,
       onStatus: setChannelStatus,
       onResync: () => void reload(),
@@ -230,6 +242,23 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     setOwnerKey(res.ownerAccess ? res.ownerAccess.privateCode : null);
   };
 
+  const handleSaveSettings = async (maxParticipants: number, controlMode: ControlMode) => {
+    const room = await backend.updateRoomSettings(snapshot.room.id, maxParticipants, controlMode);
+    setSnapshot((prev) => ({ ...prev, room: { ...prev.room, ...room } }));
+  };
+
+  const handleToggleControl = async (userId: string, canControl: boolean) => {
+    setSnapshot((prev) => ({
+      ...prev,
+      participants: prev.participants.map((p) => (p.userId === userId ? { ...p, canControl } : p)),
+    }));
+    try {
+      await backend.setMemberControl(snapshot.room.id, userId, canControl);
+    } catch {
+      setSnapshot(await backend.getSnapshot(snapshot.room.id));
+    }
+  };
+
   const handleSendChat = async (text: string, attachmentUrl: string | null, attachmentType: "image" | "file" | null) => {
     await backend.sendChat({ roomId: snapshot.room.id, text, attachmentUrl, attachmentType });
   };
@@ -258,6 +287,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     isOnline: presentIds ? presentIds.includes(p.userId) : p.isOnline,
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
+  const canControl = snapshot.canControl;
   const connectionStatus =
     sessionStatus !== "connected" ? sessionStatus : channelStatus === "connected" ? "connected" : channelStatus;
 
@@ -266,6 +296,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       <RoomHeader
         globalRoomId={snapshot.room.globalId}
         participantCount={activeParticipantsCount}
+        maxParticipants={snapshot.room.maxParticipants}
         connectionStatus={connectionStatus}
         title={snapshot.room.title}
         onNavigateHome={onNavigateHome}
@@ -279,6 +310,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             ref={videoPlayerRef}
             playbackState={playback}
             getEstimatedServerNow={() => timeSync.getEstimatedServerNow()}
+            canControl={canControl}
             onUserAction={(action) =>
               sendPlayerCommand({ type: action.type, position: action.position })
             }
@@ -297,7 +329,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             duration={duration}
             playbackRate={playback?.playbackRate || 1.0}
             isMuted={isMuted}
-            disabled={!playback?.media}
+            disabled={!playback?.media || !canControl}
             onPlay={handlePlay}
             onPause={handlePause}
             onSeek={handleSeek}
@@ -318,7 +350,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
         {/* Sidebar Controls Section */}
         <aside className={styles.sidebarSection}>
-          <ChangeMediaInput onMediaSelect={handleMediaSelect} />
+          <ChangeMediaInput onMediaSelect={handleMediaSelect} disabled={!canControl} />
+          {!canControl && <div className={styles.viewOnly}>{t.group.viewOnly}</div>}
+
+          <ParticipantsPanel
+            participants={participants}
+            currentUserId={user?.id}
+            isOwner={snapshot.isOwner}
+            maxParticipants={snapshot.room.maxParticipants}
+            controlMode={snapshot.room.controlMode}
+            onSaveSettings={handleSaveSettings}
+            onToggleControl={handleToggleControl}
+          />
 
           <InvitePanel
             globalRoomId={snapshot.room.globalId}
