@@ -4,6 +4,7 @@ import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
+import { FriendsPanel } from "../../../widgets/friends-panel/ui/friends-panel.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { emitCommand } from "../../../shared/api/socket.js";
 import {
@@ -18,11 +19,13 @@ import styles from "./my-rooms-page.module.scss";
 interface MyRoomsPageProps {
   onBack: () => void;
   onOpenRoom: (snapshot: RoomSnapshotDto) => void;
+  onNavigateIdentity: () => void;
 }
 
 export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   onBack,
   onOpenRoom,
+  onNavigateIdentity,
 }) => {
   const { socket } = useSocketContext();
   const { t } = useI18n();
@@ -96,6 +99,8 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         <h1 className={styles.pageTitle}>{t.myRooms.title}</h1>
         <LangSwitch />
       </div>
+
+      <FriendsPanel onNavigateIdentity={onNavigateIdentity} />
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-muted)" }}>

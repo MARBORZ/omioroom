@@ -6,3 +6,5 @@ export * from "./participant.js";
 export * from "./playback.js";
 export * from "./room.js";
 export * from "./events.js";
+export * from "./chat.js";
+export * from "./friend.js";

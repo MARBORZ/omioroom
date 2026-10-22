@@ -9,6 +9,7 @@ export interface UserCredential {
 export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByNormalizedName(normalizedName: string): Promise<User | null>;
+  findRegisteredByNormalizedName(normalizedName: string): Promise<User | null>;
   save(user: User): Promise<void>;
   updateLastSeen(id: string, timestamp: string): Promise<void>;
   saveCredential(credential: UserCredential): Promise<void>;
@@ -26,6 +27,15 @@ export class InMemoryUserRepository implements UserRepository {
   async findByNormalizedName(normalizedName: string): Promise<User | null> {
     for (const u of this.users.values()) {
       if (u.normalizedName === normalizedName) {
+        return u;
+      }
+    }
+    return null;
+  }
+
+  async findRegisteredByNormalizedName(normalizedName: string): Promise<User | null> {
+    for (const u of this.users.values()) {
+      if (u.kind === "registered" && u.normalizedName === normalizedName) {
         return u;
       }
     }

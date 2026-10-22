@@ -6,6 +6,7 @@ import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
 import { VideoPlayerFrame, type VideoPlayerHandle } from "../../../widgets/video-player/ui/video-player-frame.js";
 import { PlaybackControls } from "../../../shared/ui/playback-controls/playback-controls.js";
 import { ChangeMediaInput } from "../../../features/change-media/ui/change-media-input.js";
+import { RoomChat } from "../../../widgets/room-chat/ui/room-chat.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { emitCommand, generateClientRequestId } from "../../../shared/api/socket.js";
@@ -348,6 +349,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onRotateCode={handleRotatePrivateCode}
             onToggleVisibility={handleToggleVisibility}
           />
+          <RoomChat roomId={snapshot.room.id} />
         </aside>
       </main>
     </div>

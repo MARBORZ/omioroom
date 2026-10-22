@@ -97,6 +97,7 @@ const MainApp: React.FC = () => {
       <MyRoomsPage
         onBack={() => setScreen("home")}
         onOpenRoom={(snapshot) => handleRoomJoined(snapshot)}
+        onNavigateIdentity={() => setScreen("identity")}
       />
     );
   }

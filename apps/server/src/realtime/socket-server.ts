@@ -13,6 +13,10 @@ import { SessionService } from "../application/session-service.js";
 import { RoomAccessService } from "../application/room-access-service.js";
 import { PlaybackService } from "../application/playback-service.js";
 import { RoomService } from "../application/room-service.js";
+import { FriendService } from "../application/friend-service.js";
+import { registerFriendHandlers } from "./handlers/friend-handler.js";
+import { ChatService } from "../application/chat-service.js";
+import { registerChatHandlers } from "./handlers/chat-handler.js";
 import { createAuthMiddleware, type AuthenticatedSocketData } from "./middleware/auth-middleware.js";
 import { registerSessionHandlers } from "./handlers/session-handler.js";
 import { registerTimeHandlers } from "./handlers/time-handler.js";
@@ -48,6 +52,8 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
   const sessionService = new SessionService(sessionRepo, userRepo, clock, config.sessionTtlMs);
   const accessService = new RoomAccessService(accessRepo, clock);
   const playbackService = new PlaybackService(playbackRepo, clock);
+  const chatService = new ChatService(clock);
+  const friendService = new FriendService(userService);
   const roomService = new RoomService(
     roomRepo,
     membershipRepo,
@@ -66,12 +72,14 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
     registerTimeHandlers(socket, clock);
     registerAccessHandlers(io, socket, roomService);
     registerPlayerHandlers(io, socket, playbackService, roomService);
-    registerRoomHandlers(io, socket, roomService);
+    registerRoomHandlers(io, socket, roomService, chatService);
+    registerChatHandlers(io, socket, roomService, chatService);
+    registerFriendHandlers(socket, friendService);
   });
 
   // Periodic cleanup of inactive empty rooms (runs every 60 seconds)
   const cleanupTimer = setInterval(() => {
-    roomService.cleanupInactiveRooms().catch(() => {});
+    roomService.cleanupInactiveRooms(config.roomInactivityTimeoutMs).catch(() => {});
   }, 60_000);
 
   return {
@@ -82,5 +90,6 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
     accessService,
     playbackService,
     roomService,
+    chatService,
   };
 }

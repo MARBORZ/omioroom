@@ -17,6 +17,8 @@ import {
 } from "@omioroom/contracts";
 import type { AuthenticatedSocketData } from "../middleware/auth-middleware.js";
 import type { UserService } from "../../application/user-service.js";
+import { RateLimiter } from "../../infrastructure/security/rate-limiter.js";
+import { toProtocolError } from "../errors.js";
 import type { SessionService } from "../../application/session-service.js";
 
 export function registerSessionHandlers(
@@ -25,6 +27,8 @@ export function registerSessionHandlers(
   userService: UserService,
   sessionService: SessionService
 ) {
+  // Brute-force protection for credential endpoints (per user and per submitted username)
+  const authLimiter = new RateLimiter(60_000, 8);
   // session:me
   socket.on(
     ClientCommand.SESSION_ME,
@@ -80,12 +84,8 @@ export function registerSessionHandlers(
             roomId: socket.data.activeRoomId,
           });
         }
-      } catch (err: any) {
-        const error = createProtocolError(
-          ErrorCode.INTERNAL_ERROR,
-          err?.message || "Failed to update display name"
-        );
-        ack?.(commandResultError(requestId, error));
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "user:update-display-name")));
       }
     }
   );
@@ -108,6 +108,13 @@ export function registerSessionHandlers(
           return ack?.(commandResultError(requestId, err));
         }
 
+        if (
+          !authLimiter.checkAndRecord(`u:${socket.data.user.id}`) ||
+          !authLimiter.checkAndRecord(`n:${parsed.data.username.toLowerCase()}`)
+        ) {
+          throw new Error("RATE_LIMITED");
+        }
+
         const registeredUser = await userService.registerUser(
           socket.data.user.id,
           parsed.data.username,
@@ -120,12 +127,16 @@ export function registerSessionHandlers(
           session: socket.data.session,
         });
         ack?.(result);
-      } catch (err: any) {
-        const error = createProtocolError(
-          err.message === "USERNAME_TAKEN" ? ErrorCode.INVALID_PAYLOAD : ErrorCode.INTERNAL_ERROR,
-          err?.message || "Failed to register"
-        );
-        ack?.(commandResultError(requestId, error));
+      } catch (err) {
+        if (err instanceof Error && err.message === "USERNAME_TAKEN") {
+          return ack?.(
+            commandResultError(
+              requestId,
+              createProtocolError(ErrorCode.INVALID_PAYLOAD, "Username is already taken")
+            )
+          );
+        }
+        ack?.(commandResultError(requestId, toProtocolError(err, "user:register")));
       }
     }
   );
@@ -148,6 +159,13 @@ export function registerSessionHandlers(
           return ack?.(commandResultError(requestId, err));
         }
 
+        if (
+          !authLimiter.checkAndRecord(`u:${socket.data.user.id}`) ||
+          !authLimiter.checkAndRecord(`n:${parsed.data.username.toLowerCase()}`)
+        ) {
+          throw new Error("RATE_LIMITED");
+        }
+
         const user = await userService.authenticateUser(
           parsed.data.username,
           parsed.data.password
@@ -163,12 +181,17 @@ export function registerSessionHandlers(
           session,
         });
         ack?.(result);
-      } catch (err: any) {
-        const error = createProtocolError(
-          ErrorCode.UNAUTHENTICATED,
-          err?.message || "Invalid username or password"
+      } catch (err) {
+        if (err instanceof Error && err.message === "RATE_LIMITED") {
+          return ack?.(commandResultError(requestId, toProtocolError(err, "user:login")));
+        }
+        // Same answer for unknown user and wrong password
+        ack?.(
+          commandResultError(
+            requestId,
+            createProtocolError(ErrorCode.UNAUTHENTICATED, "Invalid username or password")
+          )
         );
-        ack?.(commandResultError(requestId, error));
       }
     }
   );

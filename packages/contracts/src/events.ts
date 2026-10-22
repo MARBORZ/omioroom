@@ -55,6 +55,11 @@ export const ClientCommand = {
   PLAYER_COMMAND: "player:command",
   PLAYER_SYNC_REQUEST: "player:sync-request",
   TIME_PING: "time:ping",
+  FRIEND_LIST: "friend:list",
+  FRIEND_ADD: "friend:add",
+  FRIEND_REMOVE: "friend:remove",
+  CHAT_SEND: "chat:send",
+  CHAT_HISTORY: "chat:history",
 } as const;
 
 export type ClientCommand = (typeof ClientCommand)[keyof typeof ClientCommand];
@@ -73,6 +78,7 @@ export const ServerEvent = {
   CONNECTION_READY: "connection:ready",
   CONNECTION_RESUMED: "connection:resumed",
   TIME_PONG: "time:pong",
+  CHAT_MESSAGE: "chat:message",
 } as const;
 
 export type ServerEvent = (typeof ServerEvent)[keyof typeof ServerEvent];

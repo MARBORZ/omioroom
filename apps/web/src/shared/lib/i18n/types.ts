@@ -106,4 +106,30 @@ export interface Translations {
     registerBtn: string;
     switchMode: string;
   };
+  chat: {
+    title: string;
+    empty: string;
+    placeholder: string;
+    attach: string;
+    attachPlaceholder: string;
+    send: string;
+    badUrl: string;
+    rateLimited: string;
+    sendFailed: string;
+    openImage: string;
+    close: string;
+  };
+  friends: {
+    title: string;
+    registerOnly: string;
+    registerCta: string;
+    addLabel: string;
+    addPlaceholder: string;
+    add: string;
+    remove: string;
+    empty: string;
+    notFound: string;
+    addFailed: string;
+    loadFailed: string;
+  };
 }

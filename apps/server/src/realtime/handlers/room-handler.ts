@@ -21,12 +21,14 @@ import {
 } from "@omioroom/contracts";
 import type { AuthenticatedSocketData } from "../middleware/auth-middleware.js";
 import type { RoomService } from "../../application/room-service.js";
+import type { ChatService } from "../../application/chat-service.js";
 import { toProtocolError } from "../errors.js";
 
 export function registerRoomHandlers(
   io: Server,
   socket: Socket<any, any, any, AuthenticatedSocketData>,
-  roomService: RoomService
+  roomService: RoomService,
+  chatService: ChatService
 ) {
   /** True when another live socket of the same user is still in the room (multi-tab). */
   async function hasOtherSocketInRoom(roomId: string): Promise<boolean> {
@@ -254,6 +256,7 @@ export function registerRoomHandlers(
         io.to(`room:${closedRoom.id}`).emit(ServerEvent.ROOM_CLOSED, {
           roomId: closedRoom.id,
         });
+        chatService.clear(closedRoom.id);
         io.in(`room:${closedRoom.id}`).socketsLeave(`room:${closedRoom.id}`);
 
         ack?.(commandResultSuccess(requestId, { closed: true }));

@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, randomUUID, createHash, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, randomUUID, createHash, scryptSync, timingSafeEqual } from "node:crypto";
 
 export function generateId(): string {
   return randomUUID();
@@ -37,6 +37,25 @@ export function verifySecret(secret: string, expectedHash: string): boolean {
     const bufB = Buffer.from(expectedHash, "hex");
     if (bufA.length !== bufB.length) return false;
     return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
+/** Salted, memory-hard password hash (scrypt). Format: scrypt$<saltHex>$<hashHex>. */
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  const hash = scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  try {
+    const [scheme, saltHex, hashHex] = stored.split("$");
+    if (scheme !== "scrypt" || !saltHex || !hashHex) return false;
+    const expected = Buffer.from(hashHex, "hex");
+    const actual = scryptSync(password, Buffer.from(saltHex, "hex"), expected.length);
+    return timingSafeEqual(actual, expected);
   } catch {
     return false;
   }

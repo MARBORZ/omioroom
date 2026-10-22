@@ -2,7 +2,7 @@ import type { User } from "@omioroom/contracts";
 import { normalizeDisplayName } from "@omioroom/contracts";
 import type { UserRepository } from "../infrastructure/repositories/user-repository.js";
 import type { Clock } from "../infrastructure/clock/system-clock.js";
-import { generateId, hashSecret, verifySecret } from "../infrastructure/security/crypto.js";
+import { generateId, hashPassword, verifyPassword } from "../infrastructure/security/crypto.js";
 
 const ADJECTIVES = ["retro", "quiet", "analog", "cozy", "neon", "amber", "vhs", "velvet", "chroma", "tape"];
 const NOUNS = ["fox", "tiger", "bear", "hawk", "pilot", "echo", "runner", "signal", "ghost", "watcher"];
@@ -45,6 +45,11 @@ export class UserService {
       throw new Error("USER_NOT_FOUND");
     }
 
+    // A registered username is also the login name: it cannot be renamed here
+    if (user.kind === "registered") {
+      throw new Error("FORBIDDEN");
+    }
+
     const trimmed = newDisplayName.trim();
     const now = this.clock.isoNow();
 
@@ -69,8 +74,8 @@ export class UserService {
     const normalized = normalizeDisplayName(trimmed);
 
     // Check if username already exists
-    const existing = await this.userRepository.findByNormalizedName(normalized);
-    if (existing && existing.id !== currentUserId && existing.kind === "registered") {
+    const existing = await this.userRepository.findRegisteredByNormalizedName(normalized);
+    if (existing && existing.id !== currentUserId) {
       throw new Error("USERNAME_TAKEN");
     }
 
@@ -91,7 +96,7 @@ export class UserService {
     await this.userRepository.save(registeredUser);
 
     // Save hashed password
-    const passwordHash = hashSecret(password);
+    const passwordHash = hashPassword(password);
     await this.userRepository.saveCredential({
       userId,
       normalizedUsername: normalized,
@@ -108,7 +113,7 @@ export class UserService {
       throw new Error("INVALID_CREDENTIALS");
     }
 
-    const isValid = verifySecret(password, credential.passwordHash);
+    const isValid = verifyPassword(password, credential.passwordHash);
     if (!isValid) {
       throw new Error("INVALID_CREDENTIALS");
     }
@@ -120,6 +125,10 @@ export class UserService {
 
     await this.touchLastSeen(user.id);
     return user;
+  }
+
+  async findRegisteredByUsername(username: string): Promise<User | null> {
+    return this.userRepository.findRegisteredByNormalizedName(normalizeDisplayName(username));
   }
 
   async getUser(userId: string): Promise<User | null> {
