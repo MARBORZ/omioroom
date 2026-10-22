@@ -82,4 +82,24 @@ export interface Translations {
     enterRoom: string;
     closeConfirm: string;
   };
+  onboarding: {
+    welcome: string;
+    subtitle: string;
+    anonTitle: string;
+    anonDesc: string;
+    anonBtn: string;
+    nickTitle: string;
+    nickDesc: string;
+    nickPlaceholder: string;
+    nickBtn: string;
+    accountTitle: string;
+    accountDesc: string;
+    tabLogin: string;
+    tabRegister: string;
+    usernameLabel: string;
+    passwordLabel: string;
+    loginBtn: string;
+    registerBtn: string;
+    switchMode: string;
+  };
 }

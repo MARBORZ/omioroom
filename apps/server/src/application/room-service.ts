@@ -13,8 +13,15 @@ import type { RoomAccessService } from "./room-access-service.js";
 import type { PlaybackService } from "./playback-service.js";
 import type { Clock } from "../infrastructure/clock/system-clock.js";
 import { generateId, generateGlobalRoomId } from "../infrastructure/security/crypto.js";
+import { RateLimiter } from "../infrastructure/security/rate-limiter.js";
 
 export class RoomService {
+  private readonly joinRateLimiter = new RateLimiter(60_000, 15);
+  private readonly createIdempotencyMap = new Map<
+    string,
+    { room: RoomRecord; privateCode: string | null; timestamp: number }
+  >();
+
   constructor(
     private readonly roomRepository: RoomRepository,
     private readonly membershipRepository: MembershipRepository,
@@ -36,8 +43,13 @@ export class RoomService {
   async createRoom(
     ownerUserId: string,
     title = "Watch Room",
-    visibility: RoomVisibility = "private"
+    visibility: RoomVisibility = "private",
+    requestId?: string
   ): Promise<{ room: RoomRecord; privateCode: string | null }> {
+    if (requestId && this.createIdempotencyMap.has(requestId)) {
+      return this.createIdempotencyMap.get(requestId)!;
+    }
+
     const id = generateId();
     const globalId = await this.generateUniqueGlobalId();
     const now = this.clock.isoNow();
@@ -77,7 +89,19 @@ export class RoomService {
       privateCode = accessResult.privateCode;
     }
 
-    return { room, privateCode };
+    const result = { room, privateCode };
+    if (requestId) {
+      this.createIdempotencyMap.set(requestId, { ...result, timestamp: Date.now() });
+      // Prune entries older than 5 minutes
+      if (this.createIdempotencyMap.size > 200) {
+        const threshold = Date.now() - 300_000;
+        for (const [key, val] of this.createIdempotencyMap.entries()) {
+          if (val.timestamp < threshold) this.createIdempotencyMap.delete(key);
+        }
+      }
+    }
+
+    return result;
   }
 
   async joinRoom(
@@ -85,6 +109,11 @@ export class RoomService {
     globalId: string,
     privateCode?: string
   ): Promise<{ room: RoomRecord; role: RoomRole }> {
+    const isAllowed = this.joinRateLimiter.checkAndRecord(userId);
+    if (!isAllowed) {
+      throw new Error("RATE_LIMITED");
+    }
+
     const room = await this.roomRepository.findByGlobalId(globalId);
     if (!room || room.status !== "active") {
       throw new Error("ROOM_NOT_FOUND");
@@ -129,6 +158,9 @@ export class RoomService {
       lastActiveAt: now,
       isOnline: true,
     });
+
+    // Reset rate limiter on successful join
+    this.joinRateLimiter.reset(userId);
 
     return { room, role };
   }

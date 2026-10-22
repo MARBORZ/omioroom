@@ -47,7 +47,8 @@ export function registerRoomHandlers(
         const { room, privateCode } = await roomService.createRoom(
           socket.data.user.id,
           parsed.data.title,
-          parsed.data.visibility
+          parsed.data.visibility,
+          requestId
         );
 
         socket.join(`room:${room.id}`);
@@ -129,6 +130,7 @@ export function registerRoomHandlers(
         else if (err.message === "ROOM_FULL") code = ErrorCode.ROOM_FULL;
         else if (err.message === "PRIVATE_CODE_REQUIRED") code = ErrorCode.PRIVATE_CODE_REQUIRED;
         else if (err.message === "INVALID_PRIVATE_CODE") code = ErrorCode.INVALID_PRIVATE_CODE;
+        else if (err.message === "RATE_LIMITED") code = ErrorCode.RATE_LIMITED;
 
         ack?.(commandResultError(requestId, createProtocolError(code, err.message)));
       }

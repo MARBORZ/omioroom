@@ -6,6 +6,7 @@ import { useSocketContext } from "./providers/socket-context.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
 import { RoomPage } from "../pages/room/ui/room-page.js";
+import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import { emitCommand } from "../shared/api/socket.js";
 import {
   ClientCommand,
@@ -14,11 +15,16 @@ import {
 } from "@omioroom/contracts";
 import "./styles/global.scss";
 
-type Screen = "home" | "my-rooms" | "room";
+type Screen = "identity" | "home" | "my-rooms" | "room";
 
 const MainApp: React.FC = () => {
   const { socket, connectionStatus } = useSocketContext();
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>(() => {
+    // If auto-joining from hash or already chose identity, start on home
+    if (window.location.hash.startsWith("#room=")) return "home";
+    if (localStorage.getItem("omioroom_identity_chosen") === "true") return "home";
+    return "identity";
+  });
   const [activeRoomSnapshot, setActiveRoomSnapshot] = useState<RoomSnapshotDto | null>(null);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
 
@@ -75,6 +81,10 @@ const MainApp: React.FC = () => {
     );
   }
 
+  if (screen === "identity") {
+    return <IdentityPage onSelect={() => setScreen("home")} />;
+  }
+
   if (screen === "my-rooms") {
     return (
       <MyRoomsPage
@@ -88,6 +98,7 @@ const MainApp: React.FC = () => {
     <HomePage
       onRoomJoined={handleRoomJoined}
       onNavigateMyRooms={() => setScreen("my-rooms")}
+      onNavigateIdentity={() => setScreen("identity")}
     />
   );
 };

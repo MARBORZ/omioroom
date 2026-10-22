@@ -52,7 +52,40 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [lastSyncText, setLastSyncText] = useState(t.status.inSync);
 
+  const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
+  const videoSectionRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard accessibility: Space for play/pause, Left/Right arrow for seek
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl?.tagName === "INPUT" ||
+        activeEl?.tagName === "TEXTAREA" ||
+        (activeEl as HTMLElement)?.isContentEditable;
+
+      if (isInput) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (isPlaying) {
+          handlePause();
+        } else {
+          handlePlay();
+        }
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        handleSeek(Math.max(0, currentTime - 10));
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        handleSeek(Math.min(duration || Infinity, currentTime + 10));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPlaying, currentTime, duration]);
 
   // Subscribe to real-time events
   useEffect(() => {
@@ -221,8 +254,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }
   };
 
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      videoSectionRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
   const activeParticipantsCount = snapshot.participants.filter((p) => p.isOnline).length;
-  const isPlaying = playback?.status === PlaybackStatus.PLAYING;
 
   return (
     <div className={styles.roomContainer}>
@@ -237,7 +277,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
       <main className={styles.mainContent}>
         {/* Cinematic Video Player Section */}
-        <div className={styles.videoSection}>
+        <div className={styles.videoSection} ref={videoSectionRef}>
           <VideoPlayerFrame
             playbackState={playback}
             estimatedServerNow={timeSync.getEstimatedServerNow()}
@@ -261,6 +301,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onSeek={handleSeek}
             onRateChange={handleRateChange}
             onToggleMute={() => setIsMuted((m) => !m)}
+            onToggleFullscreen={handleToggleFullscreen}
           />
 
           {/* Real-time sync status bar */}

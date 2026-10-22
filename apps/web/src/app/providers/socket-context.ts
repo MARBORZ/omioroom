@@ -11,6 +11,8 @@ export interface SocketContextValue {
   user: User | null;
   session: Session | null;
   updateDisplayName: (name: string) => Promise<User>;
+  register: (username: string, password: string) => Promise<User>;
+  login: (username: string, password: string) => Promise<User>;
 }
 
 export const SocketContext = createContext<SocketContextValue | null>(null);

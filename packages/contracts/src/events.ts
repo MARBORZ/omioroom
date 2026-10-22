@@ -41,6 +41,8 @@ export function commandResultError(requestId: string, error: ProtocolError): Com
 export const ClientCommand = {
   SESSION_ME: "session:me",
   USER_UPDATE_DISPLAY_NAME: "user:update-display-name",
+  USER_REGISTER: "user:register",
+  USER_LOGIN: "user:login",
   ROOM_CREATE: "room:create",
   ROOM_JOIN: "room:join",
   ROOM_LEAVE: "room:leave",

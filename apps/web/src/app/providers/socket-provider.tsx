@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   ClientCommand,
   type User,
@@ -18,16 +18,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // createSocketClient() returns a module-level singleton, safe for StrictMode double-mount
   const socket = useMemo(() => createSocketClient(), []);
   const timeSync = useMemo(() => new TimeSyncClient(socket), [socket]);
-  const isMountedRef = useRef(false);
 
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>("connecting");
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Guard against StrictMode double-mount: only set up once
-    if (isMountedRef.current) return;
-    isMountedRef.current = true;
+    let isCancelled = false;
 
     const fetchSession = async () => {
       try {
@@ -36,32 +33,40 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ClientCommand.SESSION_ME,
           undefined as any
         );
-        setUser(info.user);
-        setSession(info.session as any);
-        setStoredSessionToken(info.session.id);
-        setConnectionStatus("connected");
+        if (!isCancelled) {
+          setUser(info.user);
+          setSession(info.session as any);
+          setStoredSessionToken(info.session.id);
+          setConnectionStatus("connected");
+        }
       } catch (err) {
         console.error("Failed to fetch session:", err);
       }
     };
 
     const handleConnect = () => {
-      setConnectionStatus("connected");
-      timeSync.startSync();
-      fetchSession();
+      if (!isCancelled) {
+        setConnectionStatus("connected");
+        timeSync.startSync();
+        fetchSession();
+      }
     };
 
     const handleDisconnect = (reason: string) => {
       timeSync.stopSync();
-      if (reason === "io server disconnect") {
-        setConnectionStatus("disconnected");
-      } else {
-        setConnectionStatus("reconnecting");
+      if (!isCancelled) {
+        if (reason === "io server disconnect") {
+          setConnectionStatus("disconnected");
+        } else {
+          setConnectionStatus("reconnecting");
+        }
       }
     };
 
     const handleConnectError = () => {
-      setConnectionStatus("disconnected");
+      if (!isCancelled) {
+        setConnectionStatus("disconnected");
+      }
     };
 
     socket.on("connect", handleConnect);
@@ -72,9 +77,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       handleConnect();
     }
 
-    // Do NOT disconnect the singleton socket on cleanup —
-    // StrictMode unmount/remount would kill the connection mid-handshake.
     return () => {
+      isCancelled = true;
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleConnectError);
@@ -92,6 +96,30 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return updated;
   };
 
+  const register = async (username: string, password: string): Promise<User> => {
+    const res = await emitCommand<{ username: string; password: string }, { user: User; session: Session }>(
+      socket,
+      ClientCommand.USER_REGISTER,
+      { username, password }
+    );
+    setUser(res.user);
+    setSession(res.session);
+    setStoredSessionToken(res.session.id);
+    return res.user;
+  };
+
+  const login = async (username: string, password: string): Promise<User> => {
+    const res = await emitCommand<{ username: string; password: string }, { user: User; session: Session }>(
+      socket,
+      ClientCommand.USER_LOGIN,
+      { username, password }
+    );
+    setUser(res.user);
+    setSession(res.session);
+    setStoredSessionToken(res.session.id);
+    return res.user;
+  };
+
   return (
     <SocketContext.Provider
       value={{
@@ -101,6 +129,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         user,
         session,
         updateDisplayName,
+        register,
+        login,
       }}
     >
       {children}

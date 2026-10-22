@@ -185,4 +185,32 @@ describe("Backend Domain Services", () => {
     expect(state3.anchorPosition).toBe(15.0);
     expect(state3.revision).toBe(2);
   });
+
+  it("ensures room creation is idempotent by requestId", async () => {
+    const owner = await userService.createAnonymousUser();
+    const requestId = "req-12345";
+    const res1 = await roomService.createRoom(owner.id, "Movie Night", "private", requestId);
+    const res2 = await roomService.createRoom(owner.id, "Movie Night", "private", requestId);
+
+    expect(res1.room.id).toBe(res2.room.id);
+    expect(res1.room.globalId).toBe(res2.room.globalId);
+    expect(res1.privateCode).toBe(res2.privateCode);
+  });
+
+  it("enforces rate limits on rapid join attempts", async () => {
+    const attacker = await userService.createAnonymousUser();
+    // Exceed rate limit (15 attempts)
+    let rateLimited = false;
+    for (let i = 0; i < 20; i++) {
+      try {
+        await roomService.joinRoom(attacker.id, "999999");
+      } catch (err: any) {
+        if (err.message === "RATE_LIMITED") {
+          rateLimited = true;
+          break;
+        }
+      }
+    }
+    expect(rateLimited).toBe(true);
+  });
 });

@@ -46,6 +46,20 @@ export const updateDisplayNamePayloadSchema = z.object({
 
 export type UpdateDisplayNamePayload = z.infer<typeof updateDisplayNamePayloadSchema>;
 
+export const registerUserPayloadSchema = z.object({
+  username: displayNameSchema,
+  password: z.string().min(6, "Password must be at least 6 characters").max(64),
+});
+
+export type RegisterUserPayload = z.infer<typeof registerUserPayloadSchema>;
+
+export const loginUserPayloadSchema = z.object({
+  username: z.string().trim().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type LoginUserPayload = z.infer<typeof loginUserPayloadSchema>;
+
 export function normalizeDisplayName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }

@@ -62,7 +62,7 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
 
   // Connection listener
   io.on("connection", (socket) => {
-    registerSessionHandlers(io, socket, userService);
+    registerSessionHandlers(io, socket, userService, sessionService);
     registerTimeHandlers(socket, clock);
     registerAccessHandlers(io, socket, roomService);
     registerPlayerHandlers(io, socket, playbackService);

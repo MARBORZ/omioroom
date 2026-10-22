@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe } from "lucide-react";
+import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
+import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { emitCommand } from "../../../shared/api/socket.js";
 import {
@@ -19,11 +20,13 @@ import styles from "./home-page.module.scss";
 interface HomePageProps {
   onRoomJoined: (snapshot: RoomSnapshotDto, ownerAccessKey?: string | null) => void;
   onNavigateMyRooms: () => void;
+  onNavigateIdentity: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
   onRoomJoined,
   onNavigateMyRooms,
+  onNavigateIdentity,
 }) => {
   const { socket, connectionStatus, user, updateDisplayName } = useSocketContext();
   const { t } = useI18n();
@@ -161,14 +164,19 @@ export const HomePage: React.FC<HomePageProps> = ({
         ) : (
           <>
             <div>
-              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase" }}>
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
                 {t.home.watchingAs}
+                {user?.kind && (
+                  <Pill variant={user.kind === "registered" ? "success" : user.kind === "nickname" ? "accent" : "default"}>
+                    {user.kind.toUpperCase()}
+                  </Pill>
+                )}
               </div>
-              <div style={{ fontWeight: 600, fontSize: "15px" }}>
+              <div style={{ fontWeight: 600, fontSize: "15px", marginTop: 2 }}>
                 {user?.displayName || t.common.loading}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -179,6 +187,14 @@ export const HomePage: React.FC<HomePageProps> = ({
                 }}
               >
                 {t.common.change}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<UserCheck size={13} />}
+                onClick={onNavigateIdentity}
+              >
+                {t.onboarding.switchMode}
               </Button>
               <Button
                 variant="secondary"
