@@ -16,12 +16,12 @@
 }
 
 .title {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
 }
 
 .count {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 14px;
+  font-size: var(--font-size-base);
   color: var(--color-text);
 }
 
@@ -54,7 +54,7 @@
   height: 28px;
   border-radius: 50%;
   background-color: var(--color-surface-raised);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   box-shadow: 0 0 0 2px transparent;
   transition: box-shadow var(--motion-fast) var(--ease-out);
@@ -71,5 +71,5 @@
 
 .error {
   color: var(--color-danger);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
 }

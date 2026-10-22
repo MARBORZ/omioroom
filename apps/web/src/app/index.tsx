@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "./providers/session-context.js";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "../shared/lib/i18n/index.js";
+import { SettingsProvider } from "../shared/lib/settings/index.js";
 import { isBackendConfigured } from "../shared/api/supabase.js";
 import { SessionProvider } from "./providers/session-provider.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
@@ -12,6 +13,7 @@ import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
+import setupStyles from "./styles/setup-notice.module.scss";
 import "./styles/global.scss";
 
 type Screen = "identity" | "invite" | "home" | "my-rooms" | "room";
@@ -121,9 +123,9 @@ const MainScreens: React.FC = () => {
 };
 
 const SetupNotice: React.FC = () => (
-  <div style={{ padding: "48px", maxWidth: 720 }}>
-    <h1 style={{ fontSize: 32, marginBottom: 16 }}>OMIOROOM is not configured</h1>
-    <p style={{ color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+  <div className={setupStyles.setupContainer}>
+    <h1 className={setupStyles.title}>OMIOROOM is not configured</h1>
+    <p className={setupStyles.description}>
       Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> (see <code>apps/web/.env.example</code>) and
       apply <code>supabase/migrations</code> to your Supabase project. Details are in the README.
     </p>
@@ -141,13 +143,18 @@ const MainApp: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  if (!isBackendConfigured) return <SetupNotice />;
   return (
-    <I18nProvider>
-      <SessionProvider>
-        <MainApp />
-      </SessionProvider>
-    </I18nProvider>
+    <SettingsProvider>
+      <I18nProvider>
+        {!isBackendConfigured ? (
+          <SetupNotice />
+        ) : (
+          <SessionProvider>
+            <MainApp />
+          </SessionProvider>
+        )}
+      </I18nProvider>
+    </SettingsProvider>
   );
 };
 

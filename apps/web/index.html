@@ -10,6 +10,24 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('omioroom_theme') || 'system';
+          var resolved = theme;
+          if (theme === 'system') {
+            resolved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', resolved);
+          var density = localStorage.getItem('omioroom_density') || 'default';
+          document.documentElement.setAttribute('data-density', density);
+          var motion = localStorage.getItem('omioroom_reduced_motion') || 'system';
+          if (motion === 'reduce' || (motion === 'system' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+            document.documentElement.setAttribute('data-reduced-motion', 'reduce');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

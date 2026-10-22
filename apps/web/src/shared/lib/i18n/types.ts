@@ -14,6 +14,7 @@ export interface Translations {
     room: string;
     public: string;
     private: string;
+    settings: string;
   };
   status: {
     connected: string;
@@ -190,5 +191,20 @@ export interface Translations {
     unsupported: string;
     full: string;
     failed: string;
+  };
+  settings: {
+    title: string;
+    theme: string;
+    themeSystem: string;
+    themeDark: string;
+    themeLight: string;
+    language: string;
+    density: string;
+    densityDefault: string;
+    densityCompact: string;
+    reducedMotion: string;
+    motionSystem: string;
+    motionReduced: string;
+    motionFull: string;
   };
 }

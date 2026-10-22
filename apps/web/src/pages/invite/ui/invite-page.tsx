@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, Settings } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./invite-page.module.scss";
@@ -28,6 +29,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
   const { connectionStatus, user, ensureUser, updateDisplayName } = useSession();
   const { t } = useI18n();
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [code, setCode] = useState(initialCode ?? "");
   const [needsCode, setNeedsCode] = useState(false);
   const [name, setName] = useState("");
@@ -79,8 +81,21 @@ export const InvitePage: React.FC<InvitePageProps> = ({
     <div className={styles.container}>
       <div className={styles.topBar}>
         <span />
-        <LangSwitch />
+        <div className={styles.topBarRight}>
+          <LangSwitch />
+          <button
+            type="button"
+            className={styles.settingsTrigger}
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label={t.settings.title}
+          >
+            <Settings size={15} />
+            <span>{t.common.settings}</span>
+          </button>
+        </div>
       </div>
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       <div className={styles.hero}>
         <div className={styles.kicker}>{t.invite.kicker}</div>
@@ -130,7 +145,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
           disabled={connectionStatus !== "connected"}
           onClick={join}
           icon={<LogIn size={16} />}
-          style={{ width: "100%" }}
+          className={styles.joinBtn}
         >
           {t.home.joinBtn}
         </Button>

@@ -7,7 +7,9 @@
   padding: var(--space-2) var(--space-4);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-warning);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(4px);
 }

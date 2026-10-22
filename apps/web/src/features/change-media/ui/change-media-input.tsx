@@ -83,7 +83,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           }}
           disabled={disabled || loading}
           error={error || undefined}
-          style={{ flex: 1 }}
+          className={styles.field}
         />
         <Button
           type="submit"

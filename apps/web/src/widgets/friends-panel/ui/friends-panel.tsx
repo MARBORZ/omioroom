@@ -89,7 +89,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           error={error || undefined}
-          style={{ flex: 1 }}
+          className={styles.addField}
         />
         <Button type="submit" variant="primary" loading={busy} disabled={!username.trim()} icon={<UserPlus size={16} />}>
           {t.friends.add}

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus } from "lucide-react";
+import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus, Settings } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import styles from "./identity-page.module.scss";
 
 interface IdentityPageProps {
@@ -14,6 +15,8 @@ interface IdentityPageProps {
 export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   const { ensureUser, updateDisplayName, register, login } = useSession();
   const { t } = useI18n();
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Nickname option state
   const [nickname, setNickname] = useState("");
@@ -94,10 +97,21 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
           <span className={styles.brandDot} />
           {t.common.brand}
         </div>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <div className={styles.topBarRight}>
           <LangSwitch />
+          <button
+            type="button"
+            className={styles.settingsTrigger}
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label={t.settings.title}
+          >
+            <Settings size={15} />
+            <span>{t.common.settings}</span>
+          </button>
         </div>
       </div>
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       <div className={styles.hero}>
         <h1 className={styles.title}>{t.onboarding.welcome}</h1>
@@ -132,8 +146,8 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
             </div>
           </div>
           <p className={styles.cardDesc}>{t.onboarding.nickDesc}</p>
-          <form onSubmit={handleChooseNickname} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div style={{ display: "flex", gap: "8px" }}>
+          <form onSubmit={handleChooseNickname} className={styles.nickForm}>
+            <div className={styles.nickInputRow}>
               <TextField
                 placeholder={t.onboarding.nickPlaceholder}
                 value={nickname}
@@ -142,7 +156,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
                   if (nickError) setNickError(null);
                 }}
                 disabled={nickLoading}
-                style={{ flex: 1 }}
+                className={styles.nickField}
               />
               <Button
                 type="submit"
@@ -190,7 +204,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
             </button>
           </div>
 
-          <form onSubmit={handleAccountSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <form onSubmit={handleAccountSubmit} className={styles.accountForm}>
             <TextField
               label={t.onboarding.emailLabel}
               type="email"

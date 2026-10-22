@@ -83,7 +83,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             disabled={disabled}
             aria-label={isPlaying ? t.room.pauseVideo : t.room.playVideo}
           >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: 2 }} />}
+            {isPlaying ? <Pause size={20} /> : <Play size={20} className={styles.playIcon} />}
           </button>
 
           <button

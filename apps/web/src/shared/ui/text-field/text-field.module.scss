@@ -6,7 +6,7 @@
 }
 
 .label {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-muted);
 }
@@ -44,10 +44,10 @@
   outline: none;
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--font-size-base);
 
   &::placeholder {
-    color: #666666;
+    color: var(--color-text-faint);
   }
 
   &.mono {
@@ -63,11 +63,11 @@
 }
 
 .errorText {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
 
 .helperText {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }

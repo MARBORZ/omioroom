@@ -24,11 +24,37 @@
 }
 
 .pageTitle {
-  font-family: var(--font-mono);
-  font-size: 20px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xl);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   color: var(--color-text);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settingsTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-focus);
+    background-color: var(--color-surface-hover);
+  }
 }
 
 .roomList {
@@ -61,7 +87,7 @@
 
 .roomTitle {
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--font-size-md);
   color: var(--color-text);
 }
 
@@ -70,6 +96,11 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.metaIcon {
+  margin-right: 3px;
+  vertical-align: middle;
 }
 
 .actionsRow {

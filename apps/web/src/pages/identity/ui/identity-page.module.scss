@@ -18,8 +18,8 @@
 .brand {
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.2em;
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.15em;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -30,6 +30,32 @@
   height: 10px;
   background-color: var(--color-accent);
   border-radius: 2px;
+}
+
+.topBarRight {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.settingsTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-focus);
+    background-color: var(--color-surface-hover);
+  }
 }
 
 .hero {
@@ -50,10 +76,10 @@
 }
 
 .subtitle {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   color: var(--color-text-muted);
   max-width: 520px;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .optionsList {
@@ -85,7 +111,7 @@
 }
 
 .cardTitle {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   display: flex;
@@ -94,7 +120,7 @@
 }
 
 .cardDesc {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -108,7 +134,7 @@
 .tabBtn {
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-muted);
   padding: 4px 10px;
@@ -122,8 +148,29 @@
   }
 }
 
+.nickForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.nickInputRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.nickField {
+  flex: 1;
+}
+
+.accountForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .errorMessage {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-danger);
   font-family: var(--font-mono);
 }

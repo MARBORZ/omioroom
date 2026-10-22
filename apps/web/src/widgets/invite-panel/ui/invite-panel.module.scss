@@ -10,7 +10,7 @@
 }
 
 .title {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
 }
 
@@ -21,7 +21,7 @@
 }
 
 .label {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
@@ -35,7 +35,7 @@
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--font-size-md);
   letter-spacing: 0.08em;
   overflow-wrap: anywhere;
 }
@@ -51,16 +51,18 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: all var(--transition-fast);
 
   &:hover {
     color: var(--color-text);
     border-color: var(--color-border-focus);
+    background-color: var(--color-surface-hover);
   }
 }
 
 .hint {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 

@@ -1,8 +1,12 @@
 import { describe, it, expect } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { formatTime } from "../shared/lib/format-time.js";
 import { generateClientRequestId } from "../shared/api/backend.js";
 import { en } from "../shared/lib/i18n/translations/en.js";
 import { ru } from "../shared/lib/i18n/translations/ru.js";
+import { Skeleton } from "../shared/ui/skeleton/skeleton.js";
+import { Loader } from "../shared/ui/loader/loader.js";
 
 describe("Web Utilities", () => {
   it("formats time correctly for mm:ss and hh:mm:ss", () => {
@@ -39,5 +43,45 @@ describe("Web Utilities", () => {
     expect(empties(ru as unknown as Record<string, unknown>)).toEqual([]);
     expect(en.common.brand).toBe("OMIOROOM");
     expect(ru.common.brand).toBe("OMIOROOM");
+  });
+
+  it("Skeleton handles loading prop correctly", () => {
+    const htmlLoading = renderToStaticMarkup(
+      React.createElement(
+        Skeleton,
+        { loading: true },
+        React.createElement("span", null, "Loaded content")
+      )
+    );
+    expect(htmlLoading).toContain('aria-hidden="true"');
+    expect(htmlLoading).not.toContain("Loaded content");
+
+    const htmlDone = renderToStaticMarkup(
+      React.createElement(
+        Skeleton,
+        { loading: false },
+        React.createElement("span", null, "Loaded content")
+      )
+    );
+    expect(htmlDone).toContain("Loaded content");
+    expect(htmlDone).not.toContain('aria-hidden="true"');
+  });
+
+  it("Loader handles loading prop correctly", () => {
+    const htmlLoading = renderToStaticMarkup(
+      React.createElement(Loader, { loading: true, label: "Please wait" })
+    );
+    expect(htmlLoading).toContain('role="status"');
+    expect(htmlLoading).toContain("Please wait");
+
+    const htmlDone = renderToStaticMarkup(
+      React.createElement(
+        Loader,
+        { loading: false, label: "Please wait" },
+        React.createElement("div", null, "Actual app")
+      )
+    );
+    expect(htmlDone).toContain("Actual app");
+    expect(htmlDone).not.toContain('role="status"');
   });
 });

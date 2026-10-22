@@ -1,0 +1,26 @@
+.setupContainer {
+  padding: var(--space-7);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+  color: var(--color-text);
+}
+
+.description {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  font-size: var(--font-size-base);
+
+  code {
+    font-family: var(--font-mono);
+    padding: 2px 6px;
+    background-color: var(--color-surface-raised);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+}

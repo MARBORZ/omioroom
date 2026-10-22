@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck } from "lucide-react";
+import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck, Settings } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -7,6 +7,7 @@ import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { ControlModeSelect } from "../../../shared/ui/control-mode-select/control-mode-select.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
 import {
   DEFAULT_ROOM_PARTICIPANTS,
@@ -35,6 +36,9 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [nameLoading, setNameLoading] = useState(false);
+
+  // Settings modal
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Create room state
   const [visibility, setVisibility] = useState<"public" | "private">("private");
@@ -115,7 +119,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className={styles.homeContainer}>
-      {/* Top bar with language switch */}
+      {/* Top bar with language switch & settings */}
       <div className={styles.topBar}>
         <div className={styles.brand}>
           <span className={styles.brandDot} />
@@ -123,8 +127,19 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
         <div className={styles.topBarRight}>
           <LangSwitch />
+          <button
+            type="button"
+            className={styles.settingsTrigger}
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label={t.settings.title}
+          >
+            <Settings size={15} />
+            <span>{t.common.settings}</span>
+          </button>
         </div>
       </div>
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       <div className={styles.layout}>
       <div className={styles.leftCol}>
@@ -137,7 +152,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* User Card */}
       <div className={styles.userCard}>
         {isEditingName ? (
-          <div style={{ display: "flex", gap: 8, width: "100%", alignItems: "center" }}>
+          <div className={styles.editNameRow}>
             <TextField
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
@@ -158,14 +173,16 @@ export const HomePage: React.FC<HomePageProps> = ({
         ) : (
           <>
             <div>
-              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+              <div className={styles.watchingAsLabel}>
                 {t.home.watchingAs}
               </div>
-              <div style={{ fontWeight: 600, fontSize: "15px", marginTop: 2 }}>
-                {user ? user.displayName : <Skeleton width={120} shape="text" height={16} />}
+              <div className={styles.displayName}>
+                <Skeleton loading={!user} width={120} shape="text" height={16}>
+                  {user?.displayName}
+                </Skeleton>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div className={styles.userCardActions}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -204,15 +221,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Create Room Card */}
       <div className={styles.card}>
         <div className={styles.cardTitle}>{t.home.createTitle}</div>
-        <form onSubmit={handleCreateRoom} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+        <form onSubmit={handleCreateRoom} className={styles.cardForm}>
+          <div className={styles.toggleRow}>
             <Button
               type="button"
               variant={visibility === "private" ? "primary" : "secondary"}
               size="sm"
               onClick={() => setVisibility("private")}
               icon={<Lock size={14} />}
-              style={{ flex: 1 }}
+              className={styles.toggleBtn}
             >
               {t.home.privateMode}
             </Button>
@@ -222,7 +239,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               size="sm"
               onClick={() => setVisibility("public")}
               icon={<Globe size={14} />}
-              style={{ flex: 1 }}
+              className={styles.toggleBtn}
             >
               {t.home.publicMode}
             </Button>
@@ -240,7 +257,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           <ControlModeSelect value={controlMode} onChange={setControlMode} />
 
           {createError && (
-            <div style={{ fontSize: "13px", color: "var(--color-danger)" }}>
+            <div className={styles.formError}>
               {createError}
             </div>
           )}
@@ -267,7 +284,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Join Room Card */}
       <div className={styles.card}>
         <div className={styles.cardTitle}>{t.home.joinTitle}</div>
-        <form onSubmit={handleJoinRoom} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <form onSubmit={handleJoinRoom} className={styles.cardForm}>
           <TextField
             label={t.home.globalIdLabel}
             placeholder="482731"
@@ -287,7 +304,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           />
 
           {joinError && (
-            <div style={{ fontSize: "13px", color: "var(--color-danger)" }}>
+            <div className={styles.formError}>
               {joinError}
             </div>
           )}

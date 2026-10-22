@@ -1,13 +1,15 @@
 .skeleton {
   display: block;
+  width: var(--skeleton-width, 100%);
+  height: var(--skeleton-height, auto);
   background: linear-gradient(
     90deg,
-    var(--color-surface) 25%,
-    var(--color-surface-raised) 50%,
-    var(--color-surface) 75%
+    var(--color-skeleton-base) 25%,
+    var(--color-skeleton-highlight) 50%,
+    var(--color-skeleton-base) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  animation: shimmer 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .block {
@@ -28,4 +30,8 @@
   .skeleton {
     animation: none;
   }
+}
+
+[data-reduced-motion="reduce"] .skeleton {
+  animation: none !important;
 }
