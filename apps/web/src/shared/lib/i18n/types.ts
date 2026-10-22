@@ -53,6 +53,11 @@ export interface Translations {
   };
   room: {
     standby: string;
+    playerError: string;
+    hintVk: string;
+    hintRutube: string;
+    hintDropbox: string;
+    hintFile: string;
     tapToJoin: string;
     standbyDesc: string;
     videoSource: string;

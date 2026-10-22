@@ -13,6 +13,8 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     video.style.height = "100%";
     video.style.objectFit = "contain";
     video.playsInline = true;
+    // Long files (hours) are fetched progressively; ask the browser to keep buffering ahead
+    video.preload = "auto";
     video.controls = true;
 
     this.videoElement = video;

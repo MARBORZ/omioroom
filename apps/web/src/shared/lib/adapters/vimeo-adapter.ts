@@ -52,18 +52,23 @@ export class VimeoPlayerAdapter implements PlayerAdapter {
 
     if (this.player) {
       try {
-        await this.player.loadVideo(media.sourceId);
+        // Unlisted videos need their hash, which only the URL form carries
+        await this.player.loadVideo(media.canonicalUrl.includes("h=") ? { url: media.canonicalUrl } : media.sourceId);
         return;
       } catch {
-        this.destroy();
+        try {
+          this.player.destroy();
+        } catch {}
+        this.player = null;
       }
     }
 
     if (!this.containerElement) return;
     this.containerElement.innerHTML = `<div id="vimeo-player-target" style="width:100%; height:100%;"></div>`;
 
+    const hashed = media.canonicalUrl.includes("h=");
     this.player = new window.Vimeo!.Player("vimeo-player-target", {
-      id: parseInt(media.sourceId, 10),
+      ...(hashed ? { url: media.canonicalUrl } : { id: parseInt(media.sourceId, 10) }),
       width: "100%",
       controls: true,
       responsive: true,
@@ -103,7 +108,13 @@ export class VimeoPlayerAdapter implements PlayerAdapter {
       this.emit({ type: "error", currentTime: this.currentTime, duration: this.duration, error: err?.message });
     });
 
-    await this.player.ready();
+    try {
+      await this.player.ready();
+    } catch (err: any) {
+      // e.g. the video is private, removed, or does not allow embedding
+      this.emit({ type: "error", currentTime: 0, duration: 0, error: err?.message ?? "Vimeo could not open this video" });
+      return;
+    }
     this.duration = await this.player.getDuration().catch(() => 0);
   }
 

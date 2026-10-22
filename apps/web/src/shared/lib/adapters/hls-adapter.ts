@@ -104,7 +104,12 @@ export class HlsPlayerAdapter implements PlayerAdapter {
       }
       this.hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        // Watch-party videos are mostly long VODs: buffer well ahead, and drop what is far behind
+        // so a five-hour video does not exhaust memory.
+        lowLatencyMode: false,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 600,
+        backBufferLength: 90,
       });
       this.hls.loadSource(media.canonicalUrl);
       this.hls.attachMedia(this.videoElement);

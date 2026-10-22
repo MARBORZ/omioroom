@@ -28,6 +28,9 @@ function loadTwitchScript(): Promise<void> {
 }
 
 export class TwitchPlayerAdapter implements PlayerAdapter {
+  readonly fineRate = false;
+  private ready = false;
+  private queue: Array<() => void> = [];
   private player: any = null;
   private containerElement: HTMLElement | null = null;
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
@@ -87,7 +90,16 @@ export class TwitchPlayerAdapter implements PlayerAdapter {
       options.channel = media.sourceId;
     }
 
+    this.ready = false;
+    this.queue = [];
     this.player = new window.Twitch!.Player("twitch-player-target", options);
+
+    // Commands sent before the player is ready are dropped by Twitch: hold them until READY
+    this.player.addEventListener(window.Twitch!.Player.READY, () => {
+      this.ready = true;
+      const pending = this.queue.splice(0);
+      pending.forEach((fn) => fn());
+    });
 
     this.player.addEventListener(window.Twitch!.Player.PLAY, () => {
       this.isBufferingState = false;
@@ -119,27 +131,28 @@ export class TwitchPlayerAdapter implements PlayerAdapter {
     });
   }
 
+  private whenReady(action: () => void) {
+    if (this.ready && this.player) action();
+    else this.queue.push(action);
+  }
+
   async play(): Promise<void> {
-    if (this.player && typeof this.player.play === "function") {
+    this.whenReady(() => {
       try {
         this.player.play();
       } catch {
         this.player.setMuted(true);
         this.player.play();
       }
-    }
+    });
   }
 
   async pause(): Promise<void> {
-    if (this.player && typeof this.player.pause === "function") {
-      this.player.pause();
-    }
+    this.whenReady(() => this.player.pause());
   }
 
   async seek(seconds: number): Promise<void> {
-    if (this.player && typeof this.player.seek === "function") {
-      this.player.seek(seconds);
-    }
+    this.whenReady(() => this.player.seek(seconds));
   }
 
   async setPlaybackRate(): Promise<void> {
@@ -147,9 +160,7 @@ export class TwitchPlayerAdapter implements PlayerAdapter {
   }
 
   setMuted(muted: boolean): void {
-    if (this.player && typeof this.player.setMuted === "function") {
-      this.player.setMuted(muted);
-    }
+    this.whenReady(() => this.player.setMuted(muted));
   }
 
   getCurrentTime(): number {
@@ -176,6 +187,8 @@ export class TwitchPlayerAdapter implements PlayerAdapter {
       this.containerElement.innerHTML = "";
     }
     this.player = null;
+    this.ready = false;
+    this.queue = [];
     this.listeners.clear();
   }
 

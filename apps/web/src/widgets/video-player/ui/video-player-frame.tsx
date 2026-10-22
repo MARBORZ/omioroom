@@ -85,6 +85,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const loadedMediaKeyRef = useRef<string | null>(null);
     // Latest props/state for handlers bound once at adapter creation
     const latest = useRef({
+      errorText: t.room.playerError,
       playbackState,
       canControl,
       onStallChange,
@@ -96,6 +97,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       onBufferingChange,
     });
     latest.current = {
+      errorText: t.room.playerError,
       playbackState,
       canControl,
       onStallChange,
@@ -298,8 +300,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
               }
             }, BUFFER_STALL_DEBOUNCE_MS);
           }
+        } else if (event.type === "autoplay-blocked") {
+          setNeedsGesture(true);
         } else if (event.type === "error") {
-          setOverlayStatus(event.error || "Playback error");
+          setMediaLoading(false);
+          setOverlayStatus(event.error || latest.current.errorText);
         }
       });
     }
@@ -322,10 +327,14 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   const initQueueRef = useRef<Promise<void>>(Promise.resolve());
   const initAdapter = useCallback(
     (media: MediaSourceInfo | null): Promise<void> => {
-      initQueueRef.current = initQueueRef.current.then(() => doInitAdapter(media)).catch(() => {});
+      initQueueRef.current = initQueueRef.current.then(() => doInitAdapter(media)).catch((err) => {
+        console.error("Player failed to load:", err);
+        setOverlayStatus(err instanceof Error ? err.message : t.room.playerError);
+        setMediaLoading(false);
+      });
       return initQueueRef.current;
     },
-    [doInitAdapter]
+    [doInitAdapter, t]
   );
 
   // Handle media source changes
@@ -455,7 +464,10 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       const abs = Math.abs(drift);
       const canNudge = adapter.fineRate !== false;
       // Sources that cannot be nudged get corrected by a (rate limited) seek at a lower threshold
-      const seekThreshold = canNudge ? SYNC_THRESHOLD_DRIFT_RATE_MS / 1000 : FIXED_RATE_SEEK_THRESHOLD_S;
+      const seekThreshold = Math.max(
+        canNudge ? SYNC_THRESHOLD_DRIFT_RATE_MS / 1000 : FIXED_RATE_SEEK_THRESHOLD_S,
+        adapter.driftToleranceSeconds ?? 0
+      );
 
       if (abs > seekThreshold) {
         if (Date.now() - lastCorrectionRef.current < CORRECTION_COOLDOWN_MS) return;

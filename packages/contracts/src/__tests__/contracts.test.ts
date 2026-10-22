@@ -196,4 +196,35 @@ describe("Contracts and Domain Logic", () => {
     expect(parsed?.type).toBe("html5");
     expect(parsed?.canonicalUrl).toBe("https://www.dropbox.com/s/abc123/movie.mp4?raw=1");
   });
+
+  it("understands links from every supported source", () => {
+    expect(parseMediaUrl("https://vk.com/video-22822305_456239018")?.type).toBe("vk");
+    expect(parseMediaUrl("https://vkvideo.ru/video-22822305_456239018")?.type).toBe("vk");
+    expect(parseMediaUrl("https://vk.com/video?z=video-22822305_456239018%2Fclub22822305")?.sourceId).toBe("-22822305_456239018");
+    expect(parseMediaUrl("https://vk.com/video_ext.php?oid=-22822305&id=456239018&hash=abc123")?.canonicalUrl).toContain("hash=abc123");
+
+    const rt = parseMediaUrl("https://rutube.ru/video/0123456789abcdef0123456789abcdef/");
+    expect(rt?.type).toBe("rutube");
+    const priv = parseMediaUrl("https://rutube.ru/video/private/0123456789abcdef0123456789abcdef/?p=SECRETKEY");
+    expect(priv?.canonicalUrl).toBe("https://rutube.ru/play/embed/0123456789abcdef0123456789abcdef?p=SECRETKEY");
+
+    expect(parseMediaUrl("https://www.twitch.tv/videos/123456789")?.sourceId).toBe("v123456789");
+    expect(parseMediaUrl("https://vimeo.com/76979871")?.canonicalUrl).toBe("https://player.vimeo.com/video/76979871");
+    expect(parseMediaUrl("https://vimeo.com/76979871/abcdef123456")?.canonicalUrl).toBe(
+      "https://player.vimeo.com/video/76979871?h=abcdef123456"
+    );
+    expect(parseMediaUrl("https://example.com/stream/live.m3u8")?.type).toBe("hls");
+    expect(parseMediaUrl("https://example.com/movie.mp4")?.type).toBe("html5");
+    expect(parseMediaUrl("https://example.com/page")).toBeNull();
+  });
+
+  it("extracts the source from a pasted embed snippet", () => {
+    const snippet =
+      '<iframe src="https://vk.com/video_ext.php?oid=-22822305&amp;id=456239018&amp;hash=abc123def&amp;hd=2" width="640" height="360" allowfullscreen></iframe>';
+    const parsed = parseMediaUrl(snippet);
+    expect(parsed?.type).toBe("vk");
+    expect(parsed?.canonicalUrl).toContain("hash=abc123def");
+    const ru = parseMediaUrl('<iframe src="//vkvideo.ru/video_ext.php?oid=1&id=2&hash=ff00"></iframe>');
+    expect(ru?.canonicalUrl.startsWith("https://vkvideo.ru/")).toBe(true);
+  });
 });

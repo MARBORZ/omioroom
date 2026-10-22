@@ -1,7 +1,7 @@
 import type { MediaSourceInfo } from "@omioroom/contracts";
 
 export interface PlayerAdapterEvent {
-  type: "play" | "pause" | "buffering" | "ended" | "timeupdate" | "error";
+  type: "play" | "pause" | "buffering" | "ended" | "timeupdate" | "error" | "autoplay-blocked";
   currentTime: number;
   duration: number;
   error?: string;
@@ -22,6 +22,8 @@ export interface PlayerAdapter {
   bufferedAhead?(): number;
   /** False when the source only accepts fixed playback rates (YouTube), so small drift cannot be nudged away. */
   readonly fineRate?: boolean;
+  /** Sources that report their position coarsely need a looser drift threshold (seconds). */
+  readonly driftToleranceSeconds?: number;
   destroy(): void;
   onStateChange(callback: (event: PlayerAdapterEvent) => void): () => void;
 }

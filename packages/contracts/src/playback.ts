@@ -99,8 +99,15 @@ export function calculateExpectedPosition(
 
 export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
   try {
-    const trimmed = inputUrl.trim();
+    let trimmed = inputUrl.trim();
     if (!trimmed) return null;
+
+    // A whole embed snippet was pasted (e.g. VK's "Share -> Export"): use its src
+    const iframeSrc = trimmed.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
+    if (iframeSrc?.[1]) {
+      trimmed = iframeSrc[1].replace(/&amp;/g, "&");
+      if (trimmed.startsWith("//")) trimmed = `https:${trimmed}`;
+    }
 
     const url = new URL(trimmed);
 
@@ -188,22 +195,23 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       url.hostname === "vkvideo.ru" ||
       url.hostname === "m.vk.com"
     ) {
-      // Direct embed URL: /video_ext.php?oid=...&id=...
+      // Embed URL from VK's "Share -> Export" (carries the hash that makes the video embeddable)
       if (url.pathname === "/video_ext.php") {
         const oid = url.searchParams.get("oid");
         const id = url.searchParams.get("id");
         const hash = url.searchParams.get("hash") || "";
         if (oid && id) {
+          const host = url.hostname === "vkvideo.ru" ? "vkvideo.ru" : "vk.com";
           return {
             type: MediaType.VK,
             sourceId: `${oid}_${id}_${hash}`,
-            canonicalUrl: `https://vk.com/video_ext.php?oid=${oid}&id=${id}&hash=${hash}&autoplay=0`,
+            canonicalUrl: `https://${host}/video_ext.php?oid=${oid}&id=${id}${hash ? `&hash=${hash}` : ""}&autoplay=0`,
           };
         }
       }
 
-      // Standard link: /video-123456_789012 or /video123456_789012
-      const vkMatch = url.pathname.match(/\/video(-?\d+)_(\d+)/);
+      // Standard link: /video-123456_789012, or the "?z=video-123_456" form VK uses in feeds
+      const vkMatch = url.pathname.match(/\/video(-?\d+)_(\d+)/) ?? (url.searchParams.get("z") ?? "").match(/video(-?\d+)_(\d+)/);
       if (vkMatch) {
         const [, oid, id] = vkMatch;
         return {
@@ -214,15 +222,16 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       }
     }
 
-    // RuTube
+    // RuTube (public: /video/<id>/, private: /video/private/<id>/?p=<key>)
     if (url.hostname === "rutube.ru" || url.hostname === "www.rutube.ru") {
-      const match = url.pathname.match(/\/(?:video|play\/embed)\/([a-fA-F0-9]{32})/);
+      const match = url.pathname.match(/\/(?:video(?:\/private)?|play\/embed)\/([a-fA-F0-9]{32})/);
       if (match && match[1]) {
         const id = match[1];
+        const key = url.searchParams.get("p");
         return {
           type: MediaType.RUTUBE,
           sourceId: id,
-          canonicalUrl: `https://rutube.ru/play/embed/${id}`,
+          canonicalUrl: `https://rutube.ru/play/embed/${id}${key ? `?p=${encodeURIComponent(key)}` : ""}`,
         };
       }
     }
@@ -247,14 +256,15 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       }
     }
 
-    // Vimeo
+    // Vimeo (unlisted videos carry a hash: /<id>/<hash> or ?h=<hash>)
     if (url.hostname === "vimeo.com" || url.hostname === "www.vimeo.com" || url.hostname === "player.vimeo.com") {
-      const match = url.pathname.match(/(?:video\/|\/)(\d+)/);
+      const match = url.pathname.match(/(?:video\/|\/)(\d+)(?:\/([a-f0-9]{6,}))?/);
       if (match && match[1]) {
+        const hash = match[2] ?? url.searchParams.get("h");
         return {
           type: MediaType.VIMEO,
           sourceId: match[1],
-          canonicalUrl: `https://player.vimeo.com/video/${match[1]}`,
+          canonicalUrl: `https://player.vimeo.com/video/${match[1]}${hash ? `?h=${hash}` : ""}`,
         };
       }
     }

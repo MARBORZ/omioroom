@@ -1,11 +1,19 @@
 import type { MediaSourceInfo } from "@omioroom/contracts";
 import type { PlayerAdapter, PlayerAdapterEvent } from "./player-adapter.js";
+import { PositionClock } from "./position-clock.js";
+
+/** RuTube embeds are driven by postMessage (player version 2.92+). Speeds are a fixed list. */
+const RUTUBE_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export class RutubePlayerAdapter implements PlayerAdapter {
+  readonly fineRate = false;
+  /** Position arrives about once a second, so judge drift more loosely. */
+  readonly driftToleranceSeconds = 1.2;
+
   private iframe: HTMLIFrameElement | null = null;
   private containerElement: HTMLElement | null = null;
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
-  private currentTime = 0;
+  private clock = new PositionClock();
   private duration = 0;
   private isBufferingState = false;
   private messageHandler: ((e: MessageEvent) => void) | null = null;
@@ -14,95 +22,120 @@ export class RutubePlayerAdapter implements PlayerAdapter {
     this.containerElement = container;
   }
 
-  private emit(event: PlayerAdapterEvent) {
-    for (const listener of this.listeners) {
-      listener(event);
-    }
+  private emit(type: PlayerAdapterEvent["type"], error?: string) {
+    const event: PlayerAdapterEvent = { type, currentTime: this.clock.now(), duration: this.duration, error };
+    for (const listener of this.listeners) listener(event);
   }
 
-  private postToPlayer(type: string, data: Record<string, any> = {}) {
-    if (this.iframe && this.iframe.contentWindow) {
-      this.iframe.contentWindow.postMessage(
-        JSON.stringify({ type, data }),
-        "*"
-      );
+  private send(type: string, data: Record<string, unknown> = {}) {
+    this.iframe?.contentWindow?.postMessage(JSON.stringify({ type, data }), "*");
+  }
+
+  private teardown(): void {
+    if (this.messageHandler) {
+      window.removeEventListener("message", this.messageHandler);
+      this.messageHandler = null;
     }
+    if (this.containerElement) this.containerElement.innerHTML = "";
+    this.iframe = null;
   }
 
   async loadMedia(media: MediaSourceInfo): Promise<void> {
     if (!this.containerElement) return;
-
-    this.destroy();
+    this.teardown();
+    this.clock = new PositionClock();
+    this.duration = 0;
 
     const iframe = document.createElement("iframe");
-    iframe.src = `https://rutube.ru/play/embed/${media.sourceId}?skinColor=ff6847`;
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-    iframe.allow = "clipboard-write; autoplay; fullscreen";
+    // canonicalUrl already carries the private key (?p=…) for private videos
+    iframe.src = media.canonicalUrl;
+    iframe.style.cssText = "width:100%;height:100%;border:none;";
+    iframe.allow = "clipboard-write; autoplay; fullscreen; encrypted-media";
     iframe.allowFullscreen = true;
-
     this.iframe = iframe;
-    this.containerElement.innerHTML = "";
     this.containerElement.appendChild(iframe);
 
     this.messageHandler = (event: MessageEvent) => {
+      // Only listen to our own player, not to every frame on the page
+      if (event.source !== iframe.contentWindow) return;
+      let message: { type?: string; data?: Record<string, unknown> } | null = null;
       try {
-        const message = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (!message || typeof message !== "object") return;
+        message = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+      } catch {
+        return;
+      }
+      if (!message || typeof message !== "object" || typeof message.type !== "string") return;
+      const data = message.data ?? {};
 
-        if (message.type === "player:changeState") {
-          const state = message.data?.state;
+      switch (message.type) {
+        case "player:changeState": {
+          const state = String(data.state);
           if (state === "playing") {
             this.isBufferingState = false;
-            this.emit({ type: "play", currentTime: this.currentTime, duration: this.duration });
-          } else if (state === "paused") {
+            this.clock.setPlaying(true);
+            this.emit("play");
+          } else if (state === "pause" || state === "paused") {
             this.isBufferingState = false;
-            this.emit({ type: "pause", currentTime: this.currentTime, duration: this.duration });
-          } else if (state === "stopped") {
-            this.emit({ type: "ended", currentTime: this.currentTime, duration: this.duration });
+            this.clock.setPlaying(false);
+            this.emit("pause");
+          } else if (state === "buffering" || state === "advert") {
+            // An ad is not the video: treat it like a stall so the room holds briefly instead of drifting
+            this.isBufferingState = true;
+            this.emit("buffering");
+          } else if (state === "completed") {
+            this.clock.setPlaying(false);
+            this.emit("ended");
           }
-        } else if (message.type === "player:currentTime") {
-          this.currentTime = message.data?.time || 0;
-          this.emit({ type: "timeupdate", currentTime: this.currentTime, duration: this.duration });
-        } else if (message.type === "player:durationChange") {
-          this.duration = message.data?.duration || 0;
+          break;
         }
-      } catch {
-        // Ignore unparseable third-party messages
+        case "player:currentTime": {
+          const t = Number(data.currentTime ?? data.time);
+          if (Number.isFinite(t)) {
+            this.clock.report(t);
+            if (typeof data.duration === "number") this.duration = data.duration;
+            this.emit("timeupdate");
+          }
+          break;
+        }
+        case "player:durationChange":
+          if (typeof data.duration === "number") {
+            this.duration = data.duration;
+            this.emit("timeupdate");
+          }
+          break;
+        case "player:error":
+          this.emit("error", String(data.message ?? "RuTube error"));
+          break;
       }
     };
-
     window.addEventListener("message", this.messageHandler);
   }
 
   async play(): Promise<void> {
-    this.postToPlayer("player:play");
+    this.send("player:play");
   }
 
   async pause(): Promise<void> {
-    this.postToPlayer("player:pause");
+    this.send("player:pause");
   }
 
   async seek(seconds: number): Promise<void> {
-    this.currentTime = seconds;
-    this.postToPlayer("player:setCurrentTime", { time: seconds });
+    this.clock.jump(seconds);
+    this.send("player:setCurrentTime", { time: seconds });
   }
 
   async setPlaybackRate(rate: number): Promise<void> {
-    this.postToPlayer("player:setPlaybackRate", { rate });
+    const speed = RUTUBE_SPEEDS.reduce((best, s) => (Math.abs(s - rate) < Math.abs(best - rate) ? s : best), 1);
+    this.clock.setRate(speed);
+    this.send("player:setPlaybackSpeed", { speed });
   }
 
   setMuted(muted: boolean): void {
-    if (muted) {
-      this.postToPlayer("player:mute");
-    } else {
-      this.postToPlayer("player:unMute");
-    }
+    this.send(muted ? "player:mute" : "player:unMute");
   }
 
   getCurrentTime(): number {
-    return this.currentTime;
+    return this.clock.now();
   }
 
   getDuration(): number {
@@ -114,14 +147,7 @@ export class RutubePlayerAdapter implements PlayerAdapter {
   }
 
   destroy(): void {
-    if (this.messageHandler) {
-      window.removeEventListener("message", this.messageHandler);
-      this.messageHandler = null;
-    }
-    if (this.containerElement) {
-      this.containerElement.innerHTML = "";
-    }
-    this.iframe = null;
+    this.teardown();
     this.listeners.clear();
   }
 

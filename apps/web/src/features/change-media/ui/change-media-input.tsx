@@ -25,6 +25,13 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const source = VIDEO_SOURCES.find((s) => s.id === sourceId) ?? null;
+  const hints: Record<string, string> = {
+    vk: t.room.hintVk,
+    rutube: t.room.hintRutube,
+    dropbox: t.room.hintDropbox,
+    file: t.room.hintFile,
+  };
+  const sourceHint = source ? hints[source.id] : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +102,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           {t.room.addVideo}
         </Button>
       </div>
+      {sourceHint && <p className={styles.hint}>{sourceHint}</p>}
     </form>
   );
 };

@@ -53,6 +53,11 @@ export const en: Translations = {
   },
   room: {
     standby: "Add a video",
+    playerError: "This video cannot be opened. It may be private, removed, or not allow embedding.",
+    hintVk: "Open the video on VK → Share → Export and paste the whole code or the src address (it contains the hash). A regular video page link will not work.",
+    hintRutube: "A regular link works. For private videos include the key (?p=…) in the link.",
+    hintDropbox: "Use a link to the file itself (Share → Copy link), not a folder.",
+    hintFile: "A direct link to a file (.mp4, .webm) or an .m3u8 stream. Long videos (hours) work too: they load as you watch.",
     tapToJoin: "Tap to watch together",
     standbyDesc:
       "Pick a source and paste a link. It starts for everyone at once.",
