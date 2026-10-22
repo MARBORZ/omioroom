@@ -1,0 +1,57 @@
+.roomContainer {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  width: 100%;
+}
+
+.mainContent {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-5);
+  max-width: var(--content-max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5);
+}
+
+.videoSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.sidebarSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.syncStatusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 900px) {
+  .mainContent {
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+    gap: var(--space-4);
+  }
+
+  .sidebarSection {
+    margin-top: var(--space-2);
+  }
+}
