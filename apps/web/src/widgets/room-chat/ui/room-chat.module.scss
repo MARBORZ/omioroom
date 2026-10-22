@@ -123,12 +123,11 @@
 
 .bubble {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: block;
   max-width: 82%;
-  padding: 8px 12px 6px;
+  padding: 6px 10px 5px 12px;
   font-size: 14px;
-  line-height: 1.42;
+  line-height: 1.36;
   word-break: break-word;
   overflow-wrap: anywhere;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -221,29 +220,48 @@
   }
 }
 
+.textContainer {
+  display: block;
+
+  &::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
 .text {
+  display: inline;
   margin: 0;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Telegram Metadata Row inside bubble */
 .metaRow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  align-self: flex-end;
-  margin-top: 2px;
-  margin-left: 12px;
+  gap: 2.5px;
+  float: right;
+  margin-left: 7px;
+  margin-top: 3px;
+  position: relative;
+  top: 1px;
   user-select: none;
+  white-space: nowrap;
+  vertical-align: baseline;
+  line-height: 1;
 }
 
 .time {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .checkIcon {
   flex-shrink: 0;
+  display: inline-block;
 }
 
 /* Quote Block inside message */
@@ -528,18 +546,6 @@
     box-shadow: none !important;
     outline: none !important;
   }
-
-  &.inputExpanded {
-    border-radius: 16px;
-  }
-}
-
-.textareaWrapper {
-  position: relative;
-  flex: 1;
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
 }
 
 .input {
@@ -552,11 +558,11 @@
   font-family: inherit;
   font-size: 14px;
   line-height: 1.45;
-  padding: 7px 24px 7px 4px;
+  padding: 7px 8px 7px 4px;
   min-width: 0;
   resize: none;
   overflow-y: auto;
-  max-height: 130px;
+  max-height: 140px;
   box-sizing: border-box;
   scrollbar-width: thin;
 
@@ -570,30 +576,6 @@
   &::placeholder {
     color: var(--color-text-muted);
     opacity: 0.65;
-  }
-}
-
-.expandBtn {
-  position: absolute;
-  top: 6px;
-  right: 2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  opacity: 0.65;
-  transition: opacity var(--motion-fast), color var(--motion-fast);
-
-  &:hover {
-    opacity: 1;
-    color: var(--color-text);
-    background: var(--color-surface-hover);
   }
 }
 

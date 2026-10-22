@@ -120,7 +120,12 @@ export const ru: Translations = {
     noConnectionNotice: "Нет связи",
     retry: "Повторить",
     commandFailed: "Не получилось, попробуйте ещё раз",
+    mediaAlreadyLoaded: "Это видео уже играет",
     resumingRoom: "Возвращаемся в комнату...",
+    tabScrollLeft: "Прокрутить вкладки влево",
+    tabScrollRight: "Прокрутить вкладки вправо",
+    syncing: "СИНХРОНИЗАЦИЯ",
+    waitingForNames: (names: string) => `Ждём: ${names}`,
   },
   myRooms: {
     title: "Мои комнаты",
@@ -128,6 +133,12 @@ export const ru: Translations = {
     createOne: "Создать сейчас",
     enterRoom: "Войти в комнату",
     closeConfirm: "Вы уверены, что хотите закрыть комнату? Активные участники будут отключены.",
+    expiresDaysHours: (days: number, hours: number) =>
+      hours > 0 ? `Удалится через ${days} д ${hours} ч` : `Удалится через ${days} д`,
+    expiresHoursMinutes: (hours: number, minutes: number) =>
+      minutes > 0 ? `Удалится через ${hours} ч ${minutes} мин` : `Удалится через ${hours} ч`,
+    expiresMinutes: (minutes: number) => `Удалится через ${minutes} мин`,
+    expiresSoon: "Удалится меньше чем через минуту",
   },
   onboarding: {
     welcome: "Смотрите вместе",
@@ -223,14 +234,20 @@ export const ru: Translations = {
   voice: {
     title: "Голос",
     join: "Войти в голосовой чат",
-    leave: "Выйти",
+    leave: "Выйти из эфира",
     mute: "Выключить микрофон",
     unmute: "Включить микрофон",
     muted: "микрофон выключен",
+    speaking: "говорит",
+    listening: "слушает",
     denied: "Нет доступа к микрофону. Разрешите его в настройках браузера.",
     unsupported: "Этот браузер не поддерживает голосовой чат.",
     full: "В голосовом чате уже максимум участников.",
     failed: "Не удалось подключиться к голосовому чату.",
+    desc: "Общайтесь голосом во время просмотра. До 8 участников одновременно.",
+    tip: "Микрофон можно выключить в любой момент.",
+    activePeers: (count: number) => `Участников в эфире: ${count}`,
+    noPeers: "В эфире пока никого нет",
   },
   settings: {
     title: "Настройки оформления",

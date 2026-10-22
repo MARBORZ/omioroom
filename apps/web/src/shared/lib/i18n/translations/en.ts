@@ -120,7 +120,12 @@ export const en: Translations = {
     noConnectionNotice: "No connection",
     retry: "Retry",
     commandFailed: "Action failed, please try again",
+    mediaAlreadyLoaded: "This video is already playing",
     resumingRoom: "Returning to room...",
+    tabScrollLeft: "Scroll tabs left",
+    tabScrollRight: "Scroll tabs right",
+    syncing: "SYNCING",
+    waitingForNames: (names: string) => `Waiting for: ${names}`,
   },
   myRooms: {
     title: "My rooms",
@@ -128,6 +133,12 @@ export const en: Translations = {
     createOne: "Create One Now",
     enterRoom: "Enter Room",
     closeConfirm: "Are you sure you want to close this room? Active viewers will be disconnected.",
+    expiresDaysHours: (days: number, hours: number) =>
+      hours > 0 ? `Deletes in ${days}d ${hours}h` : `Deletes in ${days}d`,
+    expiresHoursMinutes: (hours: number, minutes: number) =>
+      minutes > 0 ? `Deletes in ${hours}h ${minutes}m` : `Deletes in ${hours}h`,
+    expiresMinutes: (minutes: number) => `Deletes in ${minutes}m`,
+    expiresSoon: "Deletes in less than a minute",
   },
   onboarding: {
     welcome: "Watch together",
@@ -223,14 +234,20 @@ export const en: Translations = {
   voice: {
     title: "Voice",
     join: "Join voice chat",
-    leave: "Leave",
+    leave: "Leave voice",
     mute: "Mute",
     unmute: "Unmute",
     muted: "muted",
+    speaking: "speaking",
+    listening: "listening",
     denied: "Microphone access is blocked. Allow it in your browser settings.",
     unsupported: "This browser does not support voice chat.",
     full: "The voice chat is full.",
     failed: "Could not connect to voice chat.",
+    desc: "Talk with others while watching. Up to 8 participants.",
+    tip: "You can mute your microphone at any time.",
+    activePeers: (count: number) => `Participants in voice: ${count}`,
+    noPeers: "No one is in voice yet",
   },
   settings: {
     title: "Appearance Settings",

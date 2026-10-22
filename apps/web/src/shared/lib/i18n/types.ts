@@ -119,7 +119,12 @@ export interface Translations {
     noConnectionNotice: string;
     retry: string;
     commandFailed: string;
+    mediaAlreadyLoaded: string;
     resumingRoom: string;
+    tabScrollLeft: string;
+    tabScrollRight: string;
+    syncing: string;
+    waitingForNames: (names: string) => string;
   };
   myRooms: {
     title: string;
@@ -127,6 +132,10 @@ export interface Translations {
     createOne: string;
     enterRoom: string;
     closeConfirm: string;
+    expiresDaysHours: (days: number, hours: number) => string;
+    expiresHoursMinutes: (hours: number, minutes: number) => string;
+    expiresMinutes: (minutes: number) => string;
+    expiresSoon: string;
   };
   onboarding: {
     welcome: string;
@@ -226,10 +235,16 @@ export interface Translations {
     mute: string;
     unmute: string;
     muted: string;
+    speaking: string;
+    listening: string;
     denied: string;
     unsupported: string;
     full: string;
     failed: string;
+    desc: string;
+    tip: string;
+    activePeers: (count: number) => string;
+    noPeers: string;
   };
   settings: {
     title: string;

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Copy, Check, RotateCw, Eye, EyeOff, Link2 } from "lucide-react";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import styles from "./invite-panel.module.scss";
 
 interface InvitePanelProps {
@@ -65,7 +66,10 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
 
   return (
     <section className={styles.panel} aria-label={t.room.inviteTitle}>
-      <div className={styles.title}>{t.room.inviteTitle}</div>
+      <div className={styles.title}>
+        <Logo size="sm" showText={false} />
+        <span>{t.room.inviteTitle}</span>
+      </div>
 
       <div className={styles.field}>
         <span className={styles.label}>{t.room.codeLabel}</span>

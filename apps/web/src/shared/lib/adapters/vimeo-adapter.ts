@@ -116,6 +116,7 @@ export class VimeoPlayerAdapter implements PlayerAdapter {
       return;
     }
     this.duration = await this.player.getDuration().catch(() => 0);
+    this.emit({ type: "timeupdate", currentTime: 0, duration: this.duration });
   }
 
   async play(): Promise<void> {

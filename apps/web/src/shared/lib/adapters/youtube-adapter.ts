@@ -94,7 +94,7 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
     return new Promise((resolve) => {
       if (this.player && this.isReady) {
         try {
-          this.player.loadVideoById(media.sourceId, 0);
+          this.player.cueVideoById(media.sourceId, 0);
           resolve();
         } catch {
           this.recreatePlayer(media, resolve);
@@ -111,7 +111,7 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
       this.containerElement.innerHTML = `<div id="yt-player-target" style="width:100%; height:100%;"></div>`;
     }
 
-    const origin = typeof window !== "undefined" && window.location.origin
+    const origin = typeof window !== "undefined" && window.location?.origin
       ? window.location.origin
       : "http://localhost:5174";
 
@@ -133,6 +133,11 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
       events: {
         onReady: () => {
           this.isReady = true;
+          this.emit({
+            type: "timeupdate",
+            currentTime: this.getCurrentTime(),
+            duration: this.getDuration(),
+          });
           // Flush pending actions
           while (this.readyQueue.length > 0) {
             const action = this.readyQueue.shift();
@@ -176,6 +181,9 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
       // BUFFERING
       this.isBufferingState = true;
       this.emit({ type: "buffering", currentTime, duration });
+    } else if (state === 5) {
+      // CUED
+      this.emit({ type: "timeupdate", currentTime, duration });
     } else if (state === 0) {
       // ENDED
       this.isBufferingState = false;

@@ -55,7 +55,7 @@ function parseMessageText(rawText: string): ParsedMessage {
 function formatMsgTime(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   } catch {
     return "";
   }
@@ -87,7 +87,6 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef(true);
-  const [isExpanded, setIsExpanded] = useState(false);
   const lastMarkedIdRef = useRef<string | null>(null);
   const markSeenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -289,13 +288,13 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    const maxHeight = isExpanded ? 240 : 130;
+    const maxHeight = 140;
     const nextHeight = Math.min(maxHeight, Math.max(34, el.scrollHeight));
     el.style.height = `${nextHeight}px`;
     if (isNearBottomRef.current) {
       scrollToBottom(false);
     }
-  }, [text, isExpanded, scrollToBottom]);
+  }, [text, scrollToBottom]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -325,7 +324,6 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       setText("");
       setImage(null);
       setReplyTo(null);
-      setIsExpanded(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -483,18 +481,18 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                     </button>
                   )}
 
-                  {/* Message text content */}
-                  {parsed.body && <p className={styles.text}>{parsed.body}</p>}
-
-                  {/* Telegram-style metadata timestamp */}
-                  <div className={styles.metaRow}>
-                    <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
-                    {isOwn &&
-                      (isRead ? (
-                        <CheckCheck size={13} className={styles.checkIcon} />
-                      ) : (
-                        <Check size={13} className={styles.checkIcon} />
-                      ))}
+                  {/* Message content: text and timestamp inline (Telegram style) */}
+                  <div className={styles.textContainer}>
+                    {parsed.body && <span className={styles.text}>{parsed.body}</span>}
+                    <span className={styles.metaRow}>
+                      <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
+                      {isOwn &&
+                        (isRead ? (
+                          <CheckCheck size={12} className={styles.checkIcon} />
+                        ) : (
+                          <Check size={12} className={styles.checkIcon} />
+                        ))}
+                    </span>
                   </div>
                 </div>
               )}
@@ -589,7 +587,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         )}
 
         {/* Telegram-style expanding pill input container */}
-        <div className={`${styles.inputContainer} ${isExpanded ? styles.inputExpanded : ""}`}>
+        <div className={styles.inputContainer}>
           <button
             type="button"
             className={styles.attachBtn}
@@ -608,44 +606,17 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             hidden
           />
 
-          <div className={styles.textareaWrapper}>
-            <textarea
-              ref={textareaRef}
-              className={styles.input}
-              rows={1}
-              value={text}
-              maxLength={CHAT_MAX_TEXT_LENGTH}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t.chat.placeholder}
-              aria-label={t.chat.placeholder}
-            />
-
-            {/* Corner Expand/Collapse Icon matching Telegram */}
-            <button
-              type="button"
-              className={styles.expandBtn}
-              onClick={() => setIsExpanded((exp) => !exp)}
-              title={isExpanded ? "Свернуть" : "Развернуть"}
-              aria-label={isExpanded ? "Свернуть" : "Развернуть"}
-            >
-              {isExpanded ? (
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                  <path d="M 6 3 V 6 H 3" />
-                  <path d="M 10 3 V 6 H 13" />
-                  <path d="M 6 13 V 10 H 3" />
-                  <path d="M 10 13 V 10 H 13" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                  <path d="M 3 6 V 3 H 6" />
-                  <path d="M 10 3 H 13 V 6" />
-                  <path d="M 3 10 V 13 H 6" />
-                  <path d="M 13 10 V 13 H 10" />
-                </svg>
-              )}
-            </button>
-          </div>
+          <textarea
+            ref={textareaRef}
+            className={styles.input}
+            rows={1}
+            value={text}
+            maxLength={CHAT_MAX_TEXT_LENGTH}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t.chat.placeholder}
+            aria-label={t.chat.placeholder}
+          />
 
           <button
             type="submit"

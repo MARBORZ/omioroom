@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film, X } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -66,6 +66,97 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     initialSnapshot.playback?.media ? "chat" : canControl ? "media" : "chat"
   );
 
+  // Tab scroll navigation
+  const tabBarRef = useRef<HTMLElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkTabScroll = useCallback(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const step = 150;
+    el.scrollBy({ left: direction === "left" ? -step : step, behavior: "smooth" });
+    setTimeout(checkTabScroll, 250);
+  };
+
+  const handleTabBarWheel = (e: React.WheelEvent<HTMLElement>) => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    if (e.deltaY !== 0 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY;
+      checkTabScroll();
+    }
+  };
+
+  useEffect(() => {
+    checkTabScroll();
+    const el = tabBarRef.current;
+    if (!el) return;
+    const onResize = () => checkTabScroll();
+    window.addEventListener("resize", onResize);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => checkTabScroll());
+      ro.observe(el);
+    }
+    return () => {
+      window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+    };
+  }, [checkTabScroll, canControl]);
+
+  useEffect(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const activeEl = el.querySelector<HTMLElement>(`.${styles.activeTab}`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
+    setTimeout(checkTabScroll, 150);
+  }, [activeTab, checkTabScroll]);
+
+  // Tab indicator pill sliding
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null);
+
+  const updateTabIndicator = useCallback(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const activeEl = el.querySelector<HTMLElement>(`.${styles.activeTab}`);
+    if (activeEl) {
+      setIndicatorStyle({
+        left: activeEl.offsetLeft,
+        width: activeEl.offsetWidth,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    updateTabIndicator();
+  }, [activeTab, updateTabIndicator]);
+
+  useEffect(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const onResize = () => updateTabIndicator();
+    window.addEventListener("resize", onResize);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => updateTabIndicator());
+      ro.observe(el);
+    }
+    return () => {
+      window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+    };
+  }, [updateTabIndicator, canControl]);
+
   // Latest callbacks for the long-lived channel effect (they change identity on every parent render)
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
@@ -89,6 +180,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   // Draggable floating chat button in cinema mode
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingFab, setIsDraggingFab] = useState(false);
   const dragRef = useRef<{
     isDragging: boolean;
     startX: number;
@@ -107,6 +199,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   const onFabPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return;
+    setIsDraggingFab(true);
     const currentX = fabPos?.x ?? (window.innerWidth - 68);
     const currentY = fabPos?.y ?? (window.innerHeight - 76);
     dragRef.current = {
@@ -135,6 +228,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const onFabPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!dragRef.current.isDragging) return;
     dragRef.current.isDragging = false;
+    setIsDraggingFab(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
@@ -419,7 +513,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   // Command sender helper
   const sendPlayerCommand = useCallback(
-    async (partialPayload: Omit<PlayerCommandPayload, "commandId" | "roomId">) => {
+    async (partialPayload: Omit<PlayerCommandPayload, "commandId" | "roomId">): Promise<boolean> => {
       isLocalCommandRef.current = true;
       try {
         const updatedState = await backend.playerCommand({
@@ -428,12 +522,23 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           roomId: snapshot.room.id,
         });
         applyPlayback(updatedState);
-      } catch (err) {
-        showToast(tRef.current.room.commandFailed, { id: "player-cmd-error" });
+        return true;
+      } catch (err: any) {
+        const isAlreadyLoaded =
+          err?.code === "MEDIA_ALREADY_LOADED" ||
+          err?.message === "MEDIA_ALREADY_LOADED" ||
+          (typeof err?.message === "string" && err.message.includes("MEDIA_ALREADY_LOADED"));
+
+        if (isAlreadyLoaded) {
+          showToast(tRef.current.room.mediaAlreadyLoaded, { id: "media-already-loaded" });
+        } else {
+          showToast(tRef.current.room.commandFailed, { id: "player-cmd-error" });
+        }
         setPendingRate(null);
         if (playback) {
           setCurrentTime(playback.anchorPosition);
         }
+        return false;
       } finally {
         setTimeout(() => {
           isLocalCommandRef.current = false;
@@ -477,13 +582,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     void sendPlayerCommand({ type: "set-rate", playbackRate: rate }).finally(() => setPendingRate(null));
   };
 
-  const handleMediaSelect = (media: MediaSourceInfo) => {
-    sendPlayerCommand({
+  const handleMediaSelect = async (media: MediaSourceInfo): Promise<boolean> => {
+    const success = await sendPlayerCommand({
       type: "change-media",
       media,
     });
-    // Immediately switch to chat once media is selected
-    setActiveTab("chat");
+    if (success) {
+      // Immediately switch to chat once media is selected
+      setActiveTab("chat");
+      return true;
+    }
+    return false;
   };
 
   const handleRotatePrivateCode = async () => {
@@ -620,6 +729,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             }}
             isMuted={isMuted}
             onBufferingChange={setIsBuffering}
+            isBuffering={isBuffering}
+            bufferingNames={waitingNames}
             onToggleMute={() => setIsMuted((m) => !m)}
           />
 
@@ -639,12 +750,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onToggleCinema={handleToggleCinema}
             cinema={cinema}
           />
-
-          {(waitingNames.length > 0 || isBuffering) && (
-            <div className={`${styles.waitNote} motion-fade`} role="status">
-              {waitingNames.length > 0 ? `${t.group.waitingFor}: ${waitingNames.join(", ")}` : t.status.buffering}
-            </div>
-          )}
 
           {!playback?.media && (
             <div className={styles.videoPlaceholder}>
@@ -697,66 +802,107 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             </div>
           ) : (
             <div className={styles.sidebarHeader} data-layout="room-tabs">
-              <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
+              <div className={styles.tabNavWrapper}>
                 <button
                   type="button"
-                  role="tab"
-                  aria-selected={activeTab === "chat"}
-                  className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
-                  onClick={() => setActiveTab("chat")}
+                  className={`${styles.tabScrollArrow} ${styles.tabScrollArrowLeft}`}
+                  onClick={() => scrollTabs("left")}
+                  disabled={!canScrollLeft}
+                  aria-label={t.room.tabScrollLeft}
+                  title={t.room.tabScrollLeft}
                 >
-                  <MessageSquare size={14} />
-                  <span>{t.room.tabChat}</span>
-                  {unreadMessages > 0 && activeTab !== "chat" && <span className={styles.tabBadge}>{unreadLabel}</span>}
+                  <ChevronLeft size={16} />
                 </button>
 
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "voice"}
-                  className={`${styles.tabBtn} ${activeTab === "voice" ? styles.activeTab : ""}`}
-                  onClick={() => setActiveTab("voice")}
+                <nav
+                  ref={tabBarRef}
+                  className={styles.tabBar}
+                  role="tablist"
+                  aria-label="Room sections"
+                  onScroll={checkTabScroll}
+                  onWheel={handleTabBarWheel}
                 >
-                  <Mic size={14} />
-                  <span>{t.room.tabVoice}</span>
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "participants"}
-                  className={`${styles.tabBtn} ${activeTab === "participants" ? styles.activeTab : ""}`}
-                  onClick={() => setActiveTab("participants")}
-                >
-                  <Users size={14} />
-                  <span>{t.room.tabParticipants}</span>
-                  <span className={styles.tabBadge}>{activeParticipantsCount}</span>
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "invite"}
-                  className={`${styles.tabBtn} ${activeTab === "invite" ? styles.activeTab : ""}`}
-                  onClick={() => setActiveTab("invite")}
-                >
-                  <Share2 size={14} />
-                  <span>{t.room.tabInvite}</span>
-                </button>
-
-                {canControl && (
+                  {indicatorStyle && (
+                    <span
+                      className={styles.tabIndicator}
+                      style={{
+                        transform: `translateX(${indicatorStyle.left}px)`,
+                        width: `${indicatorStyle.width}px`,
+                      }}
+                      aria-hidden="true"
+                    />
+                  )}
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={activeTab === "media"}
-                    className={`${styles.tabBtn} ${activeTab === "media" ? styles.activeTab : ""}`}
-                    onClick={() => setActiveTab("media")}
+                    aria-selected={activeTab === "chat"}
+                    className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("chat")}
                   >
-                    <Film size={14} />
-                    <span>{t.room.tabMedia}</span>
+                    <MessageSquare size={14} />
+                    <span>{t.room.tabChat}</span>
+                    {unreadMessages > 0 && activeTab !== "chat" && <span className={styles.tabBadge}>{unreadLabel}</span>}
                   </button>
-                )}
-              </nav>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "voice"}
+                    className={`${styles.tabBtn} ${activeTab === "voice" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("voice")}
+                  >
+                    <Mic size={14} />
+                    <span>{t.room.tabVoice}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "participants"}
+                    className={`${styles.tabBtn} ${activeTab === "participants" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("participants")}
+                  >
+                    <Users size={14} />
+                    <span>{t.room.tabParticipants}</span>
+                    <span className={styles.tabBadge}>{activeParticipantsCount}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "invite"}
+                    className={`${styles.tabBtn} ${activeTab === "invite" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("invite")}
+                  >
+                    <Share2 size={14} />
+                    <span>{t.room.tabInvite}</span>
+                  </button>
+
+                  {canControl && (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === "media"}
+                      className={`${styles.tabBtn} ${activeTab === "media" ? styles.activeTab : ""}`}
+                      onClick={() => setActiveTab("media")}
+                    >
+                      <Film size={14} />
+                      <span>{t.room.tabMedia}</span>
+                    </button>
+                  )}
+                </nav>
+
+                <button
+                  type="button"
+                  className={`${styles.tabScrollArrow} ${styles.tabScrollArrowRight}`}
+                  onClick={() => scrollTabs("right")}
+                  disabled={!canScrollRight}
+                  aria-label={t.room.tabScrollRight}
+                  title={t.room.tabScrollRight}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           )}
 
@@ -764,7 +910,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           <div className={styles.panelsContainer}>
             {canControl && (
               <div data-panel="media" className={styles.panelWrapper}>
-                <ChangeMediaInput onMediaSelect={handleMediaSelect} />
+                <ChangeMediaInput onMediaSelect={handleMediaSelect} currentMedia={playback?.media} />
               </div>
             )}
 
@@ -822,7 +968,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         {cinema && !cinemaChatOpen && (
           <button
             type="button"
-            className={styles.chatFab}
+            className={`${styles.chatFab} ${unreadMessages > 0 ? styles.chatFabHasUnread : ""}`}
+            data-dragging={isDraggingFab ? "true" : "false"}
             style={
               fabPos
                 ? ({ left: `${fabPos.x}px`, top: `${fabPos.y}px`, right: "auto", bottom: "auto" } as React.CSSProperties)
@@ -836,7 +983,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             title={t.room.chatOpen}
           >
             <MessageSquare size={22} />
-            {unreadMessages > 0 && <span className={styles.chatFabBadge}>{unreadLabel}</span>}
+            {unreadMessages > 0 && <span key={unreadMessages} className={styles.chatFabBadge}>{unreadLabel}</span>}
           </button>
         )}
       </main>

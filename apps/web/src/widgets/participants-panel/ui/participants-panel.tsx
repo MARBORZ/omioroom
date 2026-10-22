@@ -100,10 +100,11 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
       </div>
 
       <ul className={styles.list}>
-        {participants.map((p) => (
+        {participants.map((p, i) => (
           <li
             key={p.userId}
-            className={`${styles.item} ${!p.isOnline ? styles.offlineItem : ""}`}
+            className={`${styles.item} ${!p.isOnline ? styles.offlineItem : ""} motion-rise`}
+            style={{ "--i": Math.min(i, 7) } as React.CSSProperties}
           >
             <span className={styles.who}>
               <span

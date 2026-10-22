@@ -60,6 +60,8 @@ export interface VideoPlayerFrameProps {
   onPositionUpdate: (currentTime: number, duration: number) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
+  isBuffering?: boolean;
+  bufferingNames?: string[];
   isMuted?: boolean;
   onToggleMute?: () => void;
 }
@@ -77,6 +79,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
+      isBuffering: isBufferingProp = false,
+      bufferingNames = [],
       isMuted = false,
       onToggleMute,
     },
@@ -116,6 +120,23 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       onBufferingChange,
       isMuted,
     };
+
+    const isBufferingActive = Boolean(
+      isBufferingProp || playbackState?.status === PlaybackStatus.BUFFERING
+    );
+    const [showSyncOverlay, setShowSyncOverlay] = useState(false);
+
+    useEffect(() => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (isBufferingActive) {
+        timer = setTimeout(() => setShowSyncOverlay(true), 300);
+      } else {
+        setShowSyncOverlay(false);
+      }
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }, [isBufferingActive]);
 
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
     const guardUntilRef = useRef(0);
@@ -241,7 +262,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       getDuration: () => adapterRef.current?.getDuration() || 0,
     }));
 
-  // Initialize or swap adapter when media type changes
+  // Initialize or swap adapter when media changes
   const doInitAdapter = useCallback(async (media: MediaSourceInfo | null) => {
     if (!containerRef.current) return;
 
@@ -252,122 +273,146 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         currentMediaTypeRef.current = null;
         loadedMediaKeyRef.current = null;
       }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
+      setMediaLoading(false);
+      setOverlayStatus(null);
       return;
     }
 
-    if (currentMediaTypeRef.current !== media.type) {
-      if (adapterRef.current) {
-        adapterRef.current.destroy();
-      }
-      loadedMediaKeyRef.current = null;
-
-      let adapter: PlayerAdapter;
-      switch (media.type) {
-        case MediaType.YOUTUBE:
-          adapter = new YouTubePlayerAdapter();
-          break;
-        case MediaType.HLS:
-          adapter = new HlsPlayerAdapter();
-          break;
-        case MediaType.VK:
-          adapter = new VkPlayerAdapter();
-          break;
-        case MediaType.RUTUBE:
-          adapter = new RutubePlayerAdapter();
-          break;
-        case MediaType.VIMEO:
-          adapter = new VimeoPlayerAdapter();
-          break;
-        case MediaType.HTML5:
-        default:
-          adapter = new Html5PlayerAdapter();
-          break;
-      }
-
-      await adapter.attach(containerRef.current);
-      adapterRef.current = adapter;
-      adapterPlayingRef.current = false;
-      appliedRateRef.current = 0;
-      currentMediaTypeRef.current = media.type;
-      // A new player starts unmuted: carry over the current choice
-      if (latest.current.isMuted) adapter.setMuted(true);
-
-      adapter.onStateChange((event: PlayerAdapterEvent) => {
-        const cur = latest.current;
-        const server = cur.playbackState;
-
-        if (event.type === "timeupdate") {
-          cur.onPositionUpdate(event.currentTime, event.duration);
-          if (event.duration > 0) setMediaLoading(false);
-
-          // A discontinuity not caused by us is a seek made in the player's own UI
-          const now = Date.now();
-          const prev = lastSampleRef.current;
-          lastSampleRef.current = { time: event.currentTime, wall: now };
-          if (prev && server?.media) {
-            const rate = adapterPlayingRef.current ? server.playbackRate : 0;
-            const expectedDelta = ((now - prev.wall) / 1000) * rate;
-            const jump = event.currentTime - prev.time - expectedDelta;
-            if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS && !consumeExpected("seek", event.currentTime)) {
-              handleLocalAction({ type: "seek", position: event.currentTime });
-            }
-          }
-        } else if (event.type === "play") {
-          adapterPlayingRef.current = true;
-          setNeedsGesture(false);
-          cur.onBufferingChange?.(false);
-          if (stallTimerRef.current) {
-            clearTimeout(stallTimerRef.current);
-            stallTimerRef.current = null;
-          }
-          reportRecovered();
-          cur.onPlayStateChange?.(true);
-          if (!consumeExpected("play") && server?.media && server.status !== PlaybackStatus.PLAYING) {
-            handleLocalAction({ type: "play", position: event.currentTime });
-          }
-        } else if (event.type === "pause") {
-          adapterPlayingRef.current = false;
-          cur.onPlayStateChange?.(false);
-          if (!consumeExpected("pause") && server?.media && server.status === PlaybackStatus.PLAYING) {
-            handleLocalAction({ type: "pause", position: event.currentTime });
-          }
-        } else if (event.type === "ended") {
-          adapterPlayingRef.current = false;
-          cur.onPlayStateChange?.(false);
-        } else if (event.type === "buffering") {
-          cur.onBufferingChange?.(true);
-          if (!isGuarded() && !stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
-            stallTimerRef.current = setTimeout(() => {
-              stallTimerRef.current = null;
-              if (adapterRef.current?.isBuffering() && !stalledRef.current) {
-                stalledRef.current = true;
-                latest.current.onStallChange?.(true, adapterRef.current.getCurrentTime());
-                startReadyPoll();
-              }
-            }, BUFFER_STALL_DEBOUNCE_MS);
-          }
-        } else if (event.type === "autoplay-blocked") {
-          setNeedsGesture(true);
-        } else if (event.type === "error") {
-          setMediaLoading(false);
-          setOverlayStatus(event.error || latest.current.errorText);
-        }
-      });
-    }
-
-    // Every state update carries a fresh `media` object; only a different video may reload the player
     const mediaKey = `${media.type}:${media.canonicalUrl}`;
-    if (adapterRef.current && loadedMediaKeyRef.current !== mediaKey) {
-      loadedMediaKeyRef.current = mediaKey;
-      setMediaLoading(true);
-      setOverlayStatus(null);
-      await adapterRef.current.loadMedia(media);
-      // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
-      appliedRateRef.current = 0;
-      // The room state may have arrived long before the player existed (reload, late join):
-      // line the freshly loaded player up with it now.
-      revertRef.current();
+    if (adapterRef.current && loadedMediaKeyRef.current === mediaKey) {
+      return;
     }
+
+    // Always show skeleton while new video/adapter is loading so old video frame is never visible
+    setMediaLoading(true);
+    setOverlayStatus(null);
+
+    // Destroy previous adapter completely
+    if (adapterRef.current) {
+      try {
+        adapterRef.current.destroy();
+      } catch (err) {
+        console.warn("Failed to destroy previous adapter:", err);
+      }
+      adapterRef.current = null;
+    }
+
+    // Clear container to wipe any existing DOM nodes/iframes and stop any lingering audio
+    if (containerRef.current) {
+      containerRef.current.innerHTML = "";
+    }
+
+    loadedMediaKeyRef.current = mediaKey;
+    currentMediaTypeRef.current = media.type;
+    adapterPlayingRef.current = false;
+    appliedRateRef.current = 0;
+    setNeedsGesture(false);
+
+    let adapter: PlayerAdapter;
+    switch (media.type) {
+      case MediaType.YOUTUBE:
+        adapter = new YouTubePlayerAdapter();
+        break;
+      case MediaType.HLS:
+        adapter = new HlsPlayerAdapter();
+        break;
+      case MediaType.VK:
+        adapter = new VkPlayerAdapter();
+        break;
+      case MediaType.RUTUBE:
+        adapter = new RutubePlayerAdapter();
+        break;
+      case MediaType.VIMEO:
+        adapter = new VimeoPlayerAdapter();
+        break;
+      case MediaType.HTML5:
+      default:
+        adapter = new Html5PlayerAdapter();
+        break;
+    }
+
+    await adapter.attach(containerRef.current);
+    adapterRef.current = adapter;
+    // A new player starts unmuted: carry over the current choice
+    if (latest.current.isMuted) adapter.setMuted(true);
+
+    adapter.onStateChange((event: PlayerAdapterEvent) => {
+      const cur = latest.current;
+      const server = cur.playbackState;
+
+      if (event.type === "timeupdate") {
+        cur.onPositionUpdate(event.currentTime, event.duration);
+        if (event.duration > 0 || event.currentTime > 0) setMediaLoading(false);
+
+        // A discontinuity not caused by us is a seek made in the player's own UI
+        const now = Date.now();
+        const prev = lastSampleRef.current;
+        lastSampleRef.current = { time: event.currentTime, wall: now };
+        if (prev && server?.media) {
+          const rate = adapterPlayingRef.current ? server.playbackRate : 0;
+          const expectedDelta = ((now - prev.wall) / 1000) * rate;
+          const jump = event.currentTime - prev.time - expectedDelta;
+          if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS && !consumeExpected("seek", event.currentTime)) {
+            handleLocalAction({ type: "seek", position: event.currentTime });
+          }
+        }
+      } else if (event.type === "play") {
+        setMediaLoading(false);
+        adapterPlayingRef.current = true;
+        setNeedsGesture(false);
+        cur.onBufferingChange?.(false);
+        if (stallTimerRef.current) {
+          clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
+        }
+        reportRecovered();
+        cur.onPlayStateChange?.(true);
+        if (!consumeExpected("play") && server?.media && server.status !== PlaybackStatus.PLAYING) {
+          handleLocalAction({ type: "play", position: event.currentTime });
+        }
+      } else if (event.type === "pause") {
+        if (event.duration > 0 || event.currentTime > 0) setMediaLoading(false);
+        adapterPlayingRef.current = false;
+        cur.onPlayStateChange?.(false);
+        if (!consumeExpected("pause") && server?.media && server.status === PlaybackStatus.PLAYING) {
+          handleLocalAction({ type: "pause", position: event.currentTime });
+        }
+      } else if (event.type === "ended") {
+        adapterPlayingRef.current = false;
+        cur.onPlayStateChange?.(false);
+      } else if (event.type === "buffering") {
+        cur.onBufferingChange?.(true);
+        if (!isGuarded() && !stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
+          stallTimerRef.current = setTimeout(() => {
+            stallTimerRef.current = null;
+            if (adapterRef.current?.isBuffering() && !stalledRef.current) {
+              stalledRef.current = true;
+              latest.current.onStallChange?.(true, adapterRef.current.getCurrentTime());
+              startReadyPoll();
+            }
+          }, BUFFER_STALL_DEBOUNCE_MS);
+        }
+      } else if (event.type === "autoplay-blocked") {
+        setMediaLoading(false);
+        setNeedsGesture(true);
+      } else if (event.type === "error") {
+        setMediaLoading(false);
+        setOverlayStatus(event.error || latest.current.errorText);
+      }
+    });
+
+    await adapter.loadMedia(media);
+    // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
+    appliedRateRef.current = 0;
+    if (adapter.getDuration() > 0) {
+      setMediaLoading(false);
+    }
+    // The room state may have arrived long before the player existed (reload, late join):
+    // line the freshly loaded player up with it now.
+    revertRef.current();
   }, []);
 
   // Initializations run strictly one after another: creating a player takes time, and two
@@ -588,6 +633,19 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       )}
 
       {!canControl && playbackState?.media && <div className={styles.pointerShield} aria-hidden />}
+
+      {showSyncOverlay && playbackState?.media && (
+        <div className={styles.syncOverlay} aria-live="polite">
+          <div className={styles.syncContent}>
+            <h3 className={styles.syncTitle}>{t.room.syncing}</h3>
+            {bufferingNames && bufferingNames.length > 0 && (
+              <p className={styles.syncSubtitle}>
+                {t.room.waitingForNames(bufferingNames.join(", "))}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {needsGesture && (
         <button type="button" className={styles.gestureOverlay} onClick={joinPlayback}>

@@ -3,6 +3,7 @@ import { X, Sun, Moon, Monitor, Eye, Zap, Globe } from "lucide-react";
 import { useSettings } from "../../../shared/lib/settings/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import styles from "./settings-modal.module.scss";
 
 export interface SettingsModalProps {
@@ -45,9 +46,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         className={styles.modal}
       >
         <div className={styles.header}>
-          <h2 id="settings-dialog-title" className={styles.title}>
-            {t.settings.title}
-          </h2>
+          <div className={styles.headerTitleGroup}>
+            <Logo size="sm" showText={false} />
+            <h2 id="settings-dialog-title" className={styles.title}>
+              {t.settings.title}
+            </h2>
+          </div>
           <button
             type="button"
             className={styles.closeBtn}

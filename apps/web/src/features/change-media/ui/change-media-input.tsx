@@ -3,13 +3,15 @@ import { parseMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { showToast } from "../../../shared/ui/toast/toast.js";
 import { Link2 } from "lucide-react";
 import { VIDEO_SOURCES } from "../model/sources.js";
 import { SourceSelect } from "./source-select.js";
 import styles from "./change-media-input.module.scss";
 
 interface ChangeMediaInputProps {
-  onMediaSelect: (media: MediaSourceInfo) => void;
+  onMediaSelect: (media: MediaSourceInfo) => Promise<boolean | void> | boolean | void;
+  currentMedia?: MediaSourceInfo | null;
   loading?: boolean;
   disabled?: boolean;
 }
@@ -17,6 +19,7 @@ interface ChangeMediaInputProps {
 /** Pick where the video comes from, then paste its link. "Any link" accepts every supported source. */
 export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   onMediaSelect,
+  currentMedia,
   loading = false,
   disabled = false,
 }) => {
@@ -33,7 +36,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   };
   const sourceHint = source ? hints[source.id] : undefined;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -47,8 +50,24 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
       return;
     }
 
-    onMediaSelect(parsed);
-    setUrl("");
+    if (
+      currentMedia &&
+      parsed.type === currentMedia.type &&
+      ((parsed.sourceId && currentMedia.sourceId && parsed.sourceId === currentMedia.sourceId) ||
+        parsed.canonicalUrl === currentMedia.canonicalUrl)
+    ) {
+      showToast(t.room.mediaAlreadyLoaded, { id: "media-already-loaded" });
+      return;
+    }
+
+    try {
+      const res = await onMediaSelect(parsed);
+      if (res !== false) {
+        setUrl("");
+      }
+    } catch {
+      // Do not clear the URL on failure
+    }
   };
 
   return (

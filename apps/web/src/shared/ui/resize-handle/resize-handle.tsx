@@ -30,17 +30,20 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({ label, value, min, m
         e.currentTarget.setPointerCapture(e.pointerId);
         dragRef.current = onDragStart(e.clientX);
         document.body.style.userSelect = "none";
+        document.body.setAttribute("data-resizing", "true");
       }}
       onPointerMove={(e) => dragRef.current?.move(e.clientX)}
       onPointerUp={() => {
         dragRef.current?.end();
         dragRef.current = null;
         document.body.style.userSelect = "";
+        document.body.removeAttribute("data-resizing");
       }}
       onPointerCancel={() => {
         dragRef.current?.end();
         dragRef.current = null;
         document.body.style.userSelect = "";
+        document.body.removeAttribute("data-resizing");
       }}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft") {

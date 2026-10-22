@@ -66,10 +66,33 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Restore the identity stored in this browser. A visitor who has not chosen anything yet
         // gets no account: anonymous users are created only on demand (see ensureUser).
         const { data } = await supabase.auth.getSession();
-        if (data.session?.user) await refreshProfile(data.session.user.id);
+        if (data.session?.user) {
+          try {
+            await refreshProfile(data.session.user.id);
+          } catch (profileErr) {
+            console.warn("Saved session profile missing or user deleted, resetting session:", profileErr);
+            // Saved session belongs to a deleted account: sign out and create an anonymous account afresh
+            await supabase.auth.signOut().catch(() => {});
+            const res = await supabase.auth.signInAnonymously();
+            if (res.data?.user) {
+              await refreshProfile(res.data.user.id);
+            }
+          }
+        }
         setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
       } catch (err) {
-        console.error("Session bootstrap failed:", err);
+        console.error("Session bootstrap failed, attempting anonymous fallback:", err);
+        try {
+          await supabase.auth.signOut().catch(() => {});
+          const res = await supabase.auth.signInAnonymously();
+          if (res.data?.user) {
+            await refreshProfile(res.data.user.id);
+            setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
+            return;
+          }
+        } catch (anonErr) {
+          console.error("Anonymous fallback failed:", anonErr);
+        }
         setConnectionStatus("disconnected");
       }
     };
@@ -98,6 +121,25 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => timeSync.stopSync();
   }, [userId, timeSync]);
 
+  // If online but in disconnected state, automatically recover session and create anonymous account
+  useEffect(() => {
+    if (connectionStatus !== "disconnected") return;
+    const retry = setTimeout(async () => {
+      if (!navigator.onLine) return;
+      try {
+        await supabase.auth.signOut().catch(() => {});
+        const res = await supabase.auth.signInAnonymously();
+        if (res.data?.user) {
+          await refreshProfile(res.data.user.id);
+          setConnectionStatus("connected");
+        }
+      } catch (err) {
+        console.error("Auto-recovery of session failed:", err);
+      }
+    }, 2500);
+    return () => clearTimeout(retry);
+  }, [connectionStatus, refreshProfile]);
+
   const ensuring = useRef<Promise<User> | null>(null);
   const ensureUser = useCallback((): Promise<User> => {
     if (ensuring.current) return ensuring.current;
@@ -109,6 +151,15 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return withLock(async () => {
         const { data } = await supabase.auth.getSession();
         let id = data.session?.user.id;
+        if (id) {
+          try {
+            return await refreshProfile(id);
+          } catch (profileErr) {
+            console.warn("User in saved session is missing/deleted, clearing session:", profileErr);
+            await supabase.auth.signOut().catch(() => {});
+            id = undefined;
+          }
+        }
         if (!id) {
           const res = await supabase.auth.signInAnonymously();
           if (res.error || !res.data.user) authError(res.error?.message ?? "Anonymous sign-in failed");

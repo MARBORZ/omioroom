@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe, Settings } from "lucide-react";
+import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe, Settings, Clock } from "lucide-react";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import { FriendsPanel } from "../../../widgets/friends-panel/ui/friends-panel.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
+import { formatRoomExpiration } from "../../../shared/lib/format-expiration.js";
 import { backend } from "../../../shared/api/backend.js";
 import type { RoomSummaryDto, RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./my-rooms-page.module.scss";
@@ -26,6 +28,12 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -111,6 +119,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         </div>
       ) : rooms.length === 0 ? (
         <div className={styles.emptyState}>
+          <Logo size="lg" showText={false} />
           <p>{t.myRooms.empty}</p>
           <Button variant="primary" size="sm" onClick={onBack}>
             {t.myRooms.createOne}
@@ -118,21 +127,38 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         </div>
       ) : (
         <div className={styles.roomList} data-layout="my-rooms-list">
-          {rooms.map((room, i) => (
-            <div key={room.id} className={`${styles.roomCard} motion-rise`} style={{ "--i": i } as React.CSSProperties}>
-              <div className={styles.roomHeader}>
-                <div className={styles.metaRow}>
-                  <Pill variant="accent">{t.common.room} {room.globalId}</Pill>
-                  <Pill variant={room.visibility === "private" ? "accent" : "default"}>
-                    {room.visibility === "private" ? <Lock size={10} className={styles.metaIcon} /> : <Globe size={10} className={styles.metaIcon} />}
-                    {room.visibility === "private" ? t.common.private : t.common.public}
-                  </Pill>
-                  <Pill variant={room.participantCount >= room.maxParticipants ? "success" : "default"}>
-                    <Users size={10} className={styles.metaIcon} />
-                    {room.participantCount} / {room.maxParticipants}
-                  </Pill>
+          {rooms.map((room, i) => {
+            const expiration = formatRoomExpiration(room.expiresAt, now, t);
+            return (
+              <div
+                key={room.id}
+                className={`${styles.roomCard} motion-rise`}
+                style={{ "--i": Math.min(i, 7) } as React.CSSProperties}
+              >
+                <div className={styles.roomHeader}>
+                  <div className={styles.metaRow}>
+                    <Pill variant="accent">{t.common.room} {room.globalId}</Pill>
+                    <Pill variant={room.visibility === "private" ? "accent" : "default"}>
+                      {room.visibility === "private" ? <Lock size={10} className={styles.metaIcon} /> : <Globe size={10} className={styles.metaIcon} />}
+                      {room.visibility === "private" ? t.common.private : t.common.public}
+                    </Pill>
+                    <Pill variant={room.participantCount >= room.maxParticipants ? "success" : "default"}>
+                      <Users size={10} className={styles.metaIcon} />
+                      {room.participantCount} / {room.maxParticipants}
+                    </Pill>
+                  </div>
                 </div>
-              </div>
+
+                {expiration && (
+                  <div className={styles.expiresRow}>
+                    <span
+                      className={`${styles.expiresBadge} ${expiration.isUrgent ? styles.expiresUrgent : ""}`}
+                    >
+                      <Clock size={11} className={styles.expiresIcon} />
+                      <span>{expiration.text}</span>
+                    </span>
+                  </div>
+                )}
 
               <div className={styles.actionsRow}>
                 <Button
@@ -163,7 +189,8 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
                 </Button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
       </div>
