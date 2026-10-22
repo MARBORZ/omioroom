@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
-import { VolumeX } from "lucide-react";
+import { Play, VolumeX } from "lucide-react";
 import {
   MediaType,
   PlaybackStatus,
@@ -41,6 +41,8 @@ export interface UserPlayerAction {
 const REMOTE_APPLY_GUARD_MS = 800;
 const USER_SEEK_JUMP_SECONDS = 1.5;
 const DRIFT_CHECK_INTERVAL_MS = 1000;
+const FIXED_RATE_SEEK_THRESHOLD_S = 0.5;
+const CORRECTION_COOLDOWN_MS = 3000;
 
 export interface VideoPlayerFrameProps {
   playbackState: RoomPlaybackStateDto | null;
@@ -112,6 +114,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
 
     // A local action in the player: report it when allowed, otherwise snap back to the room state
+    const lastCorrectionRef = useRef(0);
     const lastActionRef = useRef<{ type: UserPlayerAction["type"]; at: number } | null>(null);
     const handleLocalAction = (action: UserPlayerAction) => {
       // Players fire several events for one click (play + playing); report it once
@@ -169,6 +172,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
     const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
     const [mediaLoading, setMediaLoading] = useState(false);
+    const [needsGesture, setNeedsGesture] = useState(false);
+    const autoplayCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useImperativeHandle(ref, () => ({
       play: async () => {
@@ -188,7 +193,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     }));
 
   // Initialize or swap adapter when media type changes
-  const initAdapter = useCallback(async (media: MediaSourceInfo | null) => {
+  const doInitAdapter = useCallback(async (media: MediaSourceInfo | null) => {
     if (!containerRef.current) return;
 
     if (!media) {
@@ -261,6 +266,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           }
         } else if (event.type === "play") {
           adapterPlayingRef.current = true;
+          setNeedsGesture(false);
           cur.onBufferingChange?.(false);
           if (stallTimerRef.current) {
             clearTimeout(stallTimerRef.current);
@@ -305,8 +311,22 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       setMediaLoading(true);
       setOverlayStatus(null);
       await adapterRef.current.loadMedia(media);
+      // The room state may have arrived long before the player existed (reload, late join):
+      // line the freshly loaded player up with it now.
+      revertRef.current();
     }
   }, []);
+
+  // Initializations run strictly one after another: creating a player takes time, and two
+  // overlapping runs (React dev double effects, quick media switches) would build two players.
+  const initQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const initAdapter = useCallback(
+    (media: MediaSourceInfo | null): Promise<void> => {
+      initQueueRef.current = initQueueRef.current.then(() => doInitAdapter(media)).catch(() => {});
+      return initQueueRef.current;
+    },
+    [doInitAdapter]
+  );
 
   // Handle media source changes
   const mediaKey = playbackState?.media ? `${playbackState.media.type}:${playbackState.media.canonicalUrl}` : null;
@@ -324,6 +344,17 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
   // Apply authoritative server state. Runs only when the server state changes,
   // never on local position ticks, and only touches the player when it differs.
+  const joinPlayback = () => {
+    const adapter = adapterRef.current;
+    const state = latest.current.playbackState;
+    if (!adapter || !state) return;
+    setNeedsGesture(false);
+    armGuard();
+    const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
+    adapter.seek(expected).catch(() => {});
+    adapter.play().catch(() => {});
+  };
+
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyServerState = useCallback(() => {
@@ -363,7 +394,15 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     }
 
     if (state.status === PlaybackStatus.PLAYING) {
-      if (!adapterPlayingRef.current) adapter.play().catch(() => {});
+      if (!adapterPlayingRef.current) {
+        adapter.play().catch(() => {});
+        // Browsers refuse to start media without a user gesture: say so instead of sitting silent
+        if (autoplayCheckRef.current) clearTimeout(autoplayCheckRef.current);
+        autoplayCheckRef.current = setTimeout(() => {
+          const live = latest.current.playbackState;
+          if (live?.status === PlaybackStatus.PLAYING && !adapterPlayingRef.current) setNeedsGesture(true);
+        }, 2500);
+      }
     } else if (adapterPlayingRef.current) {
       // Paused, ended, or the room is holding for a stalled participant
       adapter.pause().catch(() => {});
@@ -414,13 +453,19 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
       const drift = adapter.getCurrentTime() - expected;
       const abs = Math.abs(drift);
+      const canNudge = adapter.fineRate !== false;
+      // Sources that cannot be nudged get corrected by a (rate limited) seek at a lower threshold
+      const seekThreshold = canNudge ? SYNC_THRESHOLD_DRIFT_RATE_MS / 1000 : FIXED_RATE_SEEK_THRESHOLD_S;
 
-      if (abs > SYNC_THRESHOLD_DRIFT_RATE_MS / 1000) {
+      if (abs > seekThreshold) {
+        if (Date.now() - lastCorrectionRef.current < CORRECTION_COOLDOWN_MS) return;
+        lastCorrectionRef.current = Date.now();
         armGuard();
         adapter.seek(expected).catch(() => {});
         return;
       }
 
+      if (!canNudge) return;
       const desiredRate =
         abs > SYNC_THRESHOLD_IGNORE_MS / 1000
           ? state.playbackRate * (drift < 0 ? 1.05 : 0.95)
@@ -436,6 +481,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      if (autoplayCheckRef.current) clearTimeout(autoplayCheckRef.current);
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       if (startTimerRef.current) clearTimeout(startTimerRef.current);
       clearReadyPoll();
@@ -467,6 +513,13 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         <div className={styles.overlayMessage}>
           {overlayStatus}
         </div>
+      )}
+
+      {needsGesture && (
+        <button type="button" className={styles.gestureOverlay} onClick={joinPlayback}>
+          <Play size={28} />
+          <span>{t.room.tapToJoin}</span>
+        </button>
       )}
 
       {playbackState?.status === PlaybackStatus.PLAYING && isMuted && onToggleMute && (

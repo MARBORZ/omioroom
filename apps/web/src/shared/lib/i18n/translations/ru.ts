@@ -51,6 +51,7 @@ export const ru: Translations = {
   },
   room: {
     standby: "Добавьте видео",
+    tapToJoin: "Нажмите, чтобы смотреть вместе",
     standbyDesc:
       "Выберите источник и вставьте ссылку. Видео запустится у всех сразу.",
     videoSource: "Источник видео",

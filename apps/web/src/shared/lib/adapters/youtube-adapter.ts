@@ -41,12 +41,14 @@ function loadYouTubeScript(): Promise<void> {
 }
 
 export class YouTubePlayerAdapter implements PlayerAdapter {
+  readonly fineRate = false;
   private player: any = null;
   private containerElement: HTMLElement | null = null;
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
   private timeUpdateInterval: any = null;
   private isBufferingState = false;
   private isReady = false;
+  private videoId: string | null = null;
   private readyQueue: Array<() => void> = [];
 
   async attach(container: HTMLElement): Promise<void> {
@@ -86,6 +88,7 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
   }
 
   async loadMedia(media: MediaSourceInfo): Promise<void> {
+    this.videoId = media.sourceId;
     await loadYouTubeScript();
 
     return new Promise((resolve) => {
@@ -218,7 +221,12 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
 
   async seek(seconds: number): Promise<void> {
     this.runWhenReady(() => {
-      if (this.player && typeof this.player.seekTo === "function") {
+      if (!this.player) return;
+      // seekTo is ignored until a video has started; a cued (-1/5) video is repositioned by re-cueing it
+      const state = typeof this.player.getPlayerState === "function" ? this.player.getPlayerState() : null;
+      if ((state === 5 || state === -1) && this.videoId && typeof this.player.cueVideoById === "function") {
+        this.player.cueVideoById({ videoId: this.videoId, startSeconds: seconds });
+      } else if (typeof this.player.seekTo === "function") {
         this.player.seekTo(seconds, true);
       }
     });

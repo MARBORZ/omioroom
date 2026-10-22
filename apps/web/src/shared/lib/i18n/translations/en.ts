@@ -51,6 +51,7 @@ export const en: Translations = {
   },
   room: {
     standby: "Add a video",
+    tapToJoin: "Tap to watch together",
     standbyDesc:
       "Pick a source and paste a link. It starts for everyone at once.",
     videoSource: "Video source",

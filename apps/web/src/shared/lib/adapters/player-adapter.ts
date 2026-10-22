@@ -20,6 +20,8 @@ export interface PlayerAdapter {
   isBuffering(): boolean;
   /** Seconds of media already loaded ahead of the playhead, when the source can tell. */
   bufferedAhead?(): number;
+  /** False when the source only accepts fixed playback rates (YouTube), so small drift cannot be nudged away. */
+  readonly fineRate?: boolean;
   destroy(): void;
   onStateChange(callback: (event: PlayerAdapterEvent) => void): () => void;
 }

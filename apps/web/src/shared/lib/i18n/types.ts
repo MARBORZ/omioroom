@@ -51,6 +51,7 @@ export interface Translations {
   };
   room: {
     standby: string;
+    tapToJoin: string;
     standbyDesc: string;
     videoSource: string;
     videoSourcePlaceholder: string;
