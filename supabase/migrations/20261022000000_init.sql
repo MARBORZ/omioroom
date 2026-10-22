@@ -263,6 +263,41 @@ create trigger on_auth_user_upgraded
   after update of is_anonymous on auth.users
   for each row execute function public.handle_auth_user();
 
+-- Creates the profile for an existing auth user if it is missing (users created before the
+-- schema existed, or a failed trigger). Safe to call repeatedly.
+create function public.backfill_profile(p_id uuid) returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_user auth.users;
+  v_username text;
+begin
+  if exists (select 1 from public.profiles where id = p_id) then
+    return;
+  end if;
+  select * into v_user from auth.users where id = p_id;
+  if v_user.id is null then
+    return;
+  end if;
+  if coalesce(v_user.is_anonymous, false) then
+    insert into public.profiles (id, kind, display_name)
+    values (p_id, 'anonymous', public.random_display_name());
+  else
+    v_username := left(coalesce(nullif(trim(v_user.raw_user_meta_data ->> 'username'), ''), split_part(v_user.email, '@', 1)), 30);
+    if char_length(v_username) < 2 then v_username := v_username || '_u'; end if;
+    insert into public.profiles (id, kind, display_name, username)
+    values (p_id, 'registered', v_username, v_username)
+    on conflict do nothing;
+  end if;
+end $$;
+
+create function public.ensure_profile() returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  perform public.backfill_profile(public.require_uid());
+end $$;
+
 create function public.username_available(p_username text) returns boolean
 language sql stable security definer set search_path = public
 as $$
@@ -1068,6 +1103,7 @@ revoke execute on all functions in schema public from public, anon, authenticate
 
 grant execute on function
   public.server_time_ms(),
+  public.ensure_profile(),
   public.update_display_name(text),
   public.create_room(text, text, uuid, integer, text),
   public.update_room_settings(uuid, integer, text),
@@ -1114,3 +1150,6 @@ end $$;
 
 alter table public.playback_state replica identity full;
 alter table public.rooms replica identity full;
+
+-- Profiles for users that already exist (e.g. anonymous sign-ins made before this migration ran).
+select public.backfill_profile(id) from auth.users;

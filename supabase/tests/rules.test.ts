@@ -61,6 +61,16 @@ describe("identity", () => {
     expect(rows.rows[0]).toMatchObject({ kind: "registered", username: "bobby" });
   });
 
+  it("backfills a missing profile for an existing auth user", async () => {
+    const uid = await t.newUser();
+    await t.db.query("delete from public.profiles where id = $1", [uid]);
+    await t.as(uid).rpc("ensure_profile");
+    const rows = await t.db.query<{ kind: string }>("select kind from public.profiles where id = $1", [uid]);
+    expect(rows.rows[0]?.kind).toBe("anonymous");
+    // Idempotent
+    await t.as(uid).rpc("ensure_profile");
+  });
+
   it("checks username availability case-insensitively", async () => {
     await t.newUser({ anonymous: false, username: "Alice" });
     expect(await t.as(null).rpc("username_available", { p_username: "alice" })).toBe(false);

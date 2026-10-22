@@ -27,10 +27,21 @@ function toUser(row: ProfileRow): User {
   };
 }
 
+async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  return (data as ProfileRow | null) ?? null;
+}
+
 async function loadProfile(userId: string): Promise<User> {
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-  if (error || !data) throw error ?? new Error("PROFILE_MISSING");
-  return toUser(data as ProfileRow);
+  let row = await fetchProfile(userId);
+  if (!row) {
+    // Account created before the database was set up: let the database create its profile
+    await supabase.rpc("ensure_profile");
+    row = await fetchProfile(userId);
+  }
+  if (!row) throw new Error("PROFILE_MISSING");
+  return toUser(row);
 }
 
 function authError(message: string): never {
