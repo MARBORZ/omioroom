@@ -1,0 +1,83 @@
+.splash {
+  --boot-bg: #101010;
+  --boot-text: #f4f0e8;
+  --boot-accent: #ff6847;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--boot-bg);
+}
+
+.lifting {
+  animation: boot-lift 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.mark {
+  overflow: visible;
+}
+
+.left {
+  animation: boot-left 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.right {
+  animation: boot-right 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* the shared area appears only once the rings have met */
+.lensGroup {
+  animation: boot-fade 200ms ease-out 500ms both;
+}
+
+.word {
+  font-family: var(--font-sans, "Inter", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.32em;
+  padding-left: 0.32em;
+  color: var(--boot-text);
+  animation: boot-word 500ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+}
+
+@keyframes boot-left {
+  from { transform: translateX(-14px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes boot-right {
+  from { transform: translateX(14px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes boot-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes boot-word {
+  from { opacity: 0; transform: translateY(6px); letter-spacing: 0.5em; }
+  to { opacity: 1; transform: translateY(0); letter-spacing: 0.32em; }
+}
+
+@keyframes boot-lift {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* Reduced motion: the finished mark, no movement */
+.still {
+  animation: none;
+
+  .left, .right, .lensGroup, .word {
+    animation: none;
+  }
+}

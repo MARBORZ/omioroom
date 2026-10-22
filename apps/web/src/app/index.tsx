@@ -12,6 +12,7 @@ import { InvitePage } from "../pages/invite/ui/invite-page.js";
 import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
+import { BootSplash } from "./boot-splash.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
 import setupStyles from "./styles/setup-notice.module.scss";
 import "./styles/global.scss";
@@ -136,6 +137,7 @@ const MainApp: React.FC = () => {
   const { connectionStatus } = useSession();
   return (
     <>
+      <BootSplash ready={connectionStatus !== "connecting"} />
       <ConnectionNotice status={connectionStatus} />
       <MainScreens />
     </>
@@ -147,7 +149,10 @@ export const App: React.FC = () => {
     <SettingsProvider>
       <I18nProvider>
         {!isBackendConfigured ? (
-          <SetupNotice />
+          <>
+            <BootSplash />
+            <SetupNotice />
+          </>
         ) : (
           <SessionProvider>
             <MainApp />
