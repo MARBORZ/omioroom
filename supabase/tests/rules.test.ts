@@ -861,4 +861,29 @@ describe("maintenance", () => {
     expect(await send(media)).toBe("MEDIA_ALREADY_LOADED");
     expect(await send({ type: "youtube", sourceId: "zzz98765432", canonicalUrl: "https://www.youtube.com/watch?v=zzz98765432" })).toBe("OK");
   });
+  it("a participant who just arrived cannot move playback for a few seconds", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "public", { p_control_mode: "everyone" });
+    await t.db.exec("create or replace function public.join_grace() returns interval language sql immutable as $$ select interval '3 seconds' $$");
+    const cmd = (u: string, type: string, extra: object = {}) =>
+      t.as(u).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: type, ...extra });
+    await cmd(owner, "change-media", { p_media: { type: "html5", sourceId: "g", canonicalUrl: "https://example.com/g.mp4" } });
+    await cmd(owner, "seek", { p_position: 500 });
+    await t.db.exec(`update public.member_activity set session_started_at = now() - interval '1 minute'`);
+
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    // the newcomer's player starts from zero and reports a seek / play: ignored, the room keeps its place
+    const ignored = await cmd(a, "seek", { p_position: 0 });
+    expect(ignored.anchorPosition).toBe(500);
+    const play = await cmd(a, "play", { p_position: 0 });
+    expect(play.status).toBe("paused");
+
+    // after the grace period the same participant can control as usual
+    await t.db.exec(`update public.member_activity set session_started_at = now() - interval '10 seconds' where user_id = '${a}'`);
+    expect((await cmd(a, "seek", { p_position: 42 })).anchorPosition).toBe(42);
+    // the owner who has been in the room all along is never held back
+    expect((await cmd(owner, "seek", { p_position: 100 })).anchorPosition).toBe(100);
+    await t.db.exec("create or replace function public.join_grace() returns interval language sql immutable as $$ select interval '0 seconds' $$");
+  });
 });

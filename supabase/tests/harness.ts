@@ -67,6 +67,8 @@ export async function createTestDb(): Promise<TestDb> {
 
   let counter = 0;
   // Most tests need several rooms per user; the limit itself is tested explicitly (see rules.test.ts)
+  // Tests act right after joining; the grace period itself is tested explicitly
+  await db.exec("create or replace function public.join_grace() returns interval language sql immutable as $$ select interval '0 seconds' $$");
   await db.exec("create or replace function public.room_limit_per_user() returns integer language sql immutable as $$ select 100 $$");
 
   const run = async <T>(userId: string | null, sql: string, params: unknown[]): Promise<T[]> => {
