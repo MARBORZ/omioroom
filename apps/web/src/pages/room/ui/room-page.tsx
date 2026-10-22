@@ -175,7 +175,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         activeEl?.tagName === "TEXTAREA" ||
         (activeEl as HTMLElement)?.isContentEditable;
 
-      if (isInput) return;
+      // Browser and system shortcuts (copy, find, reload...) must keep working
+      if (isInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
       // F or Russian А (fullscreen / cinema toggle)
       if (e.code === "KeyF" || e.key.toLowerCase() === "f" || e.key.toLowerCase() === "а") {
