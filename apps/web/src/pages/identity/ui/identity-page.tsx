@@ -8,6 +8,8 @@ import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import styles from "./identity-page.module.scss";
 
+type IdentityMode = "anon" | "nick" | "account";
+
 interface IdentityPageProps {
   onSelect: () => void;
 }
@@ -17,6 +19,9 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   const { t } = useI18n();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // On phones and tablets the three options are states of one card, chosen with a switcher
+  const [mode, setMode] = useState<IdentityMode>("anon");
 
   // Nickname option state
   const [nickname, setNickname] = useState("");
@@ -118,9 +123,38 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
         <p className={styles.subtitle}>{t.onboarding.subtitle}</p>
       </div>
 
+      <div className={styles.modeTabs} role="tablist" aria-label={t.onboarding.subtitle}>
+        {(
+          [
+            ["anon", t.onboarding.modeAnon],
+            ["nick", t.onboarding.modeName],
+            ["account", t.onboarding.modeAccount],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`identity-tab-${id}`}
+            aria-selected={mode === id}
+            aria-controls={`identity-card-${id}`}
+            className={`${styles.modeTab} ${mode === id ? styles.modeTabActive : ""}`}
+            onClick={() => setMode(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className={styles.optionsList} data-layout="identity-options">
         {/* OPTION 1: Anonymous in 1-Click */}
-        <div className={styles.card}>
+        <div
+          className={styles.card}
+          id="identity-card-anon"
+          role="tabpanel"
+          aria-labelledby="identity-tab-anon"
+          data-active={mode === "anon"}
+        >
           <div className={styles.cardHeader}>
             <div className={styles.cardTitle}>
               <Shield size={16} color="var(--color-accent)" />
@@ -138,7 +172,13 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
         </div>
 
         {/* OPTION 2: Temporary Nickname */}
-        <div className={styles.card}>
+        <div
+          className={styles.card}
+          id="identity-card-nick"
+          role="tabpanel"
+          aria-labelledby="identity-tab-nick"
+          data-active={mode === "nick"}
+        >
           <div className={styles.cardHeader}>
             <div className={styles.cardTitle}>
               <UserCheck size={16} color="var(--color-accent)" />
@@ -172,7 +212,13 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
         </div>
 
         {/* OPTION 3: Full Account (Saved to DB) */}
-        <div className={styles.card}>
+        <div
+          className={styles.card}
+          id="identity-card-account"
+          role="tabpanel"
+          aria-labelledby="identity-tab-account"
+          data-active={mode === "account"}
+        >
           <div className={styles.cardHeader}>
             <div className={styles.cardTitle}>
               <KeyRound size={16} color="var(--color-accent)" />

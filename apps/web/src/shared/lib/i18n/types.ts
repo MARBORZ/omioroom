@@ -128,6 +128,9 @@ export interface Translations {
     usernameTaken: string;
     confirmEmail: string;
     authFailed: string;
+    modeAnon: string;
+    modeName: string;
+    modeAccount: string;
     switchMode: string;
   };
   chat: {

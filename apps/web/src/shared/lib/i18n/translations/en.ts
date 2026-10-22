@@ -129,6 +129,9 @@ export const en: Translations = {
     usernameTaken: "This username is already taken",
     confirmEmail: "We sent you an email: confirm your address, then sign in.",
     authFailed: "Authentication failed. Check your details.",
+    modeAnon: "No account",
+    modeName: "Name",
+    modeAccount: "Account",
     switchMode: "Switch Identity",
   },
   chat: {

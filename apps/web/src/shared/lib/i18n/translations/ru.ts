@@ -129,6 +129,9 @@ export const ru: Translations = {
     usernameTaken: "Это имя уже занято",
     confirmEmail: "Мы отправили письмо: подтвердите email и войдите.",
     authFailed: "Не удалось войти. Проверьте данные.",
+    modeAnon: "Без аккаунта",
+    modeName: "Имя",
+    modeAccount: "Аккаунт",
     switchMode: "Сменить режим",
   },
   chat: {

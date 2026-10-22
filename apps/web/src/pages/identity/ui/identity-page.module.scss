@@ -202,3 +202,54 @@
   }
 }
 
+
+/* Switcher between the three ways in: shown on phones and tablets, where only one card is visible */
+.modeTabs {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .modeTabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    max-width: 560px;
+  }
+
+  .modeTab {
+    flex: 1;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &.modeTabActive {
+      background-color: var(--color-surface-raised);
+      color: var(--color-text);
+    }
+  }
+
+  .optionsList {
+    display: block;
+    max-width: 560px;
+  }
+
+  .card[data-active="false"] {
+    display: none;
+  }
+}
+
+@media (min-width: 1101px) {
+  .modeTab {
+    display: none;
+  }
+}
