@@ -66,6 +66,8 @@ export async function createTestDb(): Promise<TestDb> {
   }
 
   let counter = 0;
+  // Most tests need several rooms per user; the limit itself is tested explicitly (see rules.test.ts)
+  await db.exec("create or replace function public.room_limit_per_user() returns integer language sql immutable as $$ select 100 $$");
 
   const run = async <T>(userId: string | null, sql: string, params: unknown[]): Promise<T[]> => {
     await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${userId ?? ""}', false);`);

@@ -626,9 +626,11 @@ describe("maintenance", () => {
     expect(clocks.rows[0]?.empty_since).toBeNull();
   });
 
-  it("limits each owner to three active rooms; closing one frees a slot", async () => {
+  it("limits each owner to the room limit (currently one); closing the room frees the slot", async () => {
+    // Restore the production limit that the shared harness relaxes
+    await t.db.exec("create or replace function public.room_limit_per_user() returns integer language sql immutable as $$ select 1 $$");
     const owner = await t.newUser();
-    const rooms = [await room(owner), await room(owner), await room(owner)];
+    const rooms = [await room(owner)];
     expect(await code(t.as(owner).rpc("create_room", { p_visibility: "public" }))).toBe("ROOM_LIMIT");
     // Other owners are unaffected
     const someone = await t.newUser();

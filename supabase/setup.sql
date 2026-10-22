@@ -1896,3 +1896,9 @@ begin
 exception when others then
   raise notice 'could not reschedule cron job: %', sqlerrm;
 end $$;
+
+-- ===== 20261022000800_room_limit_one.sql =====
+-- One active room per owner for now. The limit lives in this single function: raise it here later.
+create or replace function public.room_limit_per_user() returns integer
+language sql immutable set search_path = public
+as $$ select 1 $$;
