@@ -15,6 +15,8 @@ const SUPABASE_STUBS = `
     id uuid primary key default gen_random_uuid(),
     email text,
     is_anonymous boolean not null default false,
+    created_at timestamptz not null default now(),
+    last_sign_in_at timestamptz,
     raw_user_meta_data jsonb not null default '{}'::jsonb
   );
   create function auth.uid() returns uuid language sql stable as

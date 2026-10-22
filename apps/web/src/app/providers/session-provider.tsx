@@ -63,17 +63,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const boot = async () => {
       try {
+        // Restore the identity stored in this browser. A visitor who has not chosen anything yet
+        // gets no account: anonymous users are created only on demand (see ensureUser).
         const { data } = await supabase.auth.getSession();
-        let userId = data.session?.user.id;
-        if (!userId) {
-          // Anonymous identity lives in this browser's storage only
-          const res = await supabase.auth.signInAnonymously();
-          if (res.error || !res.data.user) throw res.error ?? new Error("ANON_SIGN_IN_FAILED");
-          userId = res.data.user.id;
-        }
-        await refreshProfile(userId);
+        if (data.session?.user) await refreshProfile(data.session.user.id);
         setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
-        timeSync.startSync();
       } catch (err) {
         console.error("Session bootstrap failed:", err);
         setConnectionStatus("disconnected");
@@ -94,14 +88,48 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
-  }, [refreshProfile, timeSync]);
+  }, [refreshProfile]);
+
+  // The database clock is only readable by signed-in users
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    timeSync.startSync();
+    return () => timeSync.stopSync();
+  }, [userId, timeSync]);
+
+  const ensuring = useRef<Promise<User> | null>(null);
+  const ensureUser = useCallback((): Promise<User> => {
+    if (ensuring.current) return ensuring.current;
+    const run = (async () => {
+      // One tab at a time, so two tabs opened together do not create two anonymous users
+      const withLock = <T,>(fn: () => Promise<T>): Promise<T> =>
+        navigator.locks ? (navigator.locks.request("omioroom-auth", fn) as Promise<T>) : fn();
+
+      return withLock(async () => {
+        const { data } = await supabase.auth.getSession();
+        let id = data.session?.user.id;
+        if (!id) {
+          const res = await supabase.auth.signInAnonymously();
+          if (res.error || !res.data.user) authError(res.error?.message ?? "Anonymous sign-in failed");
+          id = res.data.user.id;
+        }
+        return refreshProfile(id);
+      });
+    })().finally(() => {
+      ensuring.current = null;
+    });
+    ensuring.current = run;
+    return run;
+  }, [refreshProfile]);
 
   const updateDisplayName = useCallback(
     async (name: string): Promise<User> => {
+      await ensureUser();
       const updated = await backend.updateDisplayName(name);
       return refreshProfile(updated.id);
     },
-    [refreshProfile]
+    [refreshProfile, ensureUser]
   );
 
   const register = useCallback(
@@ -109,9 +137,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!(await backend.usernameAvailable(username))) {
         throw createProtocolError(ErrorCode.INVALID_PAYLOAD, "Username is already taken");
       }
-      // Upgrading the anonymous user in place keeps its id, and with it its rooms
-      const { data, error } = await supabase.auth.updateUser({ email, password, data: { username } });
+      const { data: current } = await supabase.auth.getSession();
+      if (current.session?.user) {
+        // Upgrading the anonymous user in place keeps its id, and with it its rooms
+        const { data, error } = await supabase.auth.updateUser({ email, password, data: { username } });
+        if (error || !data.user) authError(error?.message ?? "Registration failed");
+        return refreshProfile(data.user.id);
+      }
+      // Fresh visitor: register directly, no throwaway anonymous account in between
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { username } } });
       if (error || !data.user) authError(error?.message ?? "Registration failed");
+      if (!data.session) authError("CONFIRM_EMAIL");
       return refreshProfile(data.user.id);
     },
     [refreshProfile]
@@ -128,14 +164,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    const res = await supabase.auth.signInAnonymously();
-    if (res.error || !res.data.user) authError("Sign out failed");
-    await refreshProfile(res.data.user.id);
-  }, [refreshProfile]);
+    setUser(null);
+  }, []);
 
   return (
     <SessionContext.Provider
-      value={{ timeSync, connectionStatus, user, updateDisplayName, register, login, signOut }}
+      value={{ timeSync, connectionStatus, user, ensureUser, updateDisplayName, register, login, signOut }}
     >
       {children}
     </SessionContext.Provider>

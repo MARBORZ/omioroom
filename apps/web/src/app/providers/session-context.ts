@@ -7,6 +7,8 @@ export interface SessionContextValue {
   timeSync: TimeSyncClient;
   connectionStatus: ConnectionStatusType;
   user: User | null;
+  /** Returns the current user, creating the anonymous identity on first need (never on page load). */
+  ensureUser: () => Promise<User>;
   updateDisplayName: (name: string) => Promise<User>;
   /** Turns the current (anonymous) identity into a permanent account, keeping its rooms. */
   register: (username: string, email: string, password: string) => Promise<User>;

@@ -14,7 +14,7 @@ interface IdentityPageProps {
 }
 
 export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
-  const { connectionStatus, updateDisplayName, register, login } = useSession();
+  const { connectionStatus, ensureUser, updateDisplayName, register, login } = useSession();
   const { t } = useI18n();
 
   // Nickname option state
@@ -31,9 +31,14 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   const [accountError, setAccountError] = useState<string | null>(null);
 
   // 1. Anonymous handler
-  const handleChooseAnonymous = () => {
-    localStorage.setItem("omioroom_identity_chosen", "true");
-    onSelect();
+  const handleChooseAnonymous = async () => {
+    try {
+      await ensureUser();
+      localStorage.setItem("omioroom_identity_chosen", "true");
+      onSelect();
+    } catch {
+      setNickError(t.onboarding.authFailed);
+    }
   };
 
   // 2. Custom nickname handler
@@ -72,6 +77,8 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
     } catch (err: any) {
       if (err?.code === "INVALID_PAYLOAD") {
         setAccountError(t.onboarding.usernameTaken);
+      } else if (err?.message === "CONFIRM_EMAIL") {
+        setAccountError(t.onboarding.confirmEmail);
       } else if (err?.code === "UNAUTHENTICATED") {
         setAccountError(err.message || t.onboarding.authFailed);
       } else {

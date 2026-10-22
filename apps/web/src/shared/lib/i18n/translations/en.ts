@@ -107,6 +107,7 @@ export const en: Translations = {
     registerBtn: "Create Account",
     emailLabel: "Email",
     usernameTaken: "This username is already taken",
+    confirmEmail: "We sent you an email: confirm your address, then sign in.",
     authFailed: "Authentication failed. Check your details.",
     switchMode: "Switch Identity",
   },

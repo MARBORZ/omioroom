@@ -9,6 +9,11 @@ begin
       '*/10 * * * *',
       $job$ select public.close_inactive_rooms(interval '30 minutes') $job$
     );
+    perform cron.schedule(
+      'omioroom-cleanup-anonymous-users',
+      '17 3 * * *',
+      $job$ select public.cleanup_stale_anonymous_users(interval '30 days') $job$
+    );
   else
     raise notice 'pg_cron not available: schedule public.close_inactive_rooms() yourself';
   end if;

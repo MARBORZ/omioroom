@@ -804,6 +804,32 @@ begin
   return v_count;
 end $$;
 
+-- Removes anonymous accounts nobody came back to (anonymous sign-ins accumulate otherwise).
+-- Accounts that own or sit in an active room are kept. Cascades to profiles and their data.
+create function public.cleanup_stale_anonymous_users(p_max_age interval default interval '30 days')
+returns integer
+language plpgsql security definer set search_path = public
+as $$
+declare v_count integer;
+begin
+  with doomed as (
+    select u.id
+    from auth.users u
+    where coalesce(u.is_anonymous, false)
+      and coalesce(u.last_sign_in_at, u.created_at) < now() - p_max_age
+      and not exists (select 1 from public.rooms r where r.owner_id = u.id and r.status = 'active')
+      and not exists (
+        select 1 from public.room_members m
+        join public.rooms r on r.id = m.room_id and r.status = 'active'
+        where m.user_id = u.id
+      )
+  ), removed as (
+    delete from auth.users where id in (select id from doomed) returning id
+  )
+  select count(*) into v_count from removed;
+  return v_count;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Playback (authoritative state, revisions, command dedup)
 -- ---------------------------------------------------------------------------

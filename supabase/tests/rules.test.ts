@@ -452,6 +452,25 @@ describe("friends", () => {
 });
 
 describe("maintenance", () => {
+  it("removes stale anonymous accounts but keeps registered ones and active room members", async () => {
+    const stale = await t.newUser();
+    const owner = await t.newUser();
+    const registered = await t.newUser({ anonymous: false, username: "keeper" });
+    const fresh = await t.newUser();
+    await room(owner, "public");
+    await t.db.query(
+      "update auth.users set created_at = now() - interval '90 days', last_sign_in_at = now() - interval '90 days' where id in ($1, $2, $3)",
+      [stale, owner, registered]
+    );
+
+    const res = await t.db.query<{ n: number }>("select public.cleanup_stale_anonymous_users() as n");
+    expect(res.rows[0]?.n).toBe(1);
+    const left = await t.db.query<{ id: string }>("select id from public.profiles");
+    const ids = left.rows.map((r) => r.id);
+    expect(ids).not.toContain(stale);
+    expect(ids).toEqual(expect.arrayContaining([owner, registered, fresh]));
+  });
+
   it("closes idle rooms but not active ones", async () => {
     const owner = await t.newUser();
     const idle = await room(owner, "public");

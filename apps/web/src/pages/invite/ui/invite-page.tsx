@@ -27,7 +27,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
   onJoined,
   onCancel,
 }) => {
-  const { connectionStatus, user, updateDisplayName } = useSession();
+  const { connectionStatus, user, ensureUser, updateDisplayName } = useSession();
   const { t } = useI18n();
 
   const [code, setCode] = useState(initialCode ?? "");
@@ -43,6 +43,8 @@ export const InvitePage: React.FC<InvitePageProps> = ({
     setError(null);
     setLoading(true);
     try {
+      // A first-time guest gets an anonymous identity only now, when they actually join
+      await ensureUser();
       if (canRename && name.trim() && name.trim() !== user?.displayName) {
         await updateDisplayName(name.trim());
       }
@@ -67,7 +69,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [globalId, code, name, user, canRename, updateDisplayName, onJoined, t]);
+  }, [globalId, code, name, user, canRename, ensureUser, updateDisplayName, onJoined, t]);
 
   useEffect(() => {
     if (!autoJoin || autoTriedRef.current || connectionStatus !== "connected" || !user) return;
@@ -127,7 +129,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
         <Button
           variant="primary"
           loading={loading}
-          disabled={connectionStatus !== "connected" || !user}
+          disabled={connectionStatus !== "connected"}
           onClick={join}
           icon={<LogIn size={16} />}
           style={{ width: "100%" }}

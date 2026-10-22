@@ -106,6 +106,7 @@ export interface Translations {
     registerBtn: string;
     emailLabel: string;
     usernameTaken: string;
+    confirmEmail: string;
     authFailed: string;
     switchMode: string;
   };

@@ -107,6 +107,7 @@ export const ru: Translations = {
     registerBtn: "Создать аккаунт",
     emailLabel: "Email",
     usernameTaken: "Это имя уже занято",
+    confirmEmail: "Мы отправили письмо: подтвердите email и войдите.",
     authFailed: "Не удалось войти. Проверьте данные.",
     switchMode: "Сменить режим",
   },

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSession } from "./providers/session-context.js";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "../shared/lib/i18n/index.js";
 import { isBackendConfigured } from "../shared/api/supabase.js";
@@ -42,6 +43,12 @@ function parseInviteHash(): InviteTarget | null {
 const MainApp: React.FC = () => {
   const [invite] = useState<InviteTarget | null>(readInviteFromHash);
   const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
+  const { user, connectionStatus, ensureUser } = useSession();
+
+  // Identity was chosen before but the stored session is gone: recreate it quietly
+  useEffect(() => {
+    if (identityChosen && !user && connectionStatus === "connected") void ensureUser().catch(() => {});
+  }, [identityChosen, user, connectionStatus, ensureUser]);
   const [screen, setScreen] = useState<Screen>(() => {
     if (invite) return "invite";
     return identityChosen ? "home" : "identity";
