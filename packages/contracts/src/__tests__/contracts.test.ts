@@ -72,6 +72,53 @@ describe("Contracts and Domain Logic", () => {
       canonicalUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
     });
 
+    // HLS Stream
+    const hls = parseMediaUrl("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
+    expect(hls).toEqual({
+      type: MediaType.HLS,
+      sourceId: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      canonicalUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+    });
+
+    // VK Video
+    const vk = parseMediaUrl("https://vk.com/video-123456_789012");
+    expect(vk).toEqual({
+      type: MediaType.VK,
+      sourceId: "-123456_789012",
+      canonicalUrl: "https://vk.com/video_ext.php?oid=-123456&id=789012&autoplay=0",
+    });
+
+    // RuTube
+    const rutube = parseMediaUrl("https://rutube.ru/video/e1c07cf27599052bfae6f477033cb24f/");
+    expect(rutube).toEqual({
+      type: MediaType.RUTUBE,
+      sourceId: "e1c07cf27599052bfae6f477033cb24f",
+      canonicalUrl: "https://rutube.ru/play/embed/e1c07cf27599052bfae6f477033cb24f",
+    });
+
+    // Twitch VOD and Channel
+    const twitchVod = parseMediaUrl("https://www.twitch.tv/videos/123456789");
+    expect(twitchVod).toEqual({
+      type: MediaType.TWITCH,
+      sourceId: "v123456789",
+      canonicalUrl: "https://www.twitch.tv/videos/123456789",
+    });
+
+    const twitchChannel = parseMediaUrl("https://www.twitch.tv/shroud");
+    expect(twitchChannel).toEqual({
+      type: MediaType.TWITCH,
+      sourceId: "shroud",
+      canonicalUrl: "https://www.twitch.tv/shroud",
+    });
+
+    // Vimeo
+    const vimeo = parseMediaUrl("https://vimeo.com/76979871");
+    expect(vimeo).toEqual({
+      type: MediaType.VIMEO,
+      sourceId: "76979871",
+      canonicalUrl: "https://player.vimeo.com/video/76979871",
+    });
+
     // Invalid url
     expect(parseMediaUrl("not-a-url")).toBeNull();
     expect(parseMediaUrl("https://example.com/movie.avi")).toBeNull();

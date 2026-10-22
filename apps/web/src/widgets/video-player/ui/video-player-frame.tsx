@@ -11,6 +11,11 @@ import { useI18n } from "../../../shared/lib/i18n/index.js";
 import type { PlayerAdapter, PlayerAdapterEvent } from "../../../shared/lib/adapters/player-adapter.js";
 import { Html5PlayerAdapter } from "../../../shared/lib/adapters/html5-adapter.js";
 import { YouTubePlayerAdapter } from "../../../shared/lib/adapters/youtube-adapter.js";
+import { HlsPlayerAdapter } from "../../../shared/lib/adapters/hls-adapter.js";
+import { VkPlayerAdapter } from "../../../shared/lib/adapters/vk-adapter.js";
+import { RutubePlayerAdapter } from "../../../shared/lib/adapters/rutube-adapter.js";
+import { TwitchPlayerAdapter } from "../../../shared/lib/adapters/twitch-adapter.js";
+import { VimeoPlayerAdapter } from "../../../shared/lib/adapters/vimeo-adapter.js";
 import styles from "./video-player-frame.module.scss";
 
 export interface VideoPlayerHandle {
@@ -84,10 +89,31 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         adapterRef.current.destroy();
       }
 
-      const adapter: PlayerAdapter =
-        media.type === MediaType.YOUTUBE
-          ? new YouTubePlayerAdapter()
-          : new Html5PlayerAdapter();
+      let adapter: PlayerAdapter;
+      switch (media.type) {
+        case MediaType.YOUTUBE:
+          adapter = new YouTubePlayerAdapter();
+          break;
+        case MediaType.HLS:
+          adapter = new HlsPlayerAdapter();
+          break;
+        case MediaType.VK:
+          adapter = new VkPlayerAdapter();
+          break;
+        case MediaType.RUTUBE:
+          adapter = new RutubePlayerAdapter();
+          break;
+        case MediaType.TWITCH:
+          adapter = new TwitchPlayerAdapter();
+          break;
+        case MediaType.VIMEO:
+          adapter = new VimeoPlayerAdapter();
+          break;
+        case MediaType.HTML5:
+        default:
+          adapter = new Html5PlayerAdapter();
+          break;
+      }
 
       await adapter.attach(containerRef.current);
       adapterRef.current = adapter;

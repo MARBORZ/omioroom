@@ -6,6 +6,11 @@ export const SYNC_THRESHOLD_DRIFT_RATE_MS = 750;
 export const MediaType = {
   YOUTUBE: "youtube",
   HTML5: "html5",
+  VK: "vk",
+  RUTUBE: "rutube",
+  TWITCH: "twitch",
+  VIMEO: "vimeo",
+  HLS: "hls",
 } as const;
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
@@ -126,14 +131,106 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       }
     }
 
-    // Direct MP4 / WebM
+    // Direct MP4 / WebM / OGG / MOV
     const pathnameLower = url.pathname.toLowerCase();
-    if (pathnameLower.endsWith(".mp4") || pathnameLower.endsWith(".webm")) {
+    if (
+      pathnameLower.endsWith(".mp4") ||
+      pathnameLower.endsWith(".webm") ||
+      pathnameLower.endsWith(".ogg") ||
+      pathnameLower.endsWith(".mov")
+    ) {
       return {
         type: MediaType.HTML5,
         sourceId: url.toString(),
         canonicalUrl: url.toString(),
       };
+    }
+
+    // HLS Stream (.m3u8)
+    if (pathnameLower.endsWith(".m3u8") || url.pathname.includes(".m3u8")) {
+      return {
+        type: MediaType.HLS,
+        sourceId: url.toString(),
+        canonicalUrl: url.toString(),
+      };
+    }
+
+    // VK Video
+    if (
+      url.hostname === "vk.com" ||
+      url.hostname === "www.vk.com" ||
+      url.hostname === "vkvideo.ru" ||
+      url.hostname === "m.vk.com"
+    ) {
+      // Direct embed URL: /video_ext.php?oid=...&id=...
+      if (url.pathname === "/video_ext.php") {
+        const oid = url.searchParams.get("oid");
+        const id = url.searchParams.get("id");
+        const hash = url.searchParams.get("hash") || "";
+        if (oid && id) {
+          return {
+            type: MediaType.VK,
+            sourceId: `${oid}_${id}_${hash}`,
+            canonicalUrl: `https://vk.com/video_ext.php?oid=${oid}&id=${id}&hash=${hash}&autoplay=0`,
+          };
+        }
+      }
+
+      // Standard link: /video-123456_789012 or /video123456_789012
+      const vkMatch = url.pathname.match(/\/video(-?\d+)_(\d+)/);
+      if (vkMatch) {
+        const [, oid, id] = vkMatch;
+        return {
+          type: MediaType.VK,
+          sourceId: `${oid}_${id}`,
+          canonicalUrl: `https://vk.com/video_ext.php?oid=${oid}&id=${id}&autoplay=0`,
+        };
+      }
+    }
+
+    // RuTube
+    if (url.hostname === "rutube.ru" || url.hostname === "www.rutube.ru") {
+      const match = url.pathname.match(/\/(?:video|play\/embed)\/([a-fA-F0-9]{32})/);
+      if (match && match[1]) {
+        const id = match[1];
+        return {
+          type: MediaType.RUTUBE,
+          sourceId: id,
+          canonicalUrl: `https://rutube.ru/play/embed/${id}`,
+        };
+      }
+    }
+
+    // Twitch
+    if (url.hostname === "twitch.tv" || url.hostname === "www.twitch.tv" || url.hostname === "m.twitch.tv") {
+      const vodMatch = url.pathname.match(/\/videos\/(\d+)/);
+      if (vodMatch && vodMatch[1]) {
+        return {
+          type: MediaType.TWITCH,
+          sourceId: `v${vodMatch[1]}`,
+          canonicalUrl: `https://www.twitch.tv/videos/${vodMatch[1]}`,
+        };
+      }
+      const channelMatch = url.pathname.match(/^\/([a-zA-Z0-9_]{3,25})$/);
+      if (channelMatch && channelMatch[1] && !["directory", "p", "downloads", "jobs"].includes(channelMatch[1])) {
+        return {
+          type: MediaType.TWITCH,
+          sourceId: channelMatch[1],
+          canonicalUrl: `https://www.twitch.tv/${channelMatch[1]}`,
+        };
+      }
+    }
+
+    // Vimeo
+    if (url.hostname === "vimeo.com" || url.hostname === "www.vimeo.com" || url.hostname === "player.vimeo.com") {
+      const match = url.pathname.match(/(?:video\/|\/)(\d+)/);
+      if (match && match[1]) {
+        return {
+          type: MediaType.VIMEO,
+          sourceId: match[1],
+          canonicalUrl: `https://player.vimeo.com/video/${match[1]}`,
+        };
+      }
     }
 
     return null;
