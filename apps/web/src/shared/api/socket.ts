@@ -21,6 +21,10 @@ function getBackendUrl(): string {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
+  if (import.meta.env.DEV) {
+    const host = window.location.hostname || "localhost";
+    return `http://${host}:4000`;
+  }
   return window.location.origin;
 }
 
@@ -59,30 +63,58 @@ export function emitCommand<TPayload, TData>(
   payload: TPayload
 ): Promise<TData> {
   return new Promise((resolve, reject) => {
-    const requestId = generateClientRequestId();
-    const envelope: CommandEnvelope<TPayload> = {
-      requestId,
-      protocolVersion: PROTOCOL_VERSION,
-      payload,
+    const send = () => {
+      const requestId = generateClientRequestId();
+      const envelope: CommandEnvelope<TPayload> = {
+        requestId,
+        protocolVersion: PROTOCOL_VERSION,
+        payload,
+      };
+
+      const timeout = setTimeout(() => {
+        reject(
+          createProtocolError(
+            ErrorCode.INTERNAL_ERROR,
+            "Request timed out waiting for server response",
+            true
+          )
+        );
+      }, 10000);
+
+      socket.emit(event, envelope, (result: CommandResult<TData>) => {
+        clearTimeout(timeout);
+        if (result && typeof result === "object" && "ok" in result) {
+          if (result.ok) {
+            resolve(result.data);
+          } else {
+            reject(result.error);
+          }
+        } else {
+          resolve(result as any);
+        }
+      });
     };
 
-    const timeout = setTimeout(() => {
-      reject(
-        createProtocolError(
-          ErrorCode.INTERNAL_ERROR,
-          "Request timed out waiting for server response",
-          true
-        )
-      );
-    }, 10000);
+    if (socket.connected) {
+      send();
+    } else {
+      const onConnect = () => {
+        clearTimeout(connectTimeout);
+        send();
+      };
 
-    socket.emit(event, envelope, (result: CommandResult<TData>) => {
-      clearTimeout(timeout);
-      if (result.ok) {
-        resolve(result.data);
-      } else {
-        reject(result.error);
-      }
-    });
+      const connectTimeout = setTimeout(() => {
+        socket.off("connect", onConnect);
+        reject(
+          createProtocolError(
+            ErrorCode.INTERNAL_ERROR,
+            "Socket connection timed out",
+            true
+          )
+        );
+      }, 8000);
+
+      socket.once("connect", onConnect);
+    }
   });
 }

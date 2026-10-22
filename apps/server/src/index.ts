@@ -10,7 +10,12 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: config.corsOrigins.includes("*") ? "*" : config.corsOrigins,
+      origin:
+        config.nodeEnv === "development"
+          ? true
+          : config.corsOrigins.includes("*")
+          ? "*"
+          : config.corsOrigins,
       credentials: true,
     })
   );

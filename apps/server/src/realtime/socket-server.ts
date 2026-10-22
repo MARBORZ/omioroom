@@ -23,7 +23,12 @@ import { registerRoomHandlers } from "./handlers/room-handler.js";
 export function createSocketServer(httpServer: HttpServer, config: ServerConfig) {
   const io = new SocketIoServer<any, any, any, AuthenticatedSocketData>(httpServer, {
     cors: {
-      origin: config.corsOrigins.includes("*") ? "*" : config.corsOrigins,
+      origin:
+        config.nodeEnv === "development"
+          ? true
+          : config.corsOrigins.includes("*")
+          ? "*"
+          : config.corsOrigins,
       credentials: true,
     },
     transports: ["websocket", "polling"],

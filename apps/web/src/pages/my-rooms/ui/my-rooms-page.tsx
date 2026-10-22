@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-provider.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -30,7 +30,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const fetchRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
       const list = await emitCommand<void, RoomSummaryDto[]>(
@@ -44,11 +44,11 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [socket]);
 
   useEffect(() => {
     fetchRooms();
-  }, []);
+  }, [fetchRooms]);
 
   const handleOpen = async (globalId: string) => {
     try {
