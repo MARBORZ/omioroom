@@ -160,6 +160,7 @@ export const en: Translations = {
     modeOwner: "Owner only",
     save: "Save",
     saveFailed: "Could not save (the limit cannot be lower than the number of people inside)",
+    waitingFor: "Waiting for",
     viewOnly: "The owner controls playback",
     createLimit: "Participants in the room (2–32)",
   },

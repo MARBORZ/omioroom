@@ -159,6 +159,7 @@ export interface Translations {
     modeOwner: string;
     save: string;
     saveFailed: string;
+    waitingFor: string;
     viewOnly: string;
     createLimit: string;
   };

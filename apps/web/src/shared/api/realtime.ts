@@ -35,6 +35,7 @@ interface PlaybackRow {
   playback_rate: number;
   revision: number;
   updated_by: string | null;
+  buffering?: Record<string, number> | null;
 }
 
 export function mapPlaybackRow(row: PlaybackRow): RoomPlaybackStateDto {
@@ -47,6 +48,7 @@ export function mapPlaybackRow(row: PlaybackRow): RoomPlaybackStateDto {
     playbackRate: row.playback_rate,
     revision: row.revision,
     updatedByUserId: row.updated_by,
+    bufferingBy: Object.keys(row.buffering ?? {}),
   };
 }
 

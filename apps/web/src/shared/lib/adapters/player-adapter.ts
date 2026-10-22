@@ -18,6 +18,8 @@ export interface PlayerAdapter {
   getCurrentTime(): number;
   getDuration(): number;
   isBuffering(): boolean;
+  /** Seconds of media already loaded ahead of the playhead, when the source can tell. */
+  bufferedAhead?(): number;
   destroy(): void;
   onStateChange(callback: (event: PlayerAdapterEvent) => void): () => void;
 }

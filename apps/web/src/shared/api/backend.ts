@@ -79,6 +79,14 @@ export const backend = {
       p_expected_revision: cmd.expectedRevision ?? null,
     }),
 
+  reportBuffering: (roomId: string, isBuffering: boolean, position?: number) =>
+    rpc<RoomPlaybackStateDto>("report_buffering", {
+      p_room_id: roomId,
+      p_is_buffering: isBuffering,
+      p_position: position ?? null,
+    }),
+  resolveBuffering: (roomId: string) => rpc<RoomPlaybackStateDto | null>("resolve_buffering", { p_room_id: roomId }),
+
   sendChat: (msg: SendChatMessagePayload) =>
     rpc<ChatMessageDto>("send_chat", {
       p_room_id: msg.roomId,

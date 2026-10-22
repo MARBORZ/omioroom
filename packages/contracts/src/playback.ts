@@ -2,6 +2,12 @@ import { z } from "zod";
 
 export const SYNC_THRESHOLD_IGNORE_MS = 250;
 export const SYNC_THRESHOLD_DRIFT_RATE_MS = 750;
+/** A stall must last this long before the room is held (ignores micro-stutters). */
+export const BUFFER_STALL_DEBOUNCE_MS = 700;
+/** The server stops waiting for a stalled client after this long. */
+export const BUFFER_WAIT_TIMEOUT_MS = 5000;
+/** Enough data buffered ahead to report "ready". */
+export const BUFFER_READY_AHEAD_SECONDS = 1.5;
 
 export const MediaType = {
   YOUTUBE: "youtube",
@@ -48,6 +54,8 @@ export const roomPlaybackStateDtoSchema = z.object({
   playbackRate: z.number().positive(),
   revision: z.number().int().nonnegative(),
   updatedByUserId: z.string().uuid().nullable(),
+  /** Participants whose player is stalled; the room waits for them (up to 5 s). */
+  bufferingBy: z.array(z.string().uuid()).default([]),
 });
 
 export type RoomPlaybackStateDto = z.infer<typeof roomPlaybackStateDtoSchema>;

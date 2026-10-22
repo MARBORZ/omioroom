@@ -288,6 +288,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
   const canControl = snapshot.canControl;
+  const waitingNames = (playback?.bufferingBy ?? []).map(
+    (id) => participants.find((p) => p.userId === id)?.displayName ?? "…"
+  );
   const connectionStatus =
     sessionStatus !== "connected" ? sessionStatus : channelStatus === "connected" ? "connected" : channelStatus;
 
@@ -311,6 +314,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             playbackState={playback}
             getEstimatedServerNow={() => timeSync.getEstimatedServerNow()}
             canControl={canControl}
+            onStallChange={(stalled, position) =>
+              void backend
+                .reportBuffering(snapshot.room.id, stalled, position)
+                .then(applyPlayback)
+                .catch(() => {})
+            }
+            onWaitTimeout={() =>
+              void backend
+                .resolveBuffering(snapshot.room.id)
+                .then((state) => state && applyPlayback(state))
+                .catch(() => {})
+            }
             onUserAction={(action) =>
               sendPlayerCommand({ type: action.type, position: action.position })
             }
@@ -340,7 +355,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
           {/* Real-time sync status bar */}
           <div className={styles.syncStatusBar}>
-            <span>● {isBuffering ? t.status.buffering : lastSyncText}</span>
+            <span>
+              ●{" "}
+              {waitingNames.length > 0
+                ? `${t.group.waitingFor}: ${waitingNames.join(", ")}`
+                : isBuffering
+                ? t.status.buffering
+                : lastSyncText}
+            </span>
             <span>{t.room.offset}: {Math.round(timeSync.getClockOffset())}ms</span>
             <Button variant="ghost" size="sm" onClick={handleLeave} icon={<LogOut size={14} />}>
               {t.room.leaveRoom}

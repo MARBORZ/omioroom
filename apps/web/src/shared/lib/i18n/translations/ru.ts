@@ -160,6 +160,7 @@ export const ru: Translations = {
     modeOwner: "Только владелец",
     save: "Сохранить",
     saveFailed: "Не удалось сохранить (лимит не ниже числа людей в комнате)",
+    waitingFor: "Ждём",
     viewOnly: "Управление видео у владельца",
     createLimit: "Участников в комнате (2–32)",
   },

@@ -161,6 +161,17 @@ export class HlsPlayerAdapter implements PlayerAdapter {
     return this.videoElement?.duration || 0;
   }
 
+  bufferedAhead(): number {
+    const v = this.videoElement;
+    if (!v) return 0;
+    for (let i = 0; i < v.buffered.length; i++) {
+      if (v.currentTime >= v.buffered.start(i) && v.currentTime <= v.buffered.end(i)) {
+        return v.buffered.end(i) - v.currentTime;
+      }
+    }
+    return 0;
+  }
+
   isBuffering(): boolean {
     return this.bufferingState;
   }

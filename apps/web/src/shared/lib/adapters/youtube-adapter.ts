@@ -265,6 +265,16 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
     return 0;
   }
 
+  bufferedAhead(): number {
+    if (!this.isReady || !this.player || typeof this.player.getVideoLoadedFraction !== "function") return 0;
+    try {
+      const loaded = (this.player.getVideoLoadedFraction() || 0) * this.getDuration();
+      return Math.max(0, loaded - this.getCurrentTime());
+    } catch {
+      return 0;
+    }
+  }
+
   isBuffering(): boolean {
     return this.isBufferingState;
   }

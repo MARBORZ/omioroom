@@ -379,6 +379,87 @@ describe("playback control modes", () => {
   });
 });
 
+describe("buffering barrier", () => {
+  async function playingRoom() {
+    const owner = await t.newUser();
+    const guest = await t.newUser();
+    const third = await t.newUser();
+    const r = await room(owner, "public", { p_max_participants: 4 });
+    await t.as(guest).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(third).rpc("join_room", { p_global_id: r.globalId });
+    await play(owner, r.id, { p_position: 10 });
+    return { owner, guest, third, r };
+  }
+  const report = (u: string, roomId: string, on: boolean) =>
+    t.as(u).rpc("report_buffering", { p_room_id: roomId, p_is_buffering: on });
+
+  it("holds the room while someone buffers and resumes everyone together", async () => {
+    const { owner, guest, r } = await playingRoom();
+    const held = await report(guest, r.id, true);
+    expect(held.status).toBe("buffering");
+    expect(held.bufferingBy).toEqual([guest]);
+
+    // Another stall joins the wait; resuming needs both
+    const second = await report(owner, r.id, true);
+    expect(second.bufferingBy.sort()).toEqual([guest, owner].sort());
+    const afterOne = await report(guest, r.id, false);
+    expect(afterOne.status).toBe("buffering");
+    expect(afterOne.bufferingBy).toEqual([owner]);
+
+    const resumed = await report(owner, r.id, false);
+    expect(resumed.status).toBe("playing");
+    expect(resumed.bufferingBy).toEqual([]);
+    // Resume instant is slightly in the future so clients can start together
+    expect(Number(resumed.anchorServerTime)).toBeGreaterThan(Date.now());
+    expect(resumed.anchorPosition).toBeGreaterThan(10);
+  });
+
+  it("stops waiting for a client that stays stalled for more than 5 seconds", async () => {
+    const { guest, third, r } = await playingRoom();
+    await report(guest, r.id, true);
+    // Simulate: the stall started 10 s ago
+    await t.db.query(
+      "update public.playback_state set buffering = jsonb_build_object($2::text, ((extract(epoch from clock_timestamp())*1000)::bigint - 10000)) where room_id = $1",
+      [r.id, guest]
+    );
+    // A different member's timer fires
+    const resolved = await t.as(third).rpc("resolve_buffering", { p_room_id: r.id });
+    expect(resolved.status).toBe("playing");
+    expect(resolved.bufferingBy).toEqual([]);
+  });
+
+  it("does not resume early while a fresh stall exists", async () => {
+    const { guest, third, r } = await playingRoom();
+    await report(guest, r.id, true);
+    const early = await t.as(third).rpc("resolve_buffering", { p_room_id: r.id });
+    expect(early.status).toBe("buffering");
+  });
+
+  it("explicit pause or play clears the wait; paused rooms ignore stalls; outsiders are rejected", async () => {
+    const { owner, guest, r } = await playingRoom();
+    await report(guest, r.id, true);
+    const paused = await t.as(owner).rpc("player_command", {
+      p_room_id: r.id, p_command_id: randomUUID(), p_type: "pause", p_position: 12,
+    });
+    expect(paused).toMatchObject({ status: "paused", bufferingBy: [] });
+
+    const ignored = await report(guest, r.id, true);
+    expect(ignored.status).toBe("paused");
+
+    const stranger = await t.newUser();
+    expect(await code(report(stranger, r.id, true))).toBe("FORBIDDEN");
+  });
+
+  it("viewers without playback control can still report stalls", async () => {
+    const owner = await t.newUser();
+    const viewer = await t.newUser();
+    const r = await room(owner, "public", { p_control_mode: "owner" });
+    await t.as(viewer).rpc("join_room", { p_global_id: r.globalId });
+    await play(owner, r.id, { p_position: 1 });
+    expect((await report(viewer, r.id, true)).status).toBe("buffering");
+  });
+});
+
 describe("chat", () => {
   it("members chat; outsiders cannot; urls are validated; history capped at 100", async () => {
     const owner = await t.newUser();

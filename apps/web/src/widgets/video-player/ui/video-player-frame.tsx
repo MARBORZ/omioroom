@@ -6,6 +6,9 @@ import {
   calculateExpectedPosition,
   SYNC_THRESHOLD_IGNORE_MS,
   SYNC_THRESHOLD_DRIFT_RATE_MS,
+  BUFFER_STALL_DEBOUNCE_MS,
+  BUFFER_WAIT_TIMEOUT_MS,
+  BUFFER_READY_AHEAD_SECONDS,
   type RoomPlaybackStateDto,
   type MediaSourceInfo,
 } from "@omioroom/contracts";
@@ -44,6 +47,10 @@ export interface VideoPlayerFrameProps {
   onUserAction?: (action: UserPlayerAction) => void;
   /** Without control permission, local actions in the player are undone instead of reported. */
   canControl?: boolean;
+  /** This player stalled (true) or recovered (false); the room holds playback meanwhile. */
+  onStallChange?: (stalled: boolean, position: number) => void;
+  /** The room has waited long enough for stalled clients; ask the server to resume. */
+  onWaitTimeout?: () => void;
   onPositionUpdate: (currentTime: number, duration: number) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
@@ -58,6 +65,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       getEstimatedServerNow,
       onUserAction,
       canControl = true,
+      onStallChange,
+      onWaitTimeout,
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
@@ -74,6 +83,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const latest = useRef({
       playbackState,
       canControl,
+      onStallChange,
+      onWaitTimeout,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -83,6 +94,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     latest.current = {
       playbackState,
       canControl,
+      onStallChange,
+      onWaitTimeout,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -106,6 +119,40 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       }
     };
     const revertRef = useRef<() => void>(() => {});
+
+    // Stall tracking: a stall must last a moment before it holds the room
+    const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const stalledRef = useRef(false);
+    const readyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const clearReadyPoll = () => {
+      if (readyPollRef.current) {
+        clearInterval(readyPollRef.current);
+        readyPollRef.current = null;
+      }
+    };
+
+    const reportRecovered = () => {
+      clearReadyPoll();
+      if (!stalledRef.current) return;
+      stalledRef.current = false;
+      latest.current.onStallChange?.(false, adapterRef.current?.getCurrentTime() ?? 0);
+    };
+
+    // While the room waits, report "ready" as soon as enough is buffered (or after a short fallback)
+    const startReadyPoll = () => {
+      clearReadyPoll();
+      const startedAt = Date.now();
+      readyPollRef.current = setInterval(() => {
+        const adapter = adapterRef.current;
+        const ahead = adapter?.bufferedAhead?.();
+        const hasProbe = typeof ahead === "number";
+        const ready = hasProbe
+          ? ahead >= BUFFER_READY_AHEAD_SECONDS
+          : Date.now() - startedAt > 2500;
+        if (ready || Date.now() - startedAt > BUFFER_WAIT_TIMEOUT_MS - 500) reportRecovered();
+      }, 300);
+    };
 
     const armGuard = () => {
       guardUntilRef.current = Date.now() + REMOTE_APPLY_GUARD_MS;
@@ -204,6 +251,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         } else if (event.type === "play") {
           adapterPlayingRef.current = true;
           cur.onBufferingChange?.(false);
+          if (stallTimerRef.current) {
+            clearTimeout(stallTimerRef.current);
+            stallTimerRef.current = null;
+          }
+          reportRecovered();
           cur.onPlayStateChange?.(true);
           if (!isGuarded() && server?.media && server.status !== PlaybackStatus.PLAYING) {
             handleLocalAction({ type: "play", position: event.currentTime });
@@ -219,6 +271,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           cur.onPlayStateChange?.(false);
         } else if (event.type === "buffering") {
           cur.onBufferingChange?.(true);
+          if (!stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
+            stallTimerRef.current = setTimeout(() => {
+              stallTimerRef.current = null;
+              if (adapterRef.current?.isBuffering() && !stalledRef.current) {
+                stalledRef.current = true;
+                latest.current.onStallChange?.(true, adapterRef.current.getCurrentTime());
+                startReadyPoll();
+              }
+            }, BUFFER_STALL_DEBOUNCE_MS);
+          }
         } else if (event.type === "error") {
           setOverlayStatus(event.error || "Playback error");
         }
@@ -244,23 +306,49 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
   // Apply authoritative server state. Runs only when the server state changes,
   // never on local position ticks, and only touches the player when it differs.
+  const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const applyServerState = useCallback(() => {
     const adapter = adapterRef.current;
     const state = latest.current.playbackState;
     if (!adapter || !state || !state.media) return;
 
     armGuard();
-    const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
-
-    if (state.status === PlaybackStatus.PLAYING) {
-      if (!adapterPlayingRef.current) adapter.play().catch(() => {});
-    } else if (adapterPlayingRef.current) {
-      adapter.pause().catch(() => {});
+    if (startTimerRef.current) {
+      clearTimeout(startTimerRef.current);
+      startTimerRef.current = null;
     }
+
+    const serverNow = latest.current.getEstimatedServerNow();
+    const expected = calculateExpectedPosition(state, serverNow);
 
     if (appliedRateRef.current !== state.playbackRate) {
       appliedRateRef.current = state.playbackRate;
       adapter.setPlaybackRate(state.playbackRate).catch(() => {});
+    }
+
+    // Playback that starts at a future instant (group resume): line up now, start together
+    const startsIn = state.anchorServerTime - serverNow;
+    if (state.status === PlaybackStatus.PLAYING && startsIn > 30) {
+      if (adapterPlayingRef.current) adapter.pause().catch(() => {});
+      if (Math.abs(adapter.getCurrentTime() - state.anchorPosition) > 0.3) {
+        adapter.seek(state.anchorPosition).catch(() => {});
+      }
+      const revision = state.revision;
+      startTimerRef.current = setTimeout(() => {
+        startTimerRef.current = null;
+        if (latest.current.playbackState?.revision !== revision) return;
+        armGuard();
+        adapter.play().catch(() => {});
+      }, startsIn);
+      return;
+    }
+
+    if (state.status === PlaybackStatus.PLAYING) {
+      if (!adapterPlayingRef.current) adapter.play().catch(() => {});
+    } else if (adapterPlayingRef.current) {
+      // Paused, ended, or the room is holding for a stalled participant
+      adapter.pause().catch(() => {});
     }
 
     const target = state.status === PlaybackStatus.PLAYING ? expected : state.anchorPosition;
@@ -273,6 +361,18 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   useEffect(() => {
     applyServerState();
   }, [playbackState, applyServerState]);
+
+  // The room is holding for stalled clients: after the wait, ask the server to let go of the laggards.
+  // Every client does this (with jitter); the server call is idempotent.
+  const holdingRevision = playbackState?.status === PlaybackStatus.BUFFERING ? playbackState.revision : null;
+  useEffect(() => {
+    if (holdingRevision === null) return;
+    const timer = setTimeout(
+      () => latest.current.onWaitTimeout?.(),
+      BUFFER_WAIT_TIMEOUT_MS + 300 + Math.random() * 400
+    );
+    return () => clearTimeout(timer);
+  }, [holdingRevision]);
 
   // Periodic drift correction while playing
   useEffect(() => {
@@ -315,6 +415,9 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      if (startTimerRef.current) clearTimeout(startTimerRef.current);
+      clearReadyPoll();
       adapterRef.current?.destroy();
       adapterRef.current = null;
     };
