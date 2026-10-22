@@ -510,23 +510,90 @@
   color: var(--color-text-muted);
 }
 
-/* Telegram Unified Pill Container */
+/* Telegram Unified Pill Container with Auto-Expanding Input */
 .inputContainer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border);
-  border-radius: 24px; /* Telegram-style pill */
+  border-radius: 20px;
   padding: 4px 6px 4px 10px;
   box-sizing: border-box;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+  transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out), border-radius var(--motion-fast);
 
   &:focus-within {
     border-color: var(--color-border-focus);
     background-color: var(--color-surface);
     box-shadow: none !important;
     outline: none !important;
+  }
+
+  &.inputExpanded {
+    border-radius: 16px;
+  }
+}
+
+.textareaWrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.input {
+  flex: 1;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 7px 24px 7px 4px;
+  min-width: 0;
+  resize: none;
+  overflow-y: auto;
+  max-height: 130px;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.65;
+  }
+}
+
+.expandBtn {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.65;
+  transition: opacity var(--motion-fast), color var(--motion-fast);
+
+  &:hover {
+    opacity: 1;
+    color: var(--color-text);
+    background: var(--color-surface-hover);
   }
 }
 
@@ -537,6 +604,8 @@
   width: 32px;
   height: 32px;
   min-width: 32px;
+  margin-bottom: 2px;
+  align-self: flex-end;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
@@ -555,32 +624,6 @@
   }
 }
 
-.input {
-  flex: 1;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.4;
-  padding: 8px 4px;
-  min-width: 0;
-
-  &:focus,
-  &:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  &::placeholder {
-    color: var(--color-text-muted);
-    opacity: 0.65;
-  }
-}
-
 .sendBtn {
   display: inline-flex;
   align-items: center;
@@ -588,6 +631,8 @@
   width: 34px;
   height: 34px;
   min-width: 34px;
+  margin-bottom: 2px;
+  align-self: flex-end;
   border: none;
   border-radius: 50%;
   background-color: transparent;
@@ -654,20 +699,36 @@
 }
 
 .withImageBubble {
+  padding: 0 0 6px 0 !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+
   .imageButton {
     border: none !important;
-    margin: -8px -12px 6px -12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
     border-radius: 16px 16px 0 0 !important;
-    display: block;
-    overflow: hidden;
+    display: block !important;
+    overflow: hidden !important;
+    background: transparent !important;
   }
 
   .image {
-    display: block;
+    display: block !important;
     border-radius: 16px 16px 0 0 !important;
-    max-height: 240px;
-    width: 100%;
-    object-fit: cover;
+    max-height: 280px;
+    width: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .text {
+    padding: 8px 12px 2px 12px;
+  }
+
+  .metaRow {
+    margin-right: 10px;
+    margin-bottom: 2px;
   }
 }
 

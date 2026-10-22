@@ -85,8 +85,9 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const lastMarkedIdRef = useRef<string | null>(null);
   const markSeenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -214,7 +215,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       }
       setError(null);
       setImage(file);
-      inputRef.current?.focus();
+      textareaRef.current?.focus();
     },
     [t.chat.imageType]
   );
@@ -271,7 +272,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       text: parsed.body,
       attachmentPath: m.attachmentPath,
     });
-    inputRef.current?.focus();
+    textareaRef.current?.focus();
   };
 
   const handleQuoteClick = (targetId: string) => {
@@ -280,6 +281,31 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
       setHighlightedId(targetId);
       setTimeout(() => setHighlightedId(null), 1800);
+    }
+  };
+
+  // Auto-resize textarea height as text lines expand or wrap
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxHeight = isExpanded ? 240 : 130;
+    const nextHeight = Math.min(maxHeight, Math.max(34, el.scrollHeight));
+    el.style.height = `${nextHeight}px`;
+    if (isNearBottomRef.current) {
+      scrollToBottom(false);
+    }
+  }, [text, isExpanded, scrollToBottom]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (text.trim() || image) {
+        const form = e.currentTarget.form;
+        if (form) {
+          form.requestSubmit();
+        }
+      }
     }
   };
 
@@ -299,6 +325,10 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       setText("");
       setImage(null);
       setReplyTo(null);
+      setIsExpanded(false);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
       isNearBottomRef.current = true;
       scrollToBottom(true);
     } catch (err: any) {
@@ -558,8 +588,8 @@ export const RoomChat: React.FC<RoomChatProps> = ({
           </div>
         )}
 
-        {/* Telegram-style single-row pill input container */}
-        <div className={styles.inputContainer}>
+        {/* Telegram-style expanding pill input container */}
+        <div className={`${styles.inputContainer} ${isExpanded ? styles.inputExpanded : ""}`}>
           <button
             type="button"
             className={styles.attachBtn}
@@ -578,15 +608,44 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             hidden
           />
 
-          <input
-            ref={inputRef}
-            className={styles.input}
-            value={text}
-            maxLength={CHAT_MAX_TEXT_LENGTH}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={t.chat.placeholder}
-            aria-label={t.chat.placeholder}
-          />
+          <div className={styles.textareaWrapper}>
+            <textarea
+              ref={textareaRef}
+              className={styles.input}
+              rows={1}
+              value={text}
+              maxLength={CHAT_MAX_TEXT_LENGTH}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t.chat.placeholder}
+              aria-label={t.chat.placeholder}
+            />
+
+            {/* Corner Expand/Collapse Icon matching Telegram */}
+            <button
+              type="button"
+              className={styles.expandBtn}
+              onClick={() => setIsExpanded((exp) => !exp)}
+              title={isExpanded ? "Свернуть" : "Развернуть"}
+              aria-label={isExpanded ? "Свернуть" : "Развернуть"}
+            >
+              {isExpanded ? (
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M 6 3 V 6 H 3" />
+                  <path d="M 10 3 V 6 H 13" />
+                  <path d="M 6 13 V 10 H 3" />
+                  <path d="M 10 13 V 10 H 13" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M 3 6 V 3 H 6" />
+                  <path d="M 10 3 H 13 V 6" />
+                  <path d="M 3 10 V 13 H 6" />
+                  <path d="M 13 10 V 13 H 10" />
+                </svg>
+              )}
+            </button>
+          </div>
 
           <button
             type="submit"
