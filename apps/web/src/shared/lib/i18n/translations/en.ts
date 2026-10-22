@@ -58,6 +58,8 @@ export const en: Translations = {
     hintRutube: "A regular link works. For private videos include the key (?p=…) in the link.",
     hintFile: "A direct link to a file (.mp4, .webm) or an .m3u8 stream. Long videos (hours) work too: they load as you watch.",
     tapToJoin: "Tap to watch together",
+    standbyViewer: "No video yet",
+    standbyViewerDesc: "Whoever controls the room will add it.",
     standbyDesc:
       "Pick a source and paste a link. It starts for everyone at once.",
     videoSource: "Video source",

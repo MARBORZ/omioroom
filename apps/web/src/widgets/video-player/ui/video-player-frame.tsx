@@ -562,9 +562,9 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
       {!playbackState?.media && (
         <div className={styles.placeholder}>
-          <h3 className={styles.placeholderTitle}>{t.room.standby}</h3>
+          <h3 className={styles.placeholderTitle}>{canControl ? t.room.standby : t.room.standbyViewer}</h3>
           <p className={styles.placeholderText}>
-            {t.room.standbyDesc}
+            {canControl ? t.room.standbyDesc : t.room.standbyViewerDesc}
           </p>
         </div>
       )}

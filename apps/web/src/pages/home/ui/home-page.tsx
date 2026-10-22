@@ -6,7 +6,6 @@ import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { ControlModeSelect } from "../../../shared/ui/control-mode-select/control-mode-select.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
-import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
 import {

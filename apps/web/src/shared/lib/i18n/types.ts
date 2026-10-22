@@ -58,6 +58,8 @@ export interface Translations {
     hintRutube: string;
     hintFile: string;
     tapToJoin: string;
+    standbyViewer: string;
+    standbyViewerDesc: string;
     standbyDesc: string;
     videoSource: string;
     videoSourcePlaceholder: string;

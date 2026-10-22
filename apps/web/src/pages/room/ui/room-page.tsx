@@ -317,6 +317,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
   const canControl = snapshot.canControl;
+  useEffect(() => {
+    if (!canControl && mobileTab === "media") setMobileTab("chat");
+  }, [canControl, mobileTab]);
 
   // The room follows its leader: whoever acted last (the owner at first). Only the leader's stalls matter
   // to the server, so followers do not even send them. If the leader is gone, the owner leads.
@@ -437,16 +440,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               <Share2 size={15} />
               <span>{t.room.inviteTitle}</span>
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === "media"}
-              className={`${styles.mobileTabBtn} ${mobileTab === "media" ? styles.activeTab : ""}`}
-              onClick={() => setMobileTab("media")}
-            >
-              <Film size={15} />
-              <span>{t.room.videoSource}</span>
-            </button>
+            {canControl && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === "media"}
+                className={`${styles.mobileTabBtn} ${mobileTab === "media" ? styles.activeTab : ""}`}
+                onClick={() => setMobileTab("media")}
+              >
+                <Film size={15} />
+                <span>{t.room.videoSource}</span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -456,10 +461,12 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           data-layout="room-sidebar"
           data-active-tab={mobileTab}
         >
-          <div data-panel="media" className={styles.panelWrapper}>
-            <ChangeMediaInput onMediaSelect={handleMediaSelect} disabled={!canControl} />
-            {!canControl && <div className={styles.viewOnly}>{t.group.viewOnly}</div>}
-          </div>
+          {/* Choosing the video is a playback control: without the right to control, the block is not offered at all */}
+          {canControl && (
+            <div data-panel="media" className={styles.panelWrapper}>
+              <ChangeMediaInput onMediaSelect={handleMediaSelect} />
+            </div>
+          )}
 
           <div data-panel="voice" className={styles.panelWrapper}>
             <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />

@@ -369,6 +369,13 @@ describe("playback control modes", () => {
 
     await setMode("owner");
     expect(await code(play(a, r.id))).toBe("FORBIDDEN");
+    // Choosing a video is a playback control too
+    expect(
+      await code(t.as(a).rpc("player_command", {
+        p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media",
+        p_media: { type: "html5", sourceId: "x", canonicalUrl: "https://a.com/v.mp4" },
+      }))
+    ).toBe("FORBIDDEN");
     expect((await play(owner, r.id)).revision).toBeGreaterThan(0);
 
     await setMode("selected");
