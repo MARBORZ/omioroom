@@ -65,7 +65,7 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
     registerSessionHandlers(io, socket, userService, sessionService);
     registerTimeHandlers(socket, clock);
     registerAccessHandlers(io, socket, roomService);
-    registerPlayerHandlers(io, socket, playbackService);
+    registerPlayerHandlers(io, socket, playbackService, roomService);
     registerRoomHandlers(io, socket, roomService);
   });
 

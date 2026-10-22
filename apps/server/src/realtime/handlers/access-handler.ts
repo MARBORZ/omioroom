@@ -4,6 +4,7 @@ import {
   ServerEvent,
   setVisibilityPayloadSchema,
   rotatePrivateCodePayloadSchema,
+  revokePrivateCodePayloadSchema,
   commandResultSuccess,
   commandResultError,
   createProtocolError,
@@ -15,6 +16,7 @@ import {
 } from "@omioroom/contracts";
 import type { AuthenticatedSocketData } from "../middleware/auth-middleware.js";
 import type { RoomService } from "../../application/room-service.js";
+import { toProtocolError } from "../errors.js";
 
 export function registerAccessHandlers(
   io: Server,
@@ -64,12 +66,7 @@ export function registerAccessHandlers(
 
         ack?.(commandResultSuccess(requestId, { room, ownerAccess }));
       } catch (err: any) {
-        let code: ErrorCode = ErrorCode.INTERNAL_ERROR;
-        if (err.message === "FORBIDDEN") code = ErrorCode.FORBIDDEN;
-        else if (err.message === "ROOM_NOT_FOUND") code = ErrorCode.ROOM_NOT_FOUND;
-        else if (err.message === "REVISION_CONFLICT") code = ErrorCode.REVISION_CONFLICT;
-
-        ack?.(commandResultError(requestId, createProtocolError(code, err.message)));
+        ack?.(commandResultError(requestId, toProtocolError(err, "access")));
       }
     }
   );
@@ -112,11 +109,44 @@ export function registerAccessHandlers(
 
         ack?.(commandResultSuccess(requestId, ownerResult));
       } catch (err: any) {
-        let code: ErrorCode = ErrorCode.INTERNAL_ERROR;
-        if (err.message === "FORBIDDEN") code = ErrorCode.FORBIDDEN;
-        else if (err.message === "ROOM_NOT_FOUND") code = ErrorCode.ROOM_NOT_FOUND;
+        ack?.(commandResultError(requestId, toProtocolError(err, "access")));
+      }
+    }
+  );
 
-        ack?.(commandResultError(requestId, createProtocolError(code, err.message)));
+  // room:revoke-private-code
+  socket.on(
+    ClientCommand.ROOM_REVOKE_PRIVATE_CODE,
+    async (
+      envelope: CommandEnvelope<unknown>,
+      ack?: (res: any) => void
+    ) => {
+      const requestId = envelope?.requestId || "revoke-code";
+      try {
+        const parsed = revokePrivateCodePayloadSchema.safeParse(envelope?.payload);
+        if (!parsed.success) {
+          return ack?.(
+            commandResultError(
+              requestId,
+              createProtocolError(ErrorCode.INVALID_PAYLOAD, "Invalid payload")
+            )
+          );
+        }
+
+        const room = await roomService.revokePrivateCode(
+          socket.data.user.id,
+          parsed.data.roomId
+        );
+
+        io.to(`room:${room.id}`).emit(ServerEvent.ROOM_ACCESS_UPDATED, {
+          roomId: room.id,
+          visibility: room.visibility,
+          revision: room.revision,
+        });
+
+        ack?.(commandResultSuccess(requestId, { revoked: true }));
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room:revoke-private-code")));
       }
     }
   );

@@ -60,6 +60,10 @@ export interface Translations {
     copyInviteBtn: string;
     inviteCopied: string;
     privateKeyNotice: string;
+    revokeKey: string;
+    revokeConfirm: string;
+    keyHiddenNotice: string;
+    keyRevokedNotice: string;
     rotateKey: string;
     rotateConfirm: string;
     switchToPublic: string;

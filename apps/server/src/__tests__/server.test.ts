@@ -213,4 +213,44 @@ describe("Backend Domain Services", () => {
     }
     expect(rateLimited).toBe(true);
   });
+
+  it("rejects playback authorization for non-members and offline members", async () => {
+    const owner = await userService.createAnonymousUser();
+    const { room } = await roomService.createRoom(owner.id, "Authz", "public");
+    const stranger = await userService.createAnonymousUser();
+
+    await expect(roomService.assertActiveMember(owner.id, room.id)).resolves.toBeUndefined();
+    await expect(roomService.assertActiveMember(stranger.id, room.id)).rejects.toThrow("FORBIDDEN");
+
+    await roomService.leaveRoom(owner.id, room.id);
+    await expect(roomService.assertActiveMember(owner.id, room.id)).rejects.toThrow("FORBIDDEN");
+  });
+
+  it("does not let an offline member bypass the 2-seat limit on return", async () => {
+    const owner = await userService.createAnonymousUser();
+    const { room } = await roomService.createRoom(owner.id, "Seats", "public");
+    const a = await userService.createAnonymousUser();
+    const b = await userService.createAnonymousUser();
+
+    await roomService.joinRoom(a.id, room.globalId);
+    await roomService.leaveRoom(a.id, room.id);
+    await roomService.joinRoom(b.id, room.globalId); // takes a's seat
+    await expect(roomService.joinRoom(a.id, room.globalId)).rejects.toThrow("ROOM_FULL");
+  });
+
+  it("revokes private code and blocks closed-room operations", async () => {
+    const owner = await userService.createAnonymousUser();
+    const { room, privateCode } = await roomService.createRoom(owner.id, "Revoke", "private");
+    const guest = await userService.createAnonymousUser();
+
+    await roomService.revokePrivateCode(owner.id, room.id);
+    await expect(roomService.joinRoom(guest.id, room.globalId, privateCode!)).rejects.toThrow(
+      "INVALID_PRIVATE_CODE"
+    );
+    await expect(roomService.revokePrivateCode(guest.id, room.id)).rejects.toThrow("FORBIDDEN");
+
+    await roomService.closeRoom(owner.id, room.id);
+    await expect(roomService.assertActiveMember(owner.id, room.id)).rejects.toThrow("ROOM_CLOSED");
+    await expect(roomService.rotatePrivateCode(owner.id, room.id)).rejects.toThrow("ROOM_CLOSED");
+  });
 });

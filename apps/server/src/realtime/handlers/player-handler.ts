@@ -14,11 +14,14 @@ import {
 } from "@omioroom/contracts";
 import type { AuthenticatedSocketData } from "../middleware/auth-middleware.js";
 import type { PlaybackService } from "../../application/playback-service.js";
+import type { RoomService } from "../../application/room-service.js";
+import { toProtocolError } from "../errors.js";
 
 export function registerPlayerHandlers(
   io: Server,
   socket: Socket<any, any, any, AuthenticatedSocketData>,
-  playbackService: PlaybackService
+  playbackService: PlaybackService,
+  roomService: RoomService
 ) {
   // player:command
   socket.on(
@@ -38,6 +41,8 @@ export function registerPlayerHandlers(
           return ack?.(commandResultError(requestId, err));
         }
 
+        await roomService.assertActiveMember(socket.data.user.id, parsed.data.roomId);
+
         const state = await playbackService.handlePlayerCommand(
           socket.data.user.id,
           parsed.data
@@ -48,12 +53,7 @@ export function registerPlayerHandlers(
 
         ack?.(commandResultSuccess(requestId, state));
       } catch (err: any) {
-        ack?.(
-          commandResultError(
-            requestId,
-            createProtocolError(ErrorCode.INTERNAL_ERROR, err?.message || "Playback error")
-          )
-        );
+        ack?.(commandResultError(requestId, toProtocolError(err, "player:command")));
       }
     }
   );
@@ -77,6 +77,8 @@ export function registerPlayerHandlers(
           );
         }
 
+        await roomService.assertActiveMember(socket.data.user.id, parsed.data.roomId);
+
         const state = await playbackService.getPlaybackState(parsed.data.roomId);
         if (!state) {
           return ack?.(
@@ -89,12 +91,7 @@ export function registerPlayerHandlers(
 
         ack?.(commandResultSuccess(requestId, state));
       } catch (err: any) {
-        ack?.(
-          commandResultError(
-            requestId,
-            createProtocolError(ErrorCode.INTERNAL_ERROR, err?.message || "Sync error")
-          )
-        );
+        ack?.(commandResultError(requestId, toProtocolError(err, "player:sync-request")));
       }
     }
   );

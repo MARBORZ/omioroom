@@ -120,7 +120,7 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
         enablejsapi: 1,
         origin: origin,
         autoplay: 0,
-        controls: 0,
+        controls: 1,
         disablekb: 1,
         fs: 0,
         modestbranding: 1,

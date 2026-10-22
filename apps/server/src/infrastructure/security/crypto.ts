@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 
 export function generateId(): string {
   return randomUUID();
@@ -22,7 +22,7 @@ export function generatePrivateCode(length = 8): string {
 
 export function generateGlobalRoomId(): string {
   // 6-digit numeric string: 100000 - 999999
-  const num = Math.floor(100000 + Math.random() * 900000);
+  const num = randomInt(100000, 1000000);
   return num.toString();
 }
 

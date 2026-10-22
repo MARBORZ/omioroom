@@ -4,6 +4,8 @@ import {
   MediaType,
   PlaybackStatus,
   calculateExpectedPosition,
+  SYNC_THRESHOLD_IGNORE_MS,
+  SYNC_THRESHOLD_DRIFT_RATE_MS,
   type RoomPlaybackStateDto,
   type MediaSourceInfo,
 } from "@omioroom/contracts";
@@ -26,9 +28,20 @@ export interface VideoPlayerHandle {
   getDuration: () => number;
 }
 
+export interface UserPlayerAction {
+  type: "play" | "pause" | "seek";
+  position: number;
+}
+
+/** Local actions made inside the embedded player's own UI are reported to the room. */
+const REMOTE_APPLY_GUARD_MS = 800;
+const USER_SEEK_JUMP_SECONDS = 1.5;
+const DRIFT_CHECK_INTERVAL_MS = 1000;
+
 export interface VideoPlayerFrameProps {
   playbackState: RoomPlaybackStateDto | null;
-  estimatedServerNow: number;
+  getEstimatedServerNow: () => number;
+  onUserAction?: (action: UserPlayerAction) => void;
   onPositionUpdate: (currentTime: number, duration: number) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
@@ -40,7 +53,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   (
     {
       playbackState,
-      estimatedServerNow,
+      getEstimatedServerNow,
+      onUserAction,
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
@@ -53,18 +67,49 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const containerRef = useRef<HTMLDivElement>(null);
     const adapterRef = useRef<PlayerAdapter | null>(null);
     const currentMediaTypeRef = useRef<MediaType | null>(null);
-    const isSyncingRef = useRef(false);
+    // Latest props/state for handlers bound once at adapter creation
+    const latest = useRef({
+      playbackState,
+      getEstimatedServerNow,
+      onUserAction,
+      onPositionUpdate,
+      onPlayStateChange,
+      onBufferingChange,
+    });
+    latest.current = {
+      playbackState,
+      getEstimatedServerNow,
+      onUserAction,
+      onPositionUpdate,
+      onPlayStateChange,
+      onBufferingChange,
+    };
+
+    // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
+    const guardUntilRef = useRef(0);
+    const adapterPlayingRef = useRef(false);
+    const appliedRateRef = useRef(1);
+    const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
+
+    const armGuard = () => {
+      guardUntilRef.current = Date.now() + REMOTE_APPLY_GUARD_MS;
+      lastSampleRef.current = null;
+    };
+    const isGuarded = () => Date.now() < guardUntilRef.current;
 
     const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
 
     useImperativeHandle(ref, () => ({
       play: async () => {
+        armGuard();
         await adapterRef.current?.play();
       },
       pause: async () => {
+        armGuard();
         await adapterRef.current?.pause();
       },
       seek: async (sec: number) => {
+        armGuard();
         await adapterRef.current?.seek(sec);
       },
       getCurrentTime: () => adapterRef.current?.getCurrentTime() || 0,
@@ -117,17 +162,47 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
       await adapter.attach(containerRef.current);
       adapterRef.current = adapter;
+      adapterPlayingRef.current = false;
+      appliedRateRef.current = 1;
       currentMediaTypeRef.current = media.type;
 
       adapter.onStateChange((event: PlayerAdapterEvent) => {
+        const cur = latest.current;
+        const server = cur.playbackState;
+
         if (event.type === "timeupdate") {
-          onPositionUpdate(event.currentTime, event.duration);
+          cur.onPositionUpdate(event.currentTime, event.duration);
+
+          // A discontinuity not caused by us is a seek made in the player's own UI
+          const now = Date.now();
+          const prev = lastSampleRef.current;
+          lastSampleRef.current = { time: event.currentTime, wall: now };
+          if (prev && !isGuarded() && server?.media) {
+            const rate = adapterPlayingRef.current ? server.playbackRate : 0;
+            const expectedDelta = ((now - prev.wall) / 1000) * rate;
+            const jump = event.currentTime - prev.time - expectedDelta;
+            if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS) {
+              cur.onUserAction?.({ type: "seek", position: event.currentTime });
+            }
+          }
         } else if (event.type === "play") {
-          onPlayStateChange?.(true);
-        } else if (event.type === "pause" || event.type === "ended") {
-          onPlayStateChange?.(false);
+          adapterPlayingRef.current = true;
+          cur.onBufferingChange?.(false);
+          cur.onPlayStateChange?.(true);
+          if (!isGuarded() && server?.media && server.status !== PlaybackStatus.PLAYING) {
+            cur.onUserAction?.({ type: "play", position: event.currentTime });
+          }
+        } else if (event.type === "pause") {
+          adapterPlayingRef.current = false;
+          cur.onPlayStateChange?.(false);
+          if (!isGuarded() && server?.media && server.status === PlaybackStatus.PLAYING) {
+            cur.onUserAction?.({ type: "pause", position: event.currentTime });
+          }
+        } else if (event.type === "ended") {
+          adapterPlayingRef.current = false;
+          cur.onPlayStateChange?.(false);
         } else if (event.type === "buffering") {
-          onBufferingChange?.(true);
+          cur.onBufferingChange?.(true);
         } else if (event.type === "error") {
           setOverlayStatus(event.error || "Playback error");
         }
@@ -137,7 +212,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     if (adapterRef.current) {
       await adapterRef.current.loadMedia(media);
     }
-  }, [onPositionUpdate, onPlayStateChange, onBufferingChange]);
+  }, []);
 
   // Handle media source changes
   useEffect(() => {
@@ -151,42 +226,70 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     }
   }, [isMuted]);
 
-  // Synchronization with server state
+  // Apply authoritative server state. Runs only when the server state changes,
+  // never on local position ticks, and only touches the player when it differs.
   useEffect(() => {
-    if (!adapterRef.current || !playbackState || !playbackState.media) return;
-
     const adapter = adapterRef.current;
-    const expected = calculateExpectedPosition(playbackState, estimatedServerNow);
-    const actual = adapter.getCurrentTime();
-    const driftSeconds = Math.abs(actual - expected);
+    if (!adapter || !playbackState || !playbackState.media) return;
 
-    // Apply play/pause state
+    armGuard();
+    const expected = calculateExpectedPosition(playbackState, latest.current.getEstimatedServerNow());
+
     if (playbackState.status === PlaybackStatus.PLAYING) {
-      adapter.play().catch(() => {});
-    } else if (playbackState.status === PlaybackStatus.PAUSED) {
+      if (!adapterPlayingRef.current) adapter.play().catch(() => {});
+    } else if (adapterPlayingRef.current) {
       adapter.pause().catch(() => {});
     }
 
-    // Apply rate
-    adapter.setPlaybackRate(playbackState.playbackRate).catch(() => {});
-
-    // Sync drift correction
-    if (driftSeconds > 0.75) {
-      // Seek threshold exceeded: seek directly
-      isSyncingRef.current = true;
-      adapter.seek(expected).finally(() => {
-        setTimeout(() => {
-          isSyncingRef.current = false;
-        }, 300);
-      });
-    } else if (driftSeconds > 0.25) {
-      // Slight drift: compensate smoothly with tempo adjustment
-      const nudge = actual < expected ? 1.05 : 0.95;
-      adapter.setPlaybackRate(playbackState.playbackRate * nudge).catch(() => {});
-    } else {
+    if (appliedRateRef.current !== playbackState.playbackRate) {
+      appliedRateRef.current = playbackState.playbackRate;
       adapter.setPlaybackRate(playbackState.playbackRate).catch(() => {});
     }
-  }, [playbackState, estimatedServerNow]);
+
+    const target =
+      playbackState.status === PlaybackStatus.PLAYING ? expected : playbackState.anchorPosition;
+    if (Math.abs(adapter.getCurrentTime() - target) > SYNC_THRESHOLD_DRIFT_RATE_MS / 1000) {
+      adapter.seek(target).catch(() => {});
+    }
+  }, [playbackState]);
+
+  // Periodic drift correction while playing
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const adapter = adapterRef.current;
+      const state = latest.current.playbackState;
+      if (
+        !adapter ||
+        !state?.media ||
+        state.status !== PlaybackStatus.PLAYING ||
+        !adapterPlayingRef.current ||
+        adapter.isBuffering() ||
+        isGuarded()
+      ) {
+        return;
+      }
+
+      const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
+      const drift = adapter.getCurrentTime() - expected;
+      const abs = Math.abs(drift);
+
+      if (abs > SYNC_THRESHOLD_DRIFT_RATE_MS / 1000) {
+        armGuard();
+        adapter.seek(expected).catch(() => {});
+        return;
+      }
+
+      const desiredRate =
+        abs > SYNC_THRESHOLD_IGNORE_MS / 1000
+          ? state.playbackRate * (drift < 0 ? 1.05 : 0.95)
+          : state.playbackRate;
+      if (appliedRateRef.current !== desiredRate) {
+        appliedRateRef.current = desiredRate;
+        adapter.setPlaybackRate(desiredRate).catch(() => {});
+      }
+    }, DRIFT_CHECK_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   // Clean up on unmount
   useEffect(() => {

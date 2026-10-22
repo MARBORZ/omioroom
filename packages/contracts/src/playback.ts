@@ -20,7 +20,10 @@ export const mediaTypeSchema = z.nativeEnum(MediaType);
 export const mediaSourceInfoSchema = z.object({
   type: mediaTypeSchema,
   sourceId: z.string().min(1),
-  canonicalUrl: z.string().url(),
+  canonicalUrl: z
+    .string()
+    .url()
+    .refine((value) => /^https?:\/\//i.test(value), "Only http(s) media URLs are allowed"),
 });
 
 export type MediaSourceInfo = z.infer<typeof mediaSourceInfoSchema>;

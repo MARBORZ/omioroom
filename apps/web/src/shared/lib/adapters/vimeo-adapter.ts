@@ -65,7 +65,7 @@ export class VimeoPlayerAdapter implements PlayerAdapter {
     this.player = new window.Vimeo!.Player("vimeo-player-target", {
       id: parseInt(media.sourceId, 10),
       width: "100%",
-      controls: false,
+      controls: true,
       responsive: true,
       autoplay: false,
     });

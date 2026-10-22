@@ -136,7 +136,14 @@ export class RoomService {
     // Check membership & capacity
     const existingMembership = await this.membershipRepository.findMembership(room.id, userId);
     if (existingMembership) {
-      // Reconnecting participant
+      // Reconnecting participant: seat may have been taken while offline
+      if (!existingMembership.isOnline) {
+        const online = await this.membershipRepository.countActive(room.id);
+        if (online >= MAX_ROOM_PARTICIPANTS) {
+          throw new Error("ROOM_FULL");
+        }
+      }
+      this.joinRateLimiter.reset(userId);
       existingMembership.isOnline = true;
       existingMembership.lastActiveAt = now;
       await this.membershipRepository.save(existingMembership);
@@ -182,6 +189,9 @@ export class RoomService {
     if (room.ownerUserId !== ownerUserId) {
       throw new Error("FORBIDDEN");
     }
+    if (room.status !== "active") {
+      throw new Error("ROOM_CLOSED");
+    }
 
     const now = this.clock.isoNow();
     room.status = "closed";
@@ -204,6 +214,9 @@ export class RoomService {
     }
     if (room.ownerUserId !== ownerUserId) {
       throw new Error("FORBIDDEN");
+    }
+    if (room.status !== "active") {
+      throw new Error("ROOM_CLOSED");
     }
     if (expectedRevision !== undefined && room.revision !== expectedRevision) {
       throw new Error("REVISION_CONFLICT");
@@ -235,6 +248,9 @@ export class RoomService {
     if (room.ownerUserId !== ownerUserId) {
       throw new Error("FORBIDDEN");
     }
+    if (room.status !== "active") {
+      throw new Error("ROOM_CLOSED");
+    }
     if (room.visibility !== "private") {
       throw new Error("INVALID_PAYLOAD");
     }
@@ -245,6 +261,52 @@ export class RoomService {
     await this.roomRepository.save(room);
 
     return newCode;
+  }
+
+  async revokePrivateCode(ownerUserId: string, roomId: string): Promise<RoomRecord> {
+    const room = await this.roomRepository.findById(roomId);
+    if (!room) {
+      throw new Error("ROOM_NOT_FOUND");
+    }
+    if (room.ownerUserId !== ownerUserId) {
+      throw new Error("FORBIDDEN");
+    }
+    if (room.status !== "active") {
+      throw new Error("ROOM_CLOSED");
+    }
+
+    await this.accessService.revokePrivateAccess(roomId);
+    room.updatedAt = this.clock.isoNow();
+    room.revision += 1;
+    await this.roomRepository.save(room);
+    return room;
+  }
+
+  async resolveRoomId(globalId: string): Promise<string | null> {
+    const room = await this.roomRepository.findByGlobalId(globalId);
+    return room ? room.id : null;
+  }
+
+  /**
+   * Authorizes a realtime action inside a room: the room must be active and the
+   * user must be an online participant. Client-supplied roomId is never trusted alone.
+   */
+  async assertActiveMember(userId: string, roomId: string): Promise<void> {
+    const room = await this.roomRepository.findById(roomId);
+    if (!room) {
+      throw new Error("ROOM_NOT_FOUND");
+    }
+    if (room.status !== "active") {
+      throw new Error("ROOM_CLOSED");
+    }
+    const membership = await this.membershipRepository.findMembership(roomId, userId);
+    if (!membership || !membership.isOnline) {
+      throw new Error("FORBIDDEN");
+    }
+  }
+
+  async isMember(userId: string, roomId: string): Promise<boolean> {
+    return (await this.membershipRepository.findMembership(roomId, userId)) !== null;
   }
 
   async getRoomSnapshot(roomId: string, viewerUserId: string): Promise<RoomSnapshotDto> {

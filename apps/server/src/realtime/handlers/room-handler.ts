@@ -5,6 +5,7 @@ import {
   createRoomPayloadSchema,
   joinRoomPayloadSchema,
   getRoomPayloadSchema,
+  leaveRoomPayloadSchema,
   closeRoomPayloadSchema,
   commandResultSuccess,
   commandResultError,
@@ -20,12 +21,30 @@ import {
 } from "@omioroom/contracts";
 import type { AuthenticatedSocketData } from "../middleware/auth-middleware.js";
 import type { RoomService } from "../../application/room-service.js";
+import { toProtocolError } from "../errors.js";
 
 export function registerRoomHandlers(
   io: Server,
   socket: Socket<any, any, any, AuthenticatedSocketData>,
   roomService: RoomService
 ) {
+  /** True when another live socket of the same user is still in the room (multi-tab). */
+  async function hasOtherSocketInRoom(roomId: string): Promise<boolean> {
+    const sockets = await io.in(`room:${roomId}`).fetchSockets();
+    return sockets.some(
+      (s) => s.id !== socket.id && s.data?.user?.id === socket.data.user.id
+    );
+  }
+
+  async function leaveAndNotify(roomId: string): Promise<void> {
+    if (await hasOtherSocketInRoom(roomId)) return;
+    await roomService.leaveRoom(socket.data.user.id, roomId);
+    io.to(`room:${roomId}`).emit(ServerEvent.ROOM_PARTICIPANT_LEFT, {
+      roomId,
+      userId: socket.data.user.id,
+    });
+  }
+
   // room:create
   socket.on(
     ClientCommand.ROOM_CREATE,
@@ -65,13 +84,8 @@ export function registerRoomHandlers(
           : null;
 
         ack?.(commandResultSuccess(requestId, { snapshot, ownerAccess }));
-      } catch (err: any) {
-        ack?.(
-          commandResultError(
-            requestId,
-            createProtocolError(ErrorCode.INTERNAL_ERROR, err?.message || "Failed to create room")
-          )
-        );
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room:create")));
       }
     }
   );
@@ -124,15 +138,8 @@ export function registerRoomHandlers(
         });
 
         ack?.(commandResultSuccess(requestId, snapshot));
-      } catch (err: any) {
-        let code: ErrorCode = ErrorCode.INTERNAL_ERROR;
-        if (err.message === "ROOM_NOT_FOUND") code = ErrorCode.ROOM_NOT_FOUND;
-        else if (err.message === "ROOM_FULL") code = ErrorCode.ROOM_FULL;
-        else if (err.message === "PRIVATE_CODE_REQUIRED") code = ErrorCode.PRIVATE_CODE_REQUIRED;
-        else if (err.message === "INVALID_PRIVATE_CODE") code = ErrorCode.INVALID_PRIVATE_CODE;
-        else if (err.message === "RATE_LIMITED") code = ErrorCode.RATE_LIMITED;
-
-        ack?.(commandResultError(requestId, createProtocolError(code, err.message)));
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room")));
       }
     }
   );
@@ -145,18 +152,18 @@ export function registerRoomHandlers(
       ack?: (res: any) => void
     ) => {
       const requestId = envelope?.requestId || "leave-room";
-      const roomId = envelope.payload?.roomId || socket.data.activeRoomId;
-      if (roomId) {
-        socket.leave(`room:${roomId}`);
-        await roomService.leaveRoom(socket.data.user.id, roomId);
-        socket.data.activeRoomId = undefined;
-
-        io.to(`room:${roomId}`).emit(ServerEvent.ROOM_PARTICIPANT_LEFT, {
-          roomId,
-          userId: socket.data.user.id,
-        });
+      try {
+        const parsed = leaveRoomPayloadSchema.safeParse(envelope?.payload);
+        const roomId = parsed.success ? parsed.data.roomId : socket.data.activeRoomId;
+        if (roomId && (await roomService.isMember(socket.data.user.id, roomId))) {
+          socket.leave(`room:${roomId}`);
+          if (socket.data.activeRoomId === roomId) socket.data.activeRoomId = undefined;
+          await leaveAndNotify(roomId);
+        }
+        ack?.(commandResultSuccess(requestId, { left: true }));
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room:leave")));
       }
-      ack?.(commandResultSuccess(requestId, { left: true }));
     }
   );
 
@@ -169,7 +176,7 @@ export function registerRoomHandlers(
     ) => {
       const requestId = envelope?.requestId || "get-room";
       try {
-        const parsed = getRoomPayloadSchema.safeParse(envelope.payload);
+        const parsed = getRoomPayloadSchema.safeParse(envelope?.payload);
         if (!parsed.success) {
           return ack?.(
             commandResultError(
@@ -179,39 +186,26 @@ export function registerRoomHandlers(
           );
         }
 
-        let targetRoomId = parsed.data.roomId;
-        if (!targetRoomId && parsed.data.globalId) {
-          // Find room by globalId
-          const snapshot = await roomService.getRoomSnapshot(
-            parsed.data.globalId,
-            socket.data.user.id
-          ).catch(() => null);
-          if (snapshot) {
-            return ack?.(commandResultSuccess(requestId, snapshot));
-          }
-        }
+        const roomId =
+          parsed.data.roomId ??
+          (parsed.data.globalId ? await roomService.resolveRoomId(parsed.data.globalId) : null);
+        const userId = socket.data.user.id;
 
-        if (!targetRoomId) {
+        // Snapshots expose participants and playback: members only.
+        // Unknown and foreign rooms are indistinguishable to avoid leaking existence.
+        if (!roomId || !(await roomService.isMember(userId, roomId))) {
           return ack?.(
             commandResultError(
               requestId,
-              createProtocolError(ErrorCode.ROOM_NOT_FOUND, "Room not found")
+              createProtocolError(ErrorCode.ROOM_NOT_FOUND, "ROOM_NOT_FOUND")
             )
           );
         }
 
-        const snapshot = await roomService.getRoomSnapshot(
-          targetRoomId,
-          socket.data.user.id
-        );
+        const snapshot = await roomService.getRoomSnapshot(roomId, userId);
         ack?.(commandResultSuccess(requestId, snapshot));
-      } catch (err: any) {
-        ack?.(
-          commandResultError(
-            requestId,
-            createProtocolError(ErrorCode.ROOM_NOT_FOUND, "Room not found")
-          )
-        );
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room:get")));
       }
     }
   );
@@ -227,13 +221,8 @@ export function registerRoomHandlers(
       try {
         const rooms = await roomService.listOwnerRooms(socket.data.user.id);
         ack?.(commandResultSuccess(requestId, rooms));
-      } catch (err: any) {
-        ack?.(
-          commandResultError(
-            requestId,
-            createProtocolError(ErrorCode.INTERNAL_ERROR, "Failed to list rooms")
-          )
-        );
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room:list-mine")));
       }
     }
   );
@@ -265,27 +254,23 @@ export function registerRoomHandlers(
         io.to(`room:${closedRoom.id}`).emit(ServerEvent.ROOM_CLOSED, {
           roomId: closedRoom.id,
         });
+        io.in(`room:${closedRoom.id}`).socketsLeave(`room:${closedRoom.id}`);
 
         ack?.(commandResultSuccess(requestId, { closed: true }));
-      } catch (err: any) {
-        let code: ErrorCode = ErrorCode.INTERNAL_ERROR;
-        if (err.message === "FORBIDDEN") code = ErrorCode.FORBIDDEN;
-        else if (err.message === "ROOM_NOT_FOUND") code = ErrorCode.ROOM_NOT_FOUND;
-
-        ack?.(commandResultError(requestId, createProtocolError(code, err.message)));
+      } catch (err) {
+        ack?.(commandResultError(requestId, toProtocolError(err, "room")));
       }
     }
   );
 
   // Disconnect handler
   socket.on("disconnect", async () => {
-    if (socket.data.activeRoomId) {
-      const roomId = socket.data.activeRoomId;
-      await roomService.leaveRoom(socket.data.user.id, roomId);
-      io.to(`room:${roomId}`).emit(ServerEvent.ROOM_PARTICIPANT_LEFT, {
-        roomId,
-        userId: socket.data.user.id,
-      });
+    const roomId = socket.data.activeRoomId;
+    if (!roomId) return;
+    try {
+      await leaveAndNotify(roomId);
+    } catch (err) {
+      console.error("[disconnect] failed to leave room:", err instanceof Error ? err.message : err);
     }
   });
 }

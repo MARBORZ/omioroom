@@ -7,6 +7,7 @@ import {
   privateCodeSchema,
   globalRoomIdSchema,
   parseMediaUrl,
+  mediaSourceInfoSchema,
   calculateExpectedPosition,
   MediaType,
   PlaybackStatus,
@@ -182,5 +183,11 @@ describe("Contracts and Domain Logic", () => {
     const error = createProtocolError(ErrorCode.ROOM_FULL, "Room has reached the maximum 2 members", false);
     expect(error.code).toBe("ROOM_FULL");
     expect(error.retryable).toBe(false);
+  });
+
+  it("rejects non-http(s) canonical media URLs", () => {
+    const base = { type: "html5" as const, sourceId: "x" };
+    expect(mediaSourceInfoSchema.safeParse({ ...base, canonicalUrl: "javascript:alert(1)" }).success).toBe(false);
+    expect(mediaSourceInfoSchema.safeParse({ ...base, canonicalUrl: "https://a.com/v.mp4" }).success).toBe(true);
   });
 });

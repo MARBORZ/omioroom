@@ -10,6 +10,8 @@ interface InvitePanelProps {
   isOwner: boolean;
   visibility: "public" | "private";
   privateCode?: string | null;
+  codeRevoked?: boolean;
+  onRevokeCode?: () => Promise<void>;
   onRotateCode?: () => Promise<void>;
   onToggleVisibility?: (newVis: "public" | "private") => Promise<void>;
 }
@@ -19,12 +21,15 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
   isOwner,
   visibility,
   privateCode,
+  codeRevoked = false,
+  onRevokeCode,
   onRotateCode,
   onToggleVisibility,
 }) => {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   const getInviteUrl = () => {
@@ -35,7 +40,11 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
     return `${origin}/#room=${globalRoomId}`;
   };
 
+  // A private invite is only useful with its secret, which only the owner ever sees
+  const canCopyInvite = visibility === "public" || Boolean(privateCode);
+
   const handleCopy = async () => {
+    if (!canCopyInvite) return;
     try {
       await navigator.clipboard.writeText(getInviteUrl());
       setCopied(true);
@@ -56,6 +65,19 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
       await onRotateCode();
     } finally {
       setRotating(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!onRevokeCode) return;
+    if (!window.confirm(t.room.revokeConfirm)) {
+      return;
+    }
+    try {
+      setRevoking(true);
+      await onRevokeCode();
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -84,6 +106,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
         <Button
           variant="primary"
           onClick={handleCopy}
+          disabled={!canCopyInvite}
           icon={copied ? <Check size={16} /> : <Copy size={16} />}
           style={{ width: "100%" }}
         >
@@ -93,23 +116,40 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
 
       {isOwner && (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
-          {visibility === "private" && privateCode && (
+          {visibility === "private" && (
             <>
               <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-                {t.room.privateKeyNotice}
+                {privateCode
+                  ? t.room.privateKeyNotice
+                  : codeRevoked
+                  ? t.room.keyRevokedNotice
+                  : t.room.keyHiddenNotice}
               </div>
               <div className={styles.privateCodeBox}>
-                <span>{privateCode}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRotate}
-                  loading={rotating}
-                  icon={<RotateCw size={14} />}
-                  title={t.room.rotateKey}
-                >
-                  {t.room.rotateKey}
-                </Button>
+                <span>{privateCode ?? "••••••••"}</span>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRotate}
+                    loading={rotating}
+                    icon={<RotateCw size={14} />}
+                    title={t.room.rotateKey}
+                  >
+                    {t.room.rotateKey}
+                  </Button>
+                  {!codeRevoked && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={handleRevoke}
+                      loading={revoking}
+                      title={t.room.revokeKey}
+                    >
+                      {t.room.revokeKey}
+                    </Button>
+                  )}
+                </div>
               </div>
             </>
           )}

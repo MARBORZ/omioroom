@@ -18,6 +18,7 @@ import {
   type PlayerCommandPayload,
   type MediaSourceInfo,
   type RotatePrivateCodePayload,
+  type RevokePrivateCodePayload,
   type SetVisibilityPayload,
   type RoomOwnerAccessDto,
 } from "@omioroom/contracts";
@@ -44,6 +45,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [snapshot, setSnapshot] = useState<RoomSnapshotDto>(initialSnapshot);
   const [playback, setPlayback] = useState<RoomPlaybackStateDto | null>(initialSnapshot.playback);
   const [ownerKey, setOwnerKey] = useState<string | null>(initialKey ?? null);
+  const [codeRevoked, setCodeRevoked] = useState(false);
 
   // Local player tracking state
   const [currentTime, setCurrentTime] = useState(initialSnapshot.playback?.anchorPosition || 0);
@@ -220,6 +222,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       payload
     );
     setOwnerKey(res.privateCode);
+    setCodeRevoked(false);
+  };
+
+  const handleRevokePrivateCode = async () => {
+    const payload: RevokePrivateCodePayload = { roomId: snapshot.room.id };
+    await emitCommand<RevokePrivateCodePayload, { revoked: boolean }>(
+      socket,
+      ClientCommand.ROOM_REVOKE_PRIVATE_CODE,
+      payload
+    );
+    setOwnerKey(null);
+    setCodeRevoked(true);
   };
 
   const handleToggleVisibility = async (newVis: "public" | "private") => {
@@ -239,11 +253,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         visibility: newVis,
       },
     }));
-    if (res.ownerAccess) {
-      setOwnerKey(res.ownerAccess.privateCode);
-    } else {
-      setOwnerKey(null);
-    }
+    setCodeRevoked(false);
+    setOwnerKey(res.ownerAccess ? res.ownerAccess.privateCode : null);
   };
 
   const handleLeave = async () => {
@@ -285,7 +296,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           <VideoPlayerFrame
             ref={videoPlayerRef}
             playbackState={playback}
-            estimatedServerNow={timeSync.getEstimatedServerNow()}
+            getEstimatedServerNow={() => timeSync.getEstimatedServerNow()}
+            onUserAction={(action) =>
+              sendPlayerCommand({ type: action.type, position: action.position })
+            }
             onPositionUpdate={(curr, dur) => {
               setCurrentTime(curr);
               if (dur > 0) setDuration(dur);
@@ -329,6 +343,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             isOwner={snapshot.isOwner}
             visibility={snapshot.room.visibility}
             privateCode={ownerKey}
+            codeRevoked={codeRevoked}
+            onRevokeCode={handleRevokePrivateCode}
             onRotateCode={handleRotatePrivateCode}
             onToggleVisibility={handleToggleVisibility}
           />

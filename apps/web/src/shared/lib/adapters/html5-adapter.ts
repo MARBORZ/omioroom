@@ -13,7 +13,7 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     video.style.height = "100%";
     video.style.objectFit = "contain";
     video.playsInline = true;
-    video.controls = false;
+    video.controls = true;
 
     this.videoElement = video;
     container.appendChild(video);
