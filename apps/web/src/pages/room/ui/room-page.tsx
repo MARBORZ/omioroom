@@ -219,19 +219,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPlaying, currentTime, duration, canControl, cinema, handleToggleCinema]);
 
-  // Periodically save room video playback position to localStorage per room & media URL
-  useEffect(() => {
-    if (!initialSnapshot.room.id || currentTime <= 0) return;
-    const roomId = initialSnapshot.room.id;
-    const mediaUrl = playback?.media?.canonicalUrl;
-    try {
-      localStorage.setItem(`omioroom_last_pos_${roomId}`, String(Math.floor(currentTime)));
-      if (mediaUrl) {
-        localStorage.setItem(`omioroom_last_pos_${mediaUrl}`, String(Math.floor(currentTime)));
-      }
-    } catch {}
-  }, [initialSnapshot.room.id, playback?.media?.canonicalUrl, Math.floor(currentTime / 2)]);
-
   // Applies a playback state only if it is newer than what we already show
   const applyPlayback = useCallback((state: RoomPlaybackStateDto) => {
     if (state.revision < playbackRevisionRef.current) return;
