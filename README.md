@@ -25,7 +25,7 @@ Playback correction is client-side against the database clock (`server_time_ms()
    - Authentication > Sign In / Providers: enable **Allow anonymous sign-ins**. For the simplest beta, disable **Confirm email**.
    - Apply the schema: `supabase link --project-ref <ref> && supabase db push` (or paste `supabase/migrations/*.sql` into the SQL editor).
    - Database > Extensions: enable `pg_cron` if you want idle rooms closed automatically (the second migration schedules it).
-2. **Vercel.** Import the repo. `vercel.json` already sets the build. Add env vars:
+2. **Vercel.** Import the repo. Set **Root Directory** to `apps/web` (Vite preset; `apps/web/vercel.json` adds the SPA rewrite and the build also compiles `packages/contracts`). Add env vars:
    - `VITE_SUPABASE_URL` = project URL
    - `VITE_SUPABASE_ANON_KEY` = anon (public) key
 3. In Supabase Authentication > URL Configuration set **Site URL** to your Vercel domain.
