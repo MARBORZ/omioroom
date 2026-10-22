@@ -6,7 +6,6 @@ import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { ControlModeSelect } from "../../../shared/ui/control-mode-select/control-mode-select.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
-import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
 import {
@@ -126,7 +125,6 @@ export const HomePage: React.FC<HomePageProps> = ({
           {t.common.brand}
         </div>
         <div className={styles.topBarRight} data-layout="top-bar-right">
-          <LangSwitch />
           <button
             type="button"
             className={styles.settingsTrigger}
@@ -246,15 +244,23 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           <p className={styles.hint}>{t.room.roomNameHint}</p>
-          <TextField
-            label={t.group.createLimit}
-            type="number"
-            min={MIN_ROOM_PARTICIPANTS}
-            max={MAX_ROOM_PARTICIPANTS}
-            value={maxParticipants}
-            onChange={(e) => setMaxParticipants(e.target.value)}
-          />
-          <ControlModeSelect value={controlMode} onChange={setControlMode} />
+          <details className={styles.advancedSettings}>
+            <summary className={styles.advancedSummary}>
+              <Settings size={13} />
+              <span>{t.group.settings}</span>
+            </summary>
+            <div className={styles.advancedBody}>
+              <TextField
+                label={t.group.createLimit}
+                type="number"
+                min={MIN_ROOM_PARTICIPANTS}
+                max={MAX_ROOM_PARTICIPANTS}
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+              />
+              <ControlModeSelect value={controlMode} onChange={setControlMode} />
+            </div>
+          </details>
 
           {createError && (
             <div className={styles.formError}>

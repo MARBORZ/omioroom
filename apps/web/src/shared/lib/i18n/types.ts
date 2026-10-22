@@ -83,6 +83,11 @@ export interface Translations {
     hideKey: string;
     copyKey: string;
     keyCopied: string;
+    tabChat: string;
+    tabVoice: string;
+    tabParticipants: string;
+    tabInvite: string;
+    tabMedia: string;
     codeCopied: string;
     roomNameHint: string;
     waitingNote: string;

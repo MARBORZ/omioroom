@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, ChevronDown } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -11,10 +11,21 @@ import { ParticipantsPanel } from "../../../widgets/participants-panel/ui/partic
 import { VoicePanel } from "../../../widgets/voice-panel/ui/voice-panel.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { ConnectionNotice } from "../../../shared/ui/connection-notice/connection-notice.js";
+import { Button } from "../../../shared/ui/button/button.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
-import { PlaybackStatus, type ChatMessageDto, type RoomSnapshotDto, type RoomPlaybackStateDto, type PlayerCommandPayload, type MediaSourceInfo, type ControlMode } from "@omioroom/contracts";
+import {
+  PlaybackStatus,
+  type ChatMessageDto,
+  type RoomSnapshotDto,
+  type RoomPlaybackStateDto,
+  type PlayerCommandPayload,
+  type MediaSourceInfo,
+  type ControlMode,
+} from "@omioroom/contracts";
 import styles from "./room-page.module.scss";
+
+type RoomTab = "chat" | "voice" | "participants" | "invite" | "media";
 
 interface RoomPageProps {
   initialSnapshot: RoomSnapshotDto;
@@ -42,6 +53,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [chatLoading, setChatLoading] = useState(true);
   const [channelStatus, setChannelStatus] = useState<RoomChannelStatus>("connecting");
   const [presentIds, setPresentIds] = useState<string[] | null>(null);
+
+  // Default to media picker if no video is loaded and user can control; otherwise chat
+  const canControl = snapshot.canControl;
+  const [activeTab, setActiveTab] = useState<RoomTab>(
+    initialSnapshot.playback?.media ? "chat" : canControl ? "media" : "chat"
+  );
+
   // Latest callbacks for the long-lived channel effect (they change identity on every parent render)
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
@@ -54,7 +72,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [mobileTab, setMobileTab] = useState<"chat" | "voice" | "participants" | "invite" | "media">("chat");
 
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
@@ -93,14 +110,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }, [isPlaying, currentTime, duration]);
 
   // Applies a playback state only if it is newer than what we already show
-  const applyPlayback = useCallback(
-    (state: RoomPlaybackStateDto) => {
-      if (state.revision < playbackRevisionRef.current) return;
-      playbackRevisionRef.current = state.revision;
-      setPlayback(state);
-    },
-    []
-  );
+  const applyPlayback = useCallback((state: RoomPlaybackStateDto) => {
+    if (state.revision < playbackRevisionRef.current) return;
+    playbackRevisionRef.current = state.revision;
+    setPlayback(state);
+  }, []);
 
   // Realtime: one channel per room. On every (re)subscription reload the authoritative snapshot.
   useEffect(() => {
@@ -164,7 +178,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             controlMode: row.controlMode,
           },
         }));
-        // Permissions depend on the control mode: refresh our own flag and the member list
         scheduleSnapshot();
       },
       onMemberChanged: scheduleSnapshot,
@@ -225,7 +238,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     });
   };
 
-  // Dragging the slider fires a stream of values: show them at once, act on where it settles
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSeek = (pos: number) => {
     setCurrentTime(pos);
@@ -249,6 +261,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       type: "change-media",
       media,
     });
+    // Immediately switch to chat once media is selected
+    setActiveTab("chat");
   };
 
   const handleRotatePrivateCode = async () => {
@@ -316,13 +330,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     isOnline: presentIds ? presentIds.includes(p.userId) : p.isOnline,
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
-  const canControl = snapshot.canControl;
-  useEffect(() => {
-    if (!canControl && mobileTab === "media") setMobileTab("chat");
-  }, [canControl, mobileTab]);
 
-  // The room follows its leader: whoever acted last (the owner at first). Only the leader's stalls matter
-  // to the server, so followers do not even send them. If the leader is gone, the owner leads.
+  useEffect(() => {
+    if (!canControl && activeTab === "media") setActiveTab("chat");
+  }, [canControl, activeTab]);
+
   const lastActor = playback?.updatedByUserId ?? null;
   const leaderPresent = lastActor !== null && (presentIds === null || presentIds.includes(lastActor));
   const leaderId = leaderPresent ? lastActor : snapshot.room.ownerUserId;
@@ -341,6 +353,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         onNavigateHome={onNavigateHome}
         onNavigateMyRooms={onNavigateMyRooms}
         onLeave={handleLeave}
+        onOpenParticipants={() => setActiveTab("participants")}
       />
 
       <main className={styles.mainContent} data-layout="room-main">
@@ -398,107 +411,152 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             </div>
           )}
 
-          {/* Mobile & Tablet Tab Bar (hidden on desktop) */}
-          <nav className={styles.mobileTabBar} role="tablist" aria-label="Room sections">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === "chat"}
-              className={`${styles.mobileTabBtn} ${mobileTab === "chat" ? styles.activeTab : ""}`}
-              onClick={() => setMobileTab("chat")}
-            >
-              <MessageSquare size={15} />
-              <span>{t.chat.title}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === "voice"}
-              className={`${styles.mobileTabBtn} ${mobileTab === "voice" ? styles.activeTab : ""}`}
-              onClick={() => setMobileTab("voice")}
-            >
-              <Mic size={15} />
-              <span>{t.voice.title}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === "participants"}
-              className={`${styles.mobileTabBtn} ${mobileTab === "participants" ? styles.activeTab : ""}`}
-              onClick={() => setMobileTab("participants")}
-            >
-              <Users size={15} />
-              <span>{participants.length}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === "invite"}
-              className={`${styles.mobileTabBtn} ${mobileTab === "invite" ? styles.activeTab : ""}`}
-              onClick={() => setMobileTab("invite")}
-            >
-              <Share2 size={15} />
-              <span>{t.room.inviteTitle}</span>
-            </button>
-            {canControl && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mobileTab === "media"}
-                className={`${styles.mobileTabBtn} ${mobileTab === "media" ? styles.activeTab : ""}`}
-                onClick={() => setMobileTab("media")}
-              >
-                <Film size={15} />
-                <span>{t.room.videoSource}</span>
-              </button>
-            )}
-          </nav>
+          {!playback?.media && (
+            <div className={styles.videoPlaceholder}>
+              <span>{canControl ? t.room.addVideoFirst : t.room.standbyViewer}</span>
+              {canControl && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Film size={14} />}
+                  onClick={() => setActiveTab("media")}
+                >
+                  {t.room.standby}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Sidebar Controls Section */}
+        {/* Sidebar Controls Section: universal tabs and focused active panel */}
         <aside
           className={styles.sidebarSection}
           data-layout="room-sidebar"
-          data-active-tab={mobileTab}
+          data-active-tab={activeTab}
         >
-          {/* Choosing the video is a playback control: without the right to control, the block is not offered at all */}
-          {canControl && (
-            <div data-panel="media" className={styles.panelWrapper}>
-              <ChangeMediaInput onMediaSelect={handleMediaSelect} />
+          {/* Room Navigation Tabs (Never overflows container) */}
+          <div className={styles.tabNavContainer} data-layout="room-tabs">
+            {/* Mobile / Narrow Dropdown Select */}
+            <div className={styles.tabDropdownWrapper}>
+              <select
+                className={styles.tabSelect}
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as RoomTab)}
+                aria-label={t.common.room}
+              >
+                <option value="chat">💬 {t.room.tabChat}</option>
+                <option value="voice">🎙️ {t.room.tabVoice}</option>
+                <option value="participants">
+                  👥 {t.room.tabParticipants} ({activeParticipantsCount})
+                </option>
+                <option value="invite">🔗 {t.room.tabInvite}</option>
+                {canControl && <option value="media">🎬 {t.room.tabMedia}</option>}
+              </select>
+              <ChevronDown size={14} className={styles.tabSelectChevron} aria-hidden />
             </div>
-          )}
 
-          <div data-panel="voice" className={styles.panelWrapper}>
-            <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+            {/* Horizontal Overflow-scroll list */}
+            <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "chat"}
+                className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("chat")}
+              >
+                <MessageSquare size={14} />
+                <span>{t.room.tabChat}</span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "voice"}
+                className={`${styles.tabBtn} ${activeTab === "voice" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("voice")}
+              >
+                <Mic size={14} />
+                <span>{t.room.tabVoice}</span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "participants"}
+                className={`${styles.tabBtn} ${activeTab === "participants" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("participants")}
+              >
+                <Users size={14} />
+                <span>{t.room.tabParticipants}</span>
+                <span className={styles.tabBadge}>{activeParticipantsCount}</span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "invite"}
+                className={`${styles.tabBtn} ${activeTab === "invite" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("invite")}
+              >
+                <Share2 size={14} />
+                <span>{t.room.tabInvite}</span>
+              </button>
+
+              {canControl && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "media"}
+                  className={`${styles.tabBtn} ${activeTab === "media" ? styles.activeTab : ""}`}
+                  onClick={() => setActiveTab("media")}
+                >
+                  <Film size={14} />
+                  <span>{t.room.tabMedia}</span>
+                </button>
+              )}
+            </nav>
           </div>
 
-          <div data-panel="chat" className={styles.panelWrapper}>
-            <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
-          </div>
+          {/* Active Panel Content */}
+          <div className={styles.panelsContainer}>
+            {canControl && (
+              <div data-panel="media" className={styles.panelWrapper}>
+                <ChangeMediaInput onMediaSelect={handleMediaSelect} />
+              </div>
+            )}
 
-          <div data-panel="participants" className={styles.panelWrapper}>
-            <ParticipantsPanel
-              participants={participants}
-              currentUserId={user?.id}
-              isOwner={snapshot.isOwner}
-              maxParticipants={snapshot.room.maxParticipants}
-              controlMode={snapshot.room.controlMode}
-              onSaveSettings={handleSaveSettings}
-              onToggleControl={handleToggleControl}
-            />
-          </div>
+            <div data-panel="voice" className={styles.panelWrapper}>
+              <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+            </div>
 
-          <div data-panel="invite" className={styles.panelWrapper}>
-            <InvitePanel
-              globalRoomId={snapshot.room.globalId}
-              isOwner={snapshot.isOwner}
-              visibility={snapshot.room.visibility}
-              privateCode={ownerKey}
-              codeRevoked={codeRevoked}
-              onRevokeCode={handleRevokePrivateCode}
-              onRotateCode={handleRotatePrivateCode}
-              onToggleVisibility={handleToggleVisibility}
-            />
+            <div data-panel="chat" className={styles.panelWrapper}>
+              <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
+            </div>
+
+            <div data-panel="participants" className={styles.panelWrapper}>
+              <ParticipantsPanel
+                participants={participants}
+                currentUserId={user?.id}
+                isOwner={snapshot.isOwner}
+                maxParticipants={snapshot.room.maxParticipants}
+                controlMode={snapshot.room.controlMode}
+                onSaveSettings={handleSaveSettings}
+                onToggleControl={handleToggleControl}
+              />
+            </div>
+
+            <div data-panel="invite" className={styles.panelWrapper}>
+              <InvitePanel
+                globalRoomId={snapshot.room.globalId}
+                isOwner={snapshot.isOwner}
+                visibility={snapshot.room.visibility}
+                privateCode={ownerKey}
+                codeRevoked={codeRevoked}
+                onRevokeCode={handleRevokePrivateCode}
+                onRotateCode={handleRotatePrivateCode}
+                onToggleVisibility={handleToggleVisibility}
+              />
+            </div>
           </div>
         </aside>
       </main>

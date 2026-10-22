@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Users, Tv, LogOut, Settings } from "lucide-react";
-import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { Users, LogOut, Settings } from "lucide-react";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import styles from "./room-header.module.scss";
@@ -12,55 +11,70 @@ interface RoomHeaderProps {
   onNavigateMyRooms?: () => void;
   onLeave?: () => void;
   title?: string;
+  onOpenParticipants?: () => void;
 }
 
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
   participantCount = 1,
   maxParticipants = 2,
   onNavigateHome,
-  onNavigateMyRooms,
   onLeave,
   title,
+  onOpenParticipants,
 }) => {
   const { t } = useI18n();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
     <>
-      <header className={styles.header}>
+      <header className={styles.header} data-layout="room-header">
         <div className={styles.leftSection}>
           <button type="button" className={styles.brand} onClick={onNavigateHome}>
             <span className={styles.brandDot} />
             {t.common.brand}
           </button>
-          {title && <span className={styles.roomTitle}>{title}</span>}
+          {title && <span className={styles.roomTitle} title={title}>{title}</span>}
         </div>
 
         <div className={styles.rightSection}>
-          <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
-            <Users size={14} />
-            {participantCount} / {maxParticipants}
-          </span>
-          <LangSwitch />
+          {onOpenParticipants ? (
+            <button
+              type="button"
+              className={styles.peopleBtn}
+              onClick={onOpenParticipants}
+              title={`${t.group.participants}: ${participantCount} / ${maxParticipants}`}
+              aria-label={t.group.participants}
+            >
+              <Users size={14} />
+              <span>{participantCount} / {maxParticipants}</span>
+            </button>
+          ) : (
+            <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
+              <Users size={14} />
+              <span>{participantCount} / {maxParticipants}</span>
+            </span>
+          )}
+
           <button
             type="button"
-            className={styles.link}
+            className={styles.iconBtn}
             onClick={() => setIsSettingsOpen(true)}
             aria-label={t.settings.title}
+            title={t.common.settings}
           >
-            <Settings size={14} />
-            <span>{t.common.settings}</span>
+            <Settings size={15} />
           </button>
-          {onNavigateMyRooms && (
-            <button type="button" className={styles.link} onClick={onNavigateMyRooms}>
-              <Tv size={14} />
-              {t.common.myRooms}
-            </button>
-          )}
+
           {onLeave && (
-            <button type="button" className={styles.link} onClick={onLeave}>
-              <LogOut size={14} />
-              {t.room.leaveRoom}
+            <button
+              type="button"
+              className={styles.leaveBtn}
+              onClick={onLeave}
+              aria-label={t.room.leaveRoom}
+              title={t.room.leaveRoom}
+            >
+              <LogOut size={15} />
+              <span className={styles.leaveText}>{t.room.leaveRoom}</span>
             </button>
           )}
         </div>

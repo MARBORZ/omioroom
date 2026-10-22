@@ -4,7 +4,6 @@ import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
-import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import styles from "./identity-page.module.scss";
 
@@ -103,7 +102,6 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
           {t.common.brand}
         </div>
         <div className={styles.topBarRight} data-layout="top-bar-right">
-          <LangSwitch />
           <button
             type="button"
             className={styles.settingsTrigger}
