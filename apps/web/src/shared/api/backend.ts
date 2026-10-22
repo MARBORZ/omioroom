@@ -52,6 +52,11 @@ export const backend = {
   joinRoom: (globalId: string, privateCode?: string) =>
     rpc<RoomSnapshotDto>("join_room", { p_global_id: globalId, p_private_code: privateCode ?? null }),
   getSnapshot: (roomId: string) => rpc<RoomSnapshotDto>("get_room_snapshot", { p_room_id: roomId }),
+  /**
+   * Returns to a remembered room. Throws with code ROOM_NOT_FOUND / ROOM_CLOSED / NOT_MEMBER / BANNED when
+   * the room is gone, closed, or the user is no longer in it.
+   */
+  resumeRoom: (roomId: string) => rpc<RoomSnapshotDto>("resume_room", { p_room_id: roomId }),
   touchRoom: (roomId: string) => rpc<null>("touch_room", { p_room_id: roomId }),
   leaveRoom: (roomId: string) => rpc<null>("leave_room", { p_room_id: roomId }),
   kickMember: (roomId: string, userId: string) => rpc<null>("kick_member", { p_room_id: roomId, p_user_id: userId }),

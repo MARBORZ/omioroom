@@ -752,4 +752,20 @@ describe("maintenance", () => {
     expect(new Date(seenByA).getTime()).toBeGreaterThanOrEqual(new Date(m2.createdAt ?? m2.created_at).getTime() - 1000);
     expect((await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).unreadCount).toBe(0);
   });
+  it("resume_room tells apart a live room, a closed room, a missing room and a lost seat", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+
+    expect((await t.as(a).rpc("resume_room", { p_room_id: r.id })).room.id).toBe(r.id);
+
+    await t.as(a).rpc("leave_room", { p_room_id: r.id });
+    expect(await code(t.as(a).rpc("resume_room", { p_room_id: r.id }))).toBe("NOT_MEMBER");
+
+    expect(await code(t.as(a).rpc("resume_room", { p_room_id: randomUUID() }))).toBe("ROOM_NOT_FOUND");
+
+    await t.as(owner).rpc("close_room", { p_room_id: r.id });
+    expect(await code(t.as(owner).rpc("resume_room", { p_room_id: r.id }))).toBe("ROOM_CLOSED");
+  });
 });

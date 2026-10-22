@@ -16,6 +16,7 @@ export const ErrorCode = {
   USER_NOT_FOUND: "USER_NOT_FOUND",
   ROOM_LIMIT: "ROOM_LIMIT",
   BANNED: "BANNED",
+  NOT_MEMBER: "NOT_MEMBER",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
 
