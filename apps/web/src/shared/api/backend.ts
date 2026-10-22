@@ -63,6 +63,9 @@ export const backend = {
   leaveRoom: (roomId: string) => rpc<null>("leave_room", { p_room_id: roomId }),
   kickMember: (roomId: string, userId: string) => rpc<null>("kick_member", { p_room_id: roomId, p_user_id: userId }),
   banMember: (roomId: string, userId: string) => rpc<null>("ban_member", { p_room_id: roomId, p_user_id: userId }),
+  /** Owner or a controller mutes (or unmutes) an ordinary participant: no chat, silenced microphone. */
+  setMemberMuted: (roomId: string, userId: string, muted: boolean) =>
+    rpc<null>("set_member_muted", { p_room_id: roomId, p_user_id: userId, p_muted: muted }),
   unbanMember: (roomId: string, userId: string) => rpc<null>("unban_member", { p_room_id: roomId, p_user_id: userId }),
   /** Marks chat as read up to this message; call debounced, only for the newest visible message. */
   markChatSeen: (roomId: string, messageId: string) =>

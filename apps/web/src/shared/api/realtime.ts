@@ -99,6 +99,11 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
     )
     .on(
       "postgres_changes",
+      { event: "*", schema: "public", table: "room_mutes", filter: `room_id=eq.${roomId}` },
+      () => handlers.onMemberChanged()
+    )
+    .on(
+      "postgres_changes",
       { event: "*", schema: "public", table: "chat_seen", filter: `room_id=eq.${roomId}` },
       (payload) => {
         const row = payload.new as { user_id?: string; last_seen_at?: string };

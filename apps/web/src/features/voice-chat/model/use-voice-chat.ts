@@ -55,7 +55,7 @@ function watchLevel(stream: MediaStream, ctx: AudioContext, onLevel: (speaking: 
   };
 }
 
-export function useVoiceChat(roomId: string, userId: string | undefined) {
+export function useVoiceChat(roomId: string, userId: string | undefined, mutedUserIds: string[] = []) {
   const [status, setStatus] = useState<VoiceStatus>("off");
   const [error, setError] = useState<VoiceError>(null);
   const [muted, setMuted] = useState(false);
@@ -220,17 +220,42 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
       });
   }, [roomId, userId, status, publishPeers, teardown]);
 
+  // Muted by the owner or a controller: the microphone stays off and cannot be switched on
+  const forcedMuted = Boolean(userId && mutedUserIds.includes(userId));
+  const forcedMutedRef = useRef(forcedMuted);
+  forcedMutedRef.current = forcedMuted;
+
   const toggleMute = useCallback(() => {
     const s = stateRef.current;
-    if (!s.local || !s.channel) return;
+    if (!s.local || !s.channel || forcedMutedRef.current) return;
     const next = !muted;
     s.local.getAudioTracks().forEach((t) => (t.enabled = !next));
     setMuted(next);
     void s.channel.track({ muted: next, sid: sessionId.current } satisfies PresenceMeta);
   }, [muted]);
 
+  // Apply forced mute to our own microphone and show it to the others
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s.local || status !== "on") return;
+    if (forcedMuted) {
+      s.local.getAudioTracks().forEach((t) => (t.enabled = false));
+      setMuted(true);
+      if (s.channel) void s.channel.track({ muted: true, sid: sessionId.current } satisfies PresenceMeta);
+    }
+  }, [forcedMuted, status]);
+
+  // Silence the audio of participants muted by the room, on every listener's side
+  const mutedKey = mutedUserIds.join(",");
+  useEffect(() => {
+    for (const [peerId, stream] of Object.entries(streams)) {
+      const silenced = mutedKey.split(",").includes(peerId);
+      stream.getAudioTracks().forEach((t) => (t.enabled = !silenced));
+    }
+  }, [streams, mutedKey]);
+
   // Leaving the room page ends the call
   useEffect(() => teardown, [teardown]);
 
-  return { status, error, muted, peers, selfSpeaking, streams, join, leave: teardown, toggleMute };
+  return { status, error, muted, forcedMuted, peers, selfSpeaking, streams, join, leave: teardown, toggleMute };
 }

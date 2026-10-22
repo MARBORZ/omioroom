@@ -71,6 +71,8 @@ export const roomSnapshotDtoSchema = z.object({
   participants: z.array(participantDtoSchema),
   /** Chat messages from others that the viewer has not seen yet. */
   unreadCount: z.number().int().nonnegative().default(0),
+  /** Participants muted by the owner or a controller: no chat, silenced microphone. */
+  mutedUserIds: z.array(z.string().uuid()).default([]),
   /** Banned users; filled for the owner only. */
   bannedUsers: z.array(z.object({ userId: z.string().uuid(), displayName: z.string() })).default([]),
   playback: roomPlaybackStateDtoSchema.nullable(),

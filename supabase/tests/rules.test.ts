@@ -886,4 +886,26 @@ describe("maintenance", () => {
     expect((await cmd(owner, "seek", { p_position: 100 })).anchorPosition).toBe(100);
     await t.db.exec("create or replace function public.join_grace() returns interval language sql immutable as $$ select interval '0 seconds' $$");
   });
+  it("owner and controllers can mute ordinary members; muted members cannot chat; owner and controllers cannot be muted", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const b = await t.newUser();
+    const c = await t.newUser();
+    const r = await room(owner, "public", { p_control_mode: "selected" });
+    for (const u of [a, b, c]) await t.as(u).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(owner).rpc("set_member_control", { p_room_id: r.id, p_user_id: b, p_can_control: true });
+
+    expect(await code(t.as(c).rpc("set_member_muted", { p_room_id: r.id, p_user_id: a, p_muted: true }))).not.toBe("OK");
+    await t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: a, p_muted: true });
+    expect((await t.as(c).rpc("get_room_snapshot", { p_room_id: r.id })).mutedUserIds).toEqual([a]);
+    expect(await code(t.as(a).rpc("send_chat", { p_room_id: r.id, p_text: "hi" }))).toBe("MUTED");
+    // a member the owner allowed to control may mute too, but never the owner or another controller
+    expect(await code(t.as(b).rpc("set_member_muted", { p_room_id: r.id, p_user_id: c, p_muted: true }))).toBe("OK");
+    expect(await code(t.as(b).rpc("set_member_muted", { p_room_id: r.id, p_user_id: owner, p_muted: true }))).not.toBe("OK");
+    expect(await code(t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: b, p_muted: true }))).not.toBe("OK");
+    expect(await code(t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: owner, p_muted: true }))).not.toBe("OK");
+
+    await t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: a, p_muted: false });
+    expect((await t.as(a).rpc("send_chat", { p_room_id: r.id, p_text: "hi again" })).text ?? "ok").toBeTruthy();
+  });
 });
