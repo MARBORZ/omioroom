@@ -406,11 +406,12 @@ describe("buffering barrier", () => {
     expect(afterOne.status).toBe("buffering");
     expect(afterOne.bufferingBy).toEqual([owner]);
 
+    const before = Number(await t.as(owner).rpc("server_time_ms"));
     const resumed = await report(owner, r.id, false);
     expect(resumed.status).toBe("playing");
     expect(resumed.bufferingBy).toEqual([]);
-    // Resume instant is slightly in the future so clients can start together
-    expect(Number(resumed.anchorServerTime)).toBeGreaterThan(Date.now());
+    // Resume instant lies slightly ahead of the moment of the call so clients can start together
+    expect(Number(resumed.anchorServerTime)).toBeGreaterThan(before + 300);
     expect(resumed.anchorPosition).toBeGreaterThan(10);
   });
 
