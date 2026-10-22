@@ -55,6 +55,8 @@ export const en: Translations = {
       "No video loaded. Enter a YouTube URL or direct MP4/WebM video link below to watch together.",
     videoSource: "Video Source",
     videoSourcePlaceholder: "Paste YouTube or direct MP4/WebM URL...",
+    anyLink: "Any link",
+    wrongSource: "This link is not from",
     addVideo: "Add",
     urlError: "Please enter a valid YouTube link or a direct .mp4/.webm video URL",
     inviteTitle: "Invite Companion",

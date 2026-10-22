@@ -142,8 +142,23 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       }
     }
 
-    // Direct MP4 / WebM / OGG / MOV
     const pathnameLower = url.pathname.toLowerCase();
+
+    // Dropbox share links serve an HTML page; ?raw=1 streams the file itself
+    if (
+      (url.hostname === "www.dropbox.com" || url.hostname === "dropbox.com" || url.hostname === "dl.dropboxusercontent.com") &&
+      /\.(mp4|webm|ogg|mov|m4v)$/.test(pathnameLower)
+    ) {
+      url.searchParams.delete("dl");
+      url.searchParams.set("raw", "1");
+      return {
+        type: MediaType.HTML5,
+        sourceId: url.toString(),
+        canonicalUrl: url.toString(),
+      };
+    }
+
+    // Direct MP4 / WebM / OGG / MOV
     if (
       pathnameLower.endsWith(".mp4") ||
       pathnameLower.endsWith(".webm") ||

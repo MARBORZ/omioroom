@@ -54,6 +54,8 @@ export interface Translations {
     standbyDesc: string;
     videoSource: string;
     videoSourcePlaceholder: string;
+    anyLink: string;
+    wrongSource: string;
     addVideo: string;
     urlError: string;
     inviteTitle: string;

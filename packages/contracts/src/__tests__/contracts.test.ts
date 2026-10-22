@@ -190,4 +190,10 @@ describe("Contracts and Domain Logic", () => {
     expect(mediaSourceInfoSchema.safeParse({ ...base, canonicalUrl: "javascript:alert(1)" }).success).toBe(false);
     expect(mediaSourceInfoSchema.safeParse({ ...base, canonicalUrl: "https://a.com/v.mp4" }).success).toBe(true);
   });
+
+  it("turns Dropbox share links into streamable direct links", () => {
+    const parsed = parseMediaUrl("https://www.dropbox.com/s/abc123/movie.mp4?dl=0");
+    expect(parsed?.type).toBe("html5");
+    expect(parsed?.canonicalUrl).toBe("https://www.dropbox.com/s/abc123/movie.mp4?raw=1");
+  });
 });

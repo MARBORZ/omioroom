@@ -55,6 +55,8 @@ export const ru: Translations = {
       "Видео не загружено. Вставьте ссылку на YouTube или прямой MP4/WebM файл ниже, чтобы смотреть вместе.",
     videoSource: "Источник видео",
     videoSourcePlaceholder: "Вставьте ссылку на YouTube или прямой MP4/WebM...",
+    anyLink: "Любая ссылка",
+    wrongSource: "Эта ссылка не с источника",
     addVideo: "Добавить",
     urlError: "Пожалуйста, введите корректную ссылку на YouTube или прямой .mp4/.webm файл",
     inviteTitle: "Пригласить собеседника",
