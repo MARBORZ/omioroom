@@ -57,6 +57,8 @@ export const roomSummaryDtoSchema = z.object({
   maxParticipants: maxParticipantsSchema,
   controlMode: controlModeSchema,
   revision: z.number().int().nonnegative(),
+  /** When an empty room will delete itself; null while someone is inside. */
+  expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export type RoomSummaryDto = z.infer<typeof roomSummaryDtoSchema>;

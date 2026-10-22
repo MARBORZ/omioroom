@@ -811,7 +811,7 @@ describe("maintenance", () => {
     await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour'`);
     await t.db.exec(`update public.rooms set empty_since = now() - interval '1 hour' where id = '${r.id}'`);
     await t.db.exec("select public.pause_empty_rooms()");
-    await t.db.exec("select public.close_expired_rooms()");
+    await t.db.exec("select public.close_idle_rooms()");
 
     const back = await t.as(owner).rpc("resume_room", { p_room_id: r.id });
     expect(back.room.id).toBe(r.id);
@@ -821,16 +821,32 @@ describe("maintenance", () => {
     const history = await t.as(owner).query("select body from public.chat_messages where room_id = $1", [r.id]);
     expect(history.map((m: any) => m.body)).toEqual(["keep me"]);
   });
-  it("a room closes by itself 7 days after creation, not before", async () => {
+  it("a room self-destructs after 7 days with nobody inside; any visit resets the deadline", async () => {
     const owner = await t.newUser();
     const r = await room(owner, "public");
     await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "bye" });
-    await t.db.exec(`update public.rooms set created_at = now() - interval '6 days' where id = '${r.id}'`);
-    await t.db.exec("select public.close_expired_rooms()");
-    expect((await t.as(owner).rpc("resume_room", { p_room_id: r.id })).room.id).toBe(r.id);
-    await t.db.exec(`update public.rooms set created_at = now() - interval '8 days' where id = '${r.id}'`);
-    await t.db.exec("select public.close_expired_rooms()");
-    expect(await code(t.as(owner).rpc("resume_room", { p_room_id: r.id }))).toBe("ROOM_CLOSED");
+    await t.as(owner).rpc("leave_room", { p_room_id: r.id });
+    // Just left: empty, with a deadline about 7 days ahead
+    let snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.room.expiresAt).not.toBeNull();
+    const msLeft = new Date(snap.room.expiresAt).getTime() - Date.now();
+    expect(msLeft).toBeGreaterThan(6.9 * 86400_000);
+    expect(msLeft).toBeLessThanOrEqual(7 * 86400_000);
+
+    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '6 days' where room_id = '${r.id}'`);
+    await t.db.exec("select public.close_idle_rooms()");
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id })).room.status).toBe("active");
+
+    // A visit resets the clock; while someone is inside there is no countdown
+    snap = await t.as(owner).rpc("join_room", { p_global_id: r.globalId });
+    expect(snap.room.expiresAt).toBeNull();
+    await t.as(owner).rpc("leave_room", { p_room_id: r.id });
+    await t.db.exec("select public.close_idle_rooms()");
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id })).room.status).toBe("active");
+
+    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '8 days' where room_id = '${r.id}'`);
+    await t.db.exec("select public.close_idle_rooms()");
+    expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_CLOSED");
     expect(await t.as(owner).query("select 1 from public.chat_messages where room_id = $1", [r.id])).toHaveLength(0);
   });
 });
