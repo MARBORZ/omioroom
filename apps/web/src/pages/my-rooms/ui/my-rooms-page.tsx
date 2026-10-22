@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
+import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { emitCommand } from "../../../shared/api/socket.js";
 import {
   ClientCommand,
@@ -23,6 +25,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   onOpenRoom,
 }) => {
   const { socket } = useSocketContext();
+  const { t } = useI18n();
   const [rooms, setRooms] = useState<RoomSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   };
 
   const handleClose = async (roomId: string) => {
-    if (!window.confirm("Are you sure you want to close this room? Active viewers will be disconnected.")) {
+    if (!window.confirm(t.myRooms.closeConfirm)) {
       return;
     }
     try {
@@ -88,21 +91,21 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
     <div className={styles.container}>
       <div className={styles.headerRow}>
         <Button variant="ghost" size="sm" onClick={onBack} icon={<ArrowLeft size={16} />}>
-          Back
+          {t.common.back}
         </Button>
-        <h1 className={styles.pageTitle}>MY WATCH ROOMS</h1>
-        <div style={{ width: 70 }} />
+        <h1 className={styles.pageTitle}>{t.myRooms.title}</h1>
+        <LangSwitch />
       </div>
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-muted)" }}>
-          Loading your rooms...
+          {t.common.loading}
         </div>
       ) : rooms.length === 0 ? (
         <div className={styles.emptyState}>
-          <p>You haven't created any rooms yet.</p>
+          <p>{t.myRooms.empty}</p>
           <Button variant="primary" size="sm" onClick={onBack}>
-            Create One Now
+            {t.myRooms.createOne}
           </Button>
         </div>
       ) : (
@@ -112,10 +115,10 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
               <div className={styles.roomHeader}>
                 <span className={styles.roomTitle}>{room.title}</span>
                 <div className={styles.metaRow}>
-                  <Pill variant="accent">ROOM {room.globalId}</Pill>
+                  <Pill variant="accent">{t.common.room} {room.globalId}</Pill>
                   <Pill variant={room.visibility === "private" ? "accent" : "default"}>
                     {room.visibility === "private" ? <Lock size={10} style={{ marginRight: 2 }} /> : <Globe size={10} style={{ marginRight: 2 }} />}
-                    {room.visibility.toUpperCase()}
+                    {room.visibility === "private" ? t.common.private : t.common.public}
                   </Pill>
                   <Pill variant={room.participantCount >= 2 ? "success" : "default"}>
                     <Users size={10} style={{ marginRight: 2 }} />
@@ -131,7 +134,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
                   onClick={() => handleCopyLink(room.globalId)}
                   icon={copiedId === room.globalId ? <Check size={14} /> : <Copy size={14} />}
                 >
-                  {copiedId === room.globalId ? "Copied" : "Copy Link"}
+                  {copiedId === room.globalId ? t.common.copied : t.common.copyLink}
                 </Button>
 
                 <Button
@@ -140,7 +143,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
                   onClick={() => handleClose(room.id)}
                   icon={<Trash2 size={14} />}
                 >
-                  Close
+                  {t.common.close}
                 </Button>
 
                 <Button
@@ -149,7 +152,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
                   onClick={() => handleOpen(room.globalId)}
                   icon={<Play size={14} />}
                 >
-                  Enter Room
+                  {t.myRooms.enterRoom}
                 </Button>
               </div>
             </div>

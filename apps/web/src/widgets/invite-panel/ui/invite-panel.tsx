@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Copy, Check, RotateCw, Lock, Globe } from "lucide-react";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import styles from "./invite-panel.module.scss";
@@ -21,6 +22,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
   onRotateCode,
   onToggleVisibility,
 }) => {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -46,7 +48,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
 
   const handleRotate = async () => {
     if (!onRotateCode) return;
-    if (!window.confirm("Rotate private code? The old link/code will stop working for new connections.")) {
+    if (!window.confirm(t.room.rotateConfirm)) {
       return;
     }
     try {
@@ -71,10 +73,10 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
   return (
     <div className={styles.invitePanel}>
       <div className={styles.sectionTitle}>
-        <span>Invite Companion</span>
+        <span>{t.room.inviteTitle}</span>
         <Pill variant={visibility === "private" ? "accent" : "default"}>
           {visibility === "private" ? <Lock size={10} style={{ marginRight: 2 }} /> : <Globe size={10} style={{ marginRight: 2 }} />}
-          {visibility.toUpperCase()}
+          {visibility === "private" ? t.common.private : t.common.public}
         </Pill>
       </div>
 
@@ -85,7 +87,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
           icon={copied ? <Check size={16} /> : <Copy size={16} />}
           style={{ width: "100%" }}
         >
-          {copied ? "Link Copied!" : "Copy Invite Link"}
+          {copied ? t.room.inviteCopied : t.room.copyInviteBtn}
         </Button>
       </div>
 
@@ -94,7 +96,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
           {visibility === "private" && privateCode && (
             <>
               <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-                Private Invite Key (Visible to owner only):
+                {t.room.privateKeyNotice}
               </div>
               <div className={styles.privateCodeBox}>
                 <span>{privateCode}</span>
@@ -104,9 +106,9 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
                   onClick={handleRotate}
                   loading={rotating}
                   icon={<RotateCw size={14} />}
-                  title="Rotate invite key"
+                  title={t.room.rotateKey}
                 >
-                  Rotate
+                  {t.room.rotateKey}
                 </Button>
               </div>
             </>
@@ -120,7 +122,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
               loading={toggling}
               style={{ width: "100%", fontSize: "12px" }}
             >
-              Switch to {visibility === "public" ? "Private Room" : "Public Room"}
+              {visibility === "public" ? t.room.switchToPrivate : t.room.switchToPublic}
             </Button>
           </div>
         </div>

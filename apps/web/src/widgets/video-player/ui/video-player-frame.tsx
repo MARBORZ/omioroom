@@ -6,6 +6,7 @@ import {
   type RoomPlaybackStateDto,
   type MediaSourceInfo,
 } from "@omioroom/contracts";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import type { PlayerAdapter, PlayerAdapterEvent } from "../../../shared/lib/adapters/player-adapter.js";
 import { Html5PlayerAdapter } from "../../../shared/lib/adapters/html5-adapter.js";
 import { YouTubePlayerAdapter } from "../../../shared/lib/adapters/youtube-adapter.js";
@@ -28,6 +29,7 @@ export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
   onBufferingChange,
   isMuted = false,
 }) => {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<PlayerAdapter | null>(null);
   const currentMediaTypeRef = useRef<MediaType | null>(null);
@@ -145,9 +147,9 @@ export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
 
       {!playbackState?.media && (
         <div className={styles.placeholder}>
-          <div className={styles.retroTag}>STANDBY</div>
+          <div className={styles.retroTag}>{t.room.standby}</div>
           <p className={styles.placeholderText}>
-            No video loaded. Enter a YouTube URL or direct MP4/WebM video link below to watch together.
+            {t.room.standbyDesc}
           </p>
         </div>
       )}

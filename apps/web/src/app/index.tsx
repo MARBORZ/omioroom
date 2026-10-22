@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
+import { I18nProvider } from "../shared/lib/i18n/index.js";
 import { SocketProvider, useSocketContext } from "./providers/socket-provider.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
@@ -92,9 +93,11 @@ const MainApp: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <SocketProvider>
-      <MainApp />
-    </SocketProvider>
+    <I18nProvider>
+      <SocketProvider>
+        <MainApp />
+      </SocketProvider>
+    </I18nProvider>
   );
 };
 

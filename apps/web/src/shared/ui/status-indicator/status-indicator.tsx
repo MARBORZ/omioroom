@@ -1,4 +1,5 @@
 import React from "react";
+import { useI18n } from "../../lib/i18n/index.js";
 import styles from "./status-indicator.module.scss";
 
 export type ConnectionStatusType =
@@ -17,23 +18,31 @@ interface StatusIndicatorProps {
   style?: React.CSSProperties;
 }
 
-const DEFAULT_LABELS: Record<ConnectionStatusType, string> = {
-  connected: "Connected",
-  connecting: "Connecting",
-  reconnecting: "Reconnecting",
-  disconnected: "Disconnected",
-  buffering: "Buffering",
-  error: "Error",
-  "in-sync": "In Sync",
-};
-
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   status,
   customLabel,
   className,
   style,
 }) => {
-  const label = customLabel || DEFAULT_LABELS[status];
+  let tStatus: any = null;
+  try {
+    const { t } = useI18n();
+    tStatus = t.status;
+  } catch {
+    // Fallback if rendered outside provider
+  }
+
+  const defaultLabels: Record<ConnectionStatusType, string> = {
+    connected: tStatus?.connected || "Connected",
+    connecting: tStatus?.connecting || "Connecting",
+    reconnecting: tStatus?.reconnecting || "Reconnecting",
+    disconnected: tStatus?.disconnected || "Disconnected",
+    buffering: tStatus?.buffering || "Buffering",
+    error: tStatus?.error || "Error",
+    "in-sync": tStatus?.inSync || "In Sync",
+  };
+
+  const label = customLabel || defaultLabels[status];
   const statusClassKey = status === "in-sync" ? "inSync" : status;
   const statusClass = (styles as any)[statusClassKey] || "";
 

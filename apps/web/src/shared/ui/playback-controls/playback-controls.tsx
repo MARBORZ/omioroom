@@ -1,5 +1,6 @@
 import React from "react";
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize } from "lucide-react";
+import { useI18n } from "../../lib/i18n/index.js";
 import { formatTime } from "../../lib/format-time.js";
 import styles from "./playback-controls.module.scss";
 
@@ -32,6 +33,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onToggleMute,
   onToggleFullscreen,
 }) => {
+  const { t } = useI18n();
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +81,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className={styles.playPauseBtn}
             onClick={isPlaying ? onPause : onPlay}
             disabled={disabled}
-            aria-label={isPlaying ? "Pause video" : "Play video"}
+            aria-label={isPlaying ? t.room.pauseVideo : t.room.playVideo}
           >
             {isPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: 2 }} />}
           </button>
@@ -89,8 +91,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className={styles.iconBtn}
             onClick={skipBackward}
             disabled={disabled}
-            aria-label="Skip backward 10 seconds"
-            title="-10 sec"
+            aria-label={t.room.skipBackward}
+            title={t.room.skipBackward}
           >
             <RotateCcw size={18} />
           </button>
@@ -100,8 +102,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className={styles.iconBtn}
             onClick={skipForward}
             disabled={disabled}
-            aria-label="Skip forward 10 seconds"
-            title="+10 sec"
+            aria-label={t.room.skipForward}
+            title={t.room.skipForward}
           >
             <RotateCw size={18} />
           </button>
@@ -111,7 +113,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               type="button"
               className={styles.iconBtn}
               onClick={onToggleMute}
-              aria-label={isMuted ? "Unmute" : "Mute"}
+              aria-label={isMuted ? t.room.unmute : t.room.mute}
+              title={isMuted ? t.room.unmute : t.room.mute}
             >
               {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>

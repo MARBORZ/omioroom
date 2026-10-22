@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { formatTime } from "../shared/lib/format-time.js";
 import { generateClientRequestId } from "../shared/api/socket.js";
+import { en } from "../shared/lib/i18n/translations/en.js";
+import { ru } from "../shared/lib/i18n/translations/ru.js";
 
 describe("Web Utilities", () => {
   it("formats time correctly for mm:ss and hh:mm:ss", () => {
@@ -18,5 +20,16 @@ describe("Web Utilities", () => {
     expect(id1).toBeDefined();
     expect(id2).toBeDefined();
     expect(id1).not.toBe(id2);
+  });
+
+  it("has consistent i18n dictionaries for EN and RU", () => {
+    expect(en.common.brand).toBe("OMIOROOM");
+    expect(ru.common.brand).toBe("OMIOROOM");
+
+    expect(en.home.createTitle).toBe("Create a Watch Room");
+    expect(ru.home.createTitle).toBe("Создать комнату");
+
+    expect(en.room.inSyncRev(5)).toBe("In sync (rev 5)");
+    expect(ru.room.inSyncRev(5)).toBe("В синхроне (рев. 5)");
   });
 });

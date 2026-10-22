@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
+import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { emitCommand } from "../../../shared/api/socket.js";
 import {
   ClientCommand,
@@ -24,6 +26,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onNavigateMyRooms,
 }) => {
   const { socket, connectionStatus, user, updateDisplayName } = useSocketContext();
+  const { t } = useI18n();
 
   // Nickname edit state
   const [isEditingName, setIsEditingName] = useState(false);
@@ -74,7 +77,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       onRoomJoined(result.snapshot, result.ownerAccess?.privateCode ?? null);
     } catch (err: any) {
-      setCreateError(err.message || "Failed to create room");
+      setCreateError(err.message || t.home.errors.genericCreateError);
     } finally {
       setCreateLoading(false);
     }
@@ -100,15 +103,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       onRoomJoined(snapshot, joinPrivateCode.trim() || null);
     } catch (err: any) {
       if (err.code === "PRIVATE_CODE_REQUIRED") {
-        setJoinError("This room is private. Please enter the private access key.");
+        setJoinError(t.home.errors.privateCodeRequired);
       } else if (err.code === "INVALID_PRIVATE_CODE") {
-        setJoinError("Invalid private key. Please check the invite link.");
+        setJoinError(t.home.errors.invalidPrivateCode);
       } else if (err.code === "ROOM_FULL") {
-        setJoinError("This room is full (maximum 2 participants).");
+        setJoinError(t.home.errors.roomFull);
       } else if (err.code === "ROOM_NOT_FOUND") {
-        setJoinError("Room not found. Check the 6-digit code.");
+        setJoinError(t.home.errors.roomNotFound);
       } else {
-        setJoinError(err.message || "Failed to join room");
+        setJoinError(err.message || t.home.errors.genericJoinError);
       }
     } finally {
       setJoinLoading(false);
@@ -117,14 +120,19 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className={styles.homeContainer}>
+      {/* Top bar with language switch */}
+      <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+        <LangSwitch />
+      </div>
+
       {/* Hero */}
       <div className={styles.hero}>
         <div className={styles.brand}>
           <span style={{ width: 10, height: 10, backgroundColor: "var(--color-accent)", borderRadius: 2 }} />
-          OMIOROOM
+          {t.common.brand}
         </div>
         <p className={styles.tagline}>
-          Minimalist anonymous watch party for two.
+          {t.home.tagline}
         </p>
         <StatusIndicator status={connectionStatus} style={{ marginTop: 4 }} />
       </div>
@@ -136,7 +144,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <TextField
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Your nickname..."
+              placeholder={t.home.nicknamePlaceholder}
               disabled={nameLoading}
               autoFocus
             />
@@ -147,17 +155,17 @@ export const HomePage: React.FC<HomePageProps> = ({
               loading={nameLoading}
               icon={<Check size={14} />}
             >
-              Save
+              {t.common.save}
             </Button>
           </div>
         ) : (
           <>
             <div>
               <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase" }}>
-                Watching as
+                {t.home.watchingAs}
               </div>
               <div style={{ fontWeight: 600, fontSize: "15px" }}>
-                {user?.displayName || "Loading..."}
+                {user?.displayName || t.common.loading}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -170,7 +178,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   setIsEditingName(true);
                 }}
               >
-                Change
+                {t.common.change}
               </Button>
               <Button
                 variant="secondary"
@@ -178,7 +186,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 icon={<Tv size={13} />}
                 onClick={onNavigateMyRooms}
               >
-                My Rooms
+                {t.common.myRooms}
               </Button>
             </div>
           </>
@@ -187,11 +195,11 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Create Room Card */}
       <div className={styles.card}>
-        <div className={styles.cardTitle}>Create a Watch Room</div>
+        <div className={styles.cardTitle}>{t.home.createTitle}</div>
         <form onSubmit={handleCreateRoom} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <TextField
-            label="Room Title"
-            placeholder="e.g. Saturday Movie Night"
+            label={t.home.roomTitleLabel}
+            placeholder={t.home.roomTitlePlaceholder}
             value={roomTitle}
             onChange={(e) => setRoomTitle(e.target.value)}
           />
@@ -205,7 +213,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               icon={<Lock size={14} />}
               style={{ flex: 1 }}
             >
-              Private (Key Required)
+              {t.home.privateMode}
             </Button>
             <Button
               type="button"
@@ -215,7 +223,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               icon={<Globe size={14} />}
               style={{ flex: 1 }}
             >
-              Public (Code Only)
+              {t.home.publicMode}
             </Button>
           </div>
 
@@ -232,19 +240,19 @@ export const HomePage: React.FC<HomePageProps> = ({
             disabled={connectionStatus !== "connected"}
             icon={<Plus size={16} />}
           >
-            Create Room
+            {t.home.createBtn}
           </Button>
         </form>
       </div>
 
-      <div className={styles.divider}>OR</div>
+      <div className={styles.divider}>{t.home.or}</div>
 
       {/* Join Room Card */}
       <div className={styles.card}>
-        <div className={styles.cardTitle}>Join Existing Room</div>
+        <div className={styles.cardTitle}>{t.home.joinTitle}</div>
         <form onSubmit={handleJoinRoom} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <TextField
-            label="Global Room ID (6 Digits)"
+            label={t.home.globalIdLabel}
             placeholder="482731"
             mono
             maxLength={6}
@@ -254,8 +262,8 @@ export const HomePage: React.FC<HomePageProps> = ({
           />
 
           <TextField
-            label="Private Invite Key (If room is private)"
-            placeholder="Paste private key here if required..."
+            label={t.home.privateKeyLabel}
+            placeholder={t.home.privateKeyPlaceholder}
             mono
             value={joinPrivateCode}
             onChange={(e) => setJoinPrivateCode(e.target.value)}
@@ -274,7 +282,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             disabled={connectionStatus !== "connected" || joinCode.length !== 6}
             icon={<LogIn size={16} />}
           >
-            Join Room
+            {t.home.joinBtn}
           </Button>
         </form>
       </div>

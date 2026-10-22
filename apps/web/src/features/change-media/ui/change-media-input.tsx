@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { parseMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Link2 } from "lucide-react";
@@ -15,6 +16,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   loading = false,
   disabled = false,
 }) => {
+  const { t } = useI18n();
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
 
     const parsed = parseMediaUrl(url);
     if (!parsed) {
-      setError("Please enter a valid YouTube link or a direct .mp4/.webm video URL");
+      setError(t.room.urlError);
       return;
     }
 
@@ -36,8 +38,8 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
       <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
         <TextField
-          label="Video Source"
-          placeholder="Paste YouTube or direct MP4/WebM URL..."
+          label={t.room.videoSource}
+          placeholder={t.room.videoSourcePlaceholder}
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
@@ -54,7 +56,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           loading={loading}
           icon={<Link2 size={16} />}
         >
-          Add
+          {t.room.addVideo}
         </Button>
       </div>
     </form>

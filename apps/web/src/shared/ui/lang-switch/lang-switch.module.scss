@@ -1,0 +1,29 @@
+.langBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+
+  &:hover {
+    border-color: var(--color-border-focus);
+    color: var(--color-text);
+  }
+
+  .active {
+    color: var(--color-accent);
+  }
+
+  .divider {
+    color: #444;
+  }
+}

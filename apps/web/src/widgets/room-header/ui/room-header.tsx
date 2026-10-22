@@ -2,6 +2,8 @@ import React from "react";
 import { Users, Tv } from "lucide-react";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { StatusIndicator, type ConnectionStatusType } from "../../../shared/ui/status-indicator/status-indicator.js";
+import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import styles from "./room-header.module.scss";
 
 interface RoomHeaderProps {
@@ -21,6 +23,8 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   onNavigateMyRooms,
   title,
 }) => {
+  const { t } = useI18n();
+
   return (
     <header className={styles.header}>
       <div className={styles.leftSection}>
@@ -32,12 +36,12 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           tabIndex={onNavigateHome ? 0 : undefined}
         >
           <span className={styles.brandDot} />
-          OMIOROOM
+          {t.common.brand}
         </div>
 
         {globalRoomId && (
           <Pill variant="accent">
-            ROOM {globalRoomId}
+            {t.common.room} {globalRoomId}
           </Pill>
         )}
 
@@ -49,6 +53,8 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
       </div>
 
       <div className={styles.rightSection}>
+        <LangSwitch />
+
         <StatusIndicator status={connectionStatus} />
 
         {globalRoomId && (
@@ -74,7 +80,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             }}
           >
             <Tv size={14} />
-            My Rooms
+            {t.common.myRooms}
           </button>
         )}
       </div>

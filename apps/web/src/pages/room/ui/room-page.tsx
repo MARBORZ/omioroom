@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { LogOut } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
 import { VideoPlayerFrame } from "../../../widgets/video-player/ui/video-player-frame.js";
 import { PlaybackControls } from "../../../shared/ui/playback-controls/playback-controls.js";
@@ -38,6 +39,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   onNavigateMyRooms,
 }) => {
   const { socket, connectionStatus, timeSync } = useSocketContext();
+  const { t } = useI18n();
 
   const [snapshot, setSnapshot] = useState<RoomSnapshotDto>(initialSnapshot);
   const [playback, setPlayback] = useState<RoomPlaybackStateDto | null>(initialSnapshot.playback);
@@ -48,7 +50,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [lastSyncText, setLastSyncText] = useState("In sync");
+  const [lastSyncText, setLastSyncText] = useState(t.status.inSync);
 
   const isLocalCommandRef = useRef(false);
 
@@ -56,7 +58,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   useEffect(() => {
     const handlePlayerState = (newState: RoomPlaybackStateDto) => {
       setPlayback(newState);
-      setLastSyncText(`In sync (rev ${newState.revision})`);
+      setLastSyncText(t.room.inSyncRev(newState.revision));
     };
 
     const handleParticipantJoined = (data: any) => {
@@ -89,7 +91,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     };
 
     const handleRoomClosed = () => {
-      alert("This room has been closed by the owner.");
+      alert(t.room.closedAlert);
       onLeave();
     };
 
@@ -263,10 +265,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
           {/* Real-time sync status bar */}
           <div className={styles.syncStatusBar}>
-            <span>● {isBuffering ? "Buffering..." : lastSyncText}</span>
-            <span>Offset: {Math.round(timeSync.getClockOffset())}ms</span>
+            <span>● {isBuffering ? t.status.buffering : lastSyncText}</span>
+            <span>{t.room.offset}: {Math.round(timeSync.getClockOffset())}ms</span>
             <Button variant="ghost" size="sm" onClick={handleLeave} icon={<LogOut size={14} />}>
-              Leave Room
+              {t.room.leaveRoom}
             </Button>
           </div>
         </div>
