@@ -3,7 +3,7 @@ import { LogOut } from "lucide-react";
 import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
-import { VideoPlayerFrame } from "../../../widgets/video-player/ui/video-player-frame.js";
+import { VideoPlayerFrame, type VideoPlayerHandle } from "../../../widgets/video-player/ui/video-player-frame.js";
 import { PlaybackControls } from "../../../shared/ui/playback-controls/playback-controls.js";
 import { ChangeMediaInput } from "../../../features/change-media/ui/change-media-input.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
@@ -55,6 +55,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
   const videoSectionRef = useRef<HTMLDivElement>(null);
+  const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 
   // Keyboard accessibility: Space for play/pause, Left/Right arrow for seek
   useEffect(() => {
@@ -173,6 +174,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   );
 
   const handlePlay = () => {
+    videoPlayerRef.current?.play();
     sendPlayerCommand({
       type: "play",
       position: currentTime,
@@ -180,6 +182,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   };
 
   const handlePause = () => {
+    videoPlayerRef.current?.pause();
     sendPlayerCommand({
       type: "pause",
       position: currentTime,
@@ -188,6 +191,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   const handleSeek = (pos: number) => {
     setCurrentTime(pos);
+    videoPlayerRef.current?.seek(pos);
     sendPlayerCommand({
       type: "seek",
       position: pos,
@@ -279,6 +283,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         {/* Cinematic Video Player Section */}
         <div className={styles.videoSection} ref={videoSectionRef}>
           <VideoPlayerFrame
+            ref={videoPlayerRef}
             playbackState={playback}
             estimatedServerNow={timeSync.getEstimatedServerNow()}
             onPositionUpdate={(curr, dur) => {

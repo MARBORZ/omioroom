@@ -8,8 +8,12 @@ declare global {
   }
 }
 
+let ytScriptLoadingPromise: Promise<void> | null = null;
+
 function loadYouTubeScript(): Promise<void> {
-  return new Promise((resolve) => {
+  if (ytScriptLoadingPromise) return ytScriptLoadingPromise;
+
+  ytScriptLoadingPromise = new Promise((resolve) => {
     if (window.YT && window.YT.Player) {
       return resolve();
     }
@@ -32,6 +36,8 @@ function loadYouTubeScript(): Promise<void> {
     };
     document.body.appendChild(script);
   });
+
+  return ytScriptLoadingPromise;
 }
 
 export class YouTubePlayerAdapter implements PlayerAdapter {
@@ -40,11 +46,13 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
   private timeUpdateInterval: any = null;
   private isBufferingState = false;
+  private isReady = false;
+  private readyQueue: Array<() => void> = [];
 
   async attach(container: HTMLElement): Promise<void> {
-    await loadYouTubeScript();
     this.containerElement = container;
     container.innerHTML = `<div id="yt-player-target" style="width:100%; height:100%;"></div>`;
+    await loadYouTubeScript();
   }
 
   private emit(event: PlayerAdapterEvent) {
@@ -56,12 +64,16 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
   private startTimeTracker() {
     this.stopTimeTracker();
     this.timeUpdateInterval = setInterval(() => {
-      if (this.player && typeof this.player.getCurrentTime === "function") {
-        this.emit({
-          type: "timeupdate",
-          currentTime: this.player.getCurrentTime() || 0,
-          duration: this.player.getDuration() || 0,
-        });
+      if (this.isReady && this.player && typeof this.player.getCurrentTime === "function") {
+        try {
+          this.emit({
+            type: "timeupdate",
+            currentTime: this.player.getCurrentTime() || 0,
+            duration: this.player.getDuration() || 0,
+          });
+        } catch {
+          // Ignore transient postMessage errors
+        }
       }
     }, 250);
   }
@@ -74,39 +86,72 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
   }
 
   async loadMedia(media: MediaSourceInfo): Promise<void> {
-    if (!this.player) {
-      await loadYouTubeScript();
-      return new Promise((resolve) => {
-        this.player = new window.YT.Player("yt-player-target", {
-          videoId: media.sourceId,
-          playerVars: {
-            autoplay: 0,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            modestbranding: 1,
-            rel: 0,
-            playsinline: 1,
-          },
-          events: {
-            onReady: () => resolve(),
-            onStateChange: (event: any) => this.handleStateChange(event.data),
-            onError: (err: any) => {
-              this.emit({
-                type: "error",
-                currentTime: 0,
-                duration: 0,
-                error: `YouTube Player error: ${err.data}`,
-              });
-            },
-          },
-        });
-      });
-    } else {
-      if (typeof this.player.cueVideoById === "function") {
-        this.player.cueVideoById(media.sourceId);
+    await loadYouTubeScript();
+
+    return new Promise((resolve) => {
+      if (this.player && this.isReady) {
+        try {
+          this.player.loadVideoById(media.sourceId, 0);
+          resolve();
+        } catch {
+          this.recreatePlayer(media, resolve);
+        }
+      } else {
+        this.recreatePlayer(media, resolve);
       }
+    });
+  }
+
+  private recreatePlayer(media: MediaSourceInfo, onReadyCallback?: () => void) {
+    this.isReady = false;
+    if (this.containerElement) {
+      this.containerElement.innerHTML = `<div id="yt-player-target" style="width:100%; height:100%;"></div>`;
     }
+
+    const origin = typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "http://localhost:5174";
+
+    this.player = new window.YT.Player("yt-player-target", {
+      videoId: media.sourceId,
+      width: "100%",
+      height: "100%",
+      playerVars: {
+        enablejsapi: 1,
+        origin: origin,
+        autoplay: 0,
+        controls: 0,
+        disablekb: 1,
+        fs: 0,
+        modestbranding: 1,
+        rel: 0,
+        playsinline: 1,
+      },
+      events: {
+        onReady: () => {
+          this.isReady = true;
+          // Flush pending actions
+          while (this.readyQueue.length > 0) {
+            const action = this.readyQueue.shift();
+            try {
+              action?.();
+            } catch (err) {
+              console.warn("Error running pending YouTube action:", err);
+            }
+          }
+          onReadyCallback?.();
+        },
+        onStateChange: (event: any) => this.handleStateChange(event.data),
+        onError: (err: any) => {
+          this.emit({
+            type: "error",
+            currentTime: 0,
+            duration: 0,
+            error: `YouTube error code: ${err?.data}`,
+          });
+        },
+      },
+    });
   }
 
   private handleStateChange(state: number) {
@@ -136,49 +181,86 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
     }
   }
 
-  async play(): Promise<void> {
-    if (this.player && typeof this.player.playVideo === "function") {
-      this.player.playVideo();
+  private runWhenReady(action: () => void) {
+    if (this.isReady && this.player) {
+      try {
+        action();
+      } catch (err) {
+        console.warn("YouTube action failed:", err);
+      }
+    } else {
+      this.readyQueue.push(action);
     }
+  }
+
+  async play(): Promise<void> {
+    this.runWhenReady(() => {
+      if (this.player && typeof this.player.playVideo === "function") {
+        try {
+          this.player.playVideo();
+        } catch {
+          try {
+            this.player.mute();
+            this.player.playVideo();
+          } catch {}
+        }
+      }
+    });
   }
 
   async pause(): Promise<void> {
-    if (this.player && typeof this.player.pauseVideo === "function") {
-      this.player.pauseVideo();
-    }
+    this.runWhenReady(() => {
+      if (this.player && typeof this.player.pauseVideo === "function") {
+        this.player.pauseVideo();
+      }
+    });
   }
 
   async seek(seconds: number): Promise<void> {
-    if (this.player && typeof this.player.seekTo === "function") {
-      this.player.seekTo(seconds, true);
-    }
+    this.runWhenReady(() => {
+      if (this.player && typeof this.player.seekTo === "function") {
+        this.player.seekTo(seconds, true);
+      }
+    });
   }
 
   async setPlaybackRate(rate: number): Promise<void> {
-    if (this.player && typeof this.player.setPlaybackRate === "function") {
-      this.player.setPlaybackRate(rate);
-    }
+    this.runWhenReady(() => {
+      if (this.player && typeof this.player.setPlaybackRate === "function") {
+        this.player.setPlaybackRate(rate);
+      }
+    });
   }
 
   setMuted(muted: boolean): void {
-    if (!this.player) return;
-    if (muted && typeof this.player.mute === "function") {
-      this.player.mute();
-    } else if (!muted && typeof this.player.unMute === "function") {
-      this.player.unMute();
-    }
+    this.runWhenReady(() => {
+      if (!this.player) return;
+      if (muted && typeof this.player.mute === "function") {
+        this.player.mute();
+      } else if (!muted && typeof this.player.unMute === "function") {
+        this.player.unMute();
+      }
+    });
   }
 
   getCurrentTime(): number {
-    if (this.player && typeof this.player.getCurrentTime === "function") {
-      return this.player.getCurrentTime() || 0;
+    if (this.isReady && this.player && typeof this.player.getCurrentTime === "function") {
+      try {
+        return this.player.getCurrentTime() || 0;
+      } catch {
+        return 0;
+      }
     }
     return 0;
   }
 
   getDuration(): number {
-    if (this.player && typeof this.player.getDuration === "function") {
-      return this.player.getDuration() || 0;
+    if (this.isReady && this.player && typeof this.player.getDuration === "function") {
+      try {
+        return this.player.getDuration() || 0;
+      } catch {
+        return 0;
+      }
     }
     return 0;
   }
@@ -189,8 +271,12 @@ export class YouTubePlayerAdapter implements PlayerAdapter {
 
   destroy(): void {
     this.stopTimeTracker();
+    this.isReady = false;
+    this.readyQueue = [];
     if (this.player && typeof this.player.destroy === "function") {
-      this.player.destroy();
+      try {
+        this.player.destroy();
+      } catch {}
       this.player = null;
     }
     this.listeners.clear();

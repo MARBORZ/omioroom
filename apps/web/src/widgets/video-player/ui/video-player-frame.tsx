@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { VolumeX } from "lucide-react";
 import {
   MediaType,
@@ -13,7 +13,15 @@ import { Html5PlayerAdapter } from "../../../shared/lib/adapters/html5-adapter.j
 import { YouTubePlayerAdapter } from "../../../shared/lib/adapters/youtube-adapter.js";
 import styles from "./video-player-frame.module.scss";
 
-interface VideoPlayerFrameProps {
+export interface VideoPlayerHandle {
+  play: () => Promise<void>;
+  pause: () => Promise<void>;
+  seek: (seconds: number) => Promise<void>;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+}
+
+export interface VideoPlayerFrameProps {
   playbackState: RoomPlaybackStateDto | null;
   estimatedServerNow: number;
   onPositionUpdate: (currentTime: number, duration: number) => void;
@@ -23,22 +31,40 @@ interface VideoPlayerFrameProps {
   onToggleMute?: () => void;
 }
 
-export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
-  playbackState,
-  estimatedServerNow,
-  onPositionUpdate,
-  onPlayStateChange,
-  onBufferingChange,
-  isMuted = false,
-  onToggleMute,
-}) => {
-  const { t } = useI18n();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const adapterRef = useRef<PlayerAdapter | null>(null);
-  const currentMediaTypeRef = useRef<MediaType | null>(null);
-  const isSyncingRef = useRef(false);
+export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFrameProps>(
+  (
+    {
+      playbackState,
+      estimatedServerNow,
+      onPositionUpdate,
+      onPlayStateChange,
+      onBufferingChange,
+      isMuted = false,
+      onToggleMute,
+    },
+    ref
+  ) => {
+    const { t } = useI18n();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const adapterRef = useRef<PlayerAdapter | null>(null);
+    const currentMediaTypeRef = useRef<MediaType | null>(null);
+    const isSyncingRef = useRef(false);
 
-  const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
+    const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
+
+    useImperativeHandle(ref, () => ({
+      play: async () => {
+        await adapterRef.current?.play();
+      },
+      pause: async () => {
+        await adapterRef.current?.pause();
+      },
+      seek: async (sec: number) => {
+        await adapterRef.current?.seek(sec);
+      },
+      getCurrentTime: () => adapterRef.current?.getCurrentTime() || 0,
+      getDuration: () => adapterRef.current?.getDuration() || 0,
+    }));
 
   // Initialize or swap adapter when media type changes
   const initAdapter = useCallback(async (media: MediaSourceInfo | null) => {
@@ -176,4 +202,6 @@ export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
       )}
     </div>
   );
-};
+});
+
+VideoPlayerFrame.displayName = "VideoPlayerFrame";

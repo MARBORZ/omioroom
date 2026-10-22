@@ -29,11 +29,15 @@ const MainApp: React.FC = () => {
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
 
   // Auto-join from URL hash if present (e.g. #room=482731&code=XYZ)
+  const autoJoinAttemptedRef = React.useRef(false);
+
   useEffect(() => {
     if (connectionStatus !== "connected") return;
+    if (autoJoinAttemptedRef.current) return;
 
     const hash = window.location.hash;
     if (hash.startsWith("#room=")) {
+      autoJoinAttemptedRef.current = true;
       const params = new URLSearchParams(hash.slice(1));
       const roomCode = params.get("room");
       const privateCode = params.get("code");
@@ -49,7 +53,10 @@ const MainApp: React.FC = () => {
             setScreen("room");
           })
           .catch((err) => {
-            console.error("Auto-join failed:", err);
+            console.warn("Auto-join to room failed (likely expired after server restart):", err?.message || err);
+            // Clear dead hash from address bar so it doesn't loop
+            window.location.hash = "";
+            setScreen("home");
           });
       }
     }
