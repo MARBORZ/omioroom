@@ -102,12 +102,12 @@ describe("rooms and private access", () => {
     expect(await t.as(b).rpc("list_my_rooms")).toHaveLength(1);
   });
 
-  it("names rooms automatically when no title is given", async () => {
+  it("names rooms by their number, ignoring any given title", async () => {
     const a = await t.newUser();
     const res = await t.as(a).rpc("create_room", { p_visibility: "public" });
-    expect(res.snapshot.room.title).toMatch(/^[A-Z][a-z]+ [A-Z][A-Za-z ]+$/);
+    expect(res.snapshot.room.title).toBe(`Room ${res.snapshot.room.globalId}`);
     const named = await t.as(a).rpc("create_room", { p_title: "  Our night  ", p_visibility: "public" });
-    expect(named.snapshot.room.title).toBe("Our night");
+    expect(named.snapshot.room.title).toBe(`Room ${named.snapshot.room.globalId}`);
   });
 
   it("is idempotent per request id", async () => {
