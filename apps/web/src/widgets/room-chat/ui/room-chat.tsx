@@ -122,17 +122,44 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     });
   }, []);
 
+  // Messages count as read only while the list is really on screen, in a visible browser tab, scrolled to the end
+  const isReadingNow = useCallback(() => {
+    const el = listRef.current;
+    if (!el || el.getClientRects().length === 0) return false;
+    return document.visibilityState === "visible" && isNearBottomRef.current;
+  }, []);
+
   const triggerMarkSeen = useCallback(() => {
-    if (!roomId) return;
+    if (!roomId || !isReadingNow()) return;
     const lastOther = [...messages].reverse().find((m) => m.senderId !== user?.id);
     if (!lastOther || lastOther.id === lastMarkedIdRef.current) return;
 
     if (markSeenTimeoutRef.current) clearTimeout(markSeenTimeoutRef.current);
     markSeenTimeoutRef.current = setTimeout(() => {
+      // Look again: the user may have switched away during the delay
+      if (!isReadingNow()) return;
       lastMarkedIdRef.current = lastOther.id;
       backend.markChatSeen(roomId, lastOther.id).catch(() => {});
     }, 1200);
-  }, [messages, roomId, user?.id]);
+  }, [messages, roomId, user?.id, isReadingNow]);
+
+  // The chat appears (tab switched, panel opened) or the browser tab returns to the foreground
+  useEffect(() => {
+    const el = listRef.current;
+    const onVisible = () => triggerMarkSeen();
+    document.addEventListener("visibilitychange", onVisible);
+    let observer: IntersectionObserver | null = null;
+    if (el && typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) triggerMarkSeen();
+      });
+      observer.observe(el);
+    }
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      observer?.disconnect();
+    };
+  }, [triggerMarkSeen]);
 
   const handleScroll = () => {
     const el = listRef.current;
