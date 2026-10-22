@@ -149,6 +149,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
     const guardUntilRef = useRef(0);
     const adapterPlayingRef = useRef(false);
+    const soundSyncedRef = useRef(false);
     const appliedRateRef = useRef(0);
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
 
@@ -350,7 +351,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     await adapter.attach(containerRef.current);
     adapterRef.current = adapter;
     // A new player starts unmuted: carry over the current choice
-    if (latest.current.isMuted) adapter.setMuted(true);
+    adapter.setMuted(latest.current.isMuted);
 
     adapter.onStateChange((event: PlayerAdapterEvent) => {
       const cur = latest.current;
@@ -375,6 +376,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       } else if (event.type === "play") {
         setMediaLoading(false);
         adapterPlayingRef.current = true;
+        // First playback of this video: players that started muted must not stay muted
+        if (!soundSyncedRef.current) {
+          soundSyncedRef.current = true;
+          adapterRef.current?.setMuted(latest.current.isMuted);
+        }
         setNeedsGesture(false);
         cur.onBufferingChange?.(false);
         if (stallTimerRef.current) {
@@ -418,6 +424,9 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     });
 
     await adapter.loadMedia(media);
+    // The new video follows the viewer's sound choice (a player may have muted itself to be allowed to autoplay)
+    soundSyncedRef.current = false;
+    adapter.setMuted(latest.current.isMuted);
     // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
     appliedRateRef.current = 0;
     if (adapter.getDuration() > 0) {
