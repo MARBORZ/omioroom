@@ -22,13 +22,7 @@ export const Logo: React.FC<LogoProps> = ({ size = "md", showText = true, classN
           style={{ width: "auto", aspectRatio: "56 / 36" }}
           aria-hidden="true"
         >
-          <defs>
-            <clipPath id="logo-left-disc">
-              <circle cx="22" cy="32" r="14" />
-            </clipPath>
-          </defs>
           <circle cx="22" cy="32" r="14" stroke="var(--color-text, #F4F0E8)" strokeWidth="6" />
-          <circle cx="42" cy="32" r="14" fill="var(--color-accent, #FF6847)" clipPath="url(#logo-left-disc)" />
           <circle cx="42" cy="32" r="14" stroke="var(--color-accent, #FF6847)" strokeWidth="6" />
         </svg>
       </div>

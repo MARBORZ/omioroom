@@ -52,18 +52,10 @@ export const BootSplash: React.FC<{ ready?: boolean }> = ({ ready = true }) => {
     <div className={`${styles.splash} ${reduced ? styles.still : ""} ${leaving ? styles.lifting : ""}`} role="presentation" aria-hidden>
       <div className={styles.center}>
         <svg className={styles.mark} viewBox="0 0 64 64">
-          <defs>
-            <clipPath id="boot-left-disc">
-              <circle cx="22" cy="32" r="14" />
-            </clipPath>
-          </defs>
           <g className={styles.left}>
             <circle cx="22" cy="32" r="14" fill="none" stroke="var(--boot-text)" strokeWidth="6" />
           </g>
           <g className={styles.right}>
-            <g clipPath="url(#boot-left-disc)" className={styles.lensGroup}>
-              <circle cx="42" cy="32" r="14" fill="var(--boot-accent)" />
-            </g>
             <circle cx="42" cy="32" r="14" fill="none" stroke="var(--boot-accent)" strokeWidth="6" />
           </g>
         </svg>

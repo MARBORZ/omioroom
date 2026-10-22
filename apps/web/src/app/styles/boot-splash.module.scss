@@ -37,11 +37,6 @@
   animation: boot-right 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* the shared area appears only once the rings have met */
-.lensGroup {
-  animation: boot-fade 200ms ease-out 500ms both;
-}
-
 .word {
   font-family: var(--font-sans, "Inter", system-ui, sans-serif);
   font-weight: 700;
@@ -80,7 +75,7 @@
 .still {
   animation: none;
 
-  .left, .right, .lensGroup, .word {
+  .left, .right, .word {
     animation: none;
   }
 }
