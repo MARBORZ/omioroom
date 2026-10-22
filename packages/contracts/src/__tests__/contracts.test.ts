@@ -227,4 +227,13 @@ describe("Contracts and Domain Logic", () => {
     const ru = parseMediaUrl('<iframe src="//vkvideo.ru/video_ext.php?oid=1&id=2&hash=ff00"></iframe>');
     expect(ru?.canonicalUrl.startsWith("https://vkvideo.ru/")).toBe(true);
   });
+
+  it("recognizes public Yandex Disk file links", () => {
+    expect(parseMediaUrl("https://disk.yandex.ru/i/AbCdEf123456")?.type).toBe("yandex-disk");
+    expect(parseMediaUrl("https://yadi.sk/i/AbCdEf123456")?.type).toBe("yandex-disk");
+    expect(parseMediaUrl("https://disk.yandex.ru/d/FolderKey/movies/film.mp4")?.type).toBe("yandex-disk");
+    // A folder or a non-video path is not a playable file
+    expect(parseMediaUrl("https://disk.yandex.ru/d/FolderKey")).toBeNull();
+    expect(parseMediaUrl("https://disk.yandex.ru/client/disk")).toBeNull();
+  });
 });

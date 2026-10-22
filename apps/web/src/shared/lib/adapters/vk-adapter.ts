@@ -68,6 +68,8 @@ export class VkPlayerAdapter implements PlayerAdapter {
   private clock = new PositionClock();
   private duration = 0;
   private ready = false;
+  private wantPlaying = false;
+  private lastSeekAt = 0;
   private queue: Array<() => void> = [];
 
   async attach(container: HTMLElement): Promise<void> {
@@ -92,6 +94,7 @@ export class VkPlayerAdapter implements PlayerAdapter {
     }
     this.player = null;
     this.ready = false;
+    this.wantPlaying = false;
     this.queue = [];
     if (this.containerElement) this.containerElement.innerHTML = "";
   }
@@ -146,6 +149,12 @@ export class VkPlayerAdapter implements PlayerAdapter {
     });
     const playing = (s: VkPlayerState) => {
       sync(s);
+      // VK's player resumes by itself after a seek. If we asked for a pause, put it back at once
+      // instead of letting the room think someone pressed play.
+      if (!this.wantPlaying && Date.now() - this.lastSeekAt < 2500) {
+        this.player?.pause();
+        return;
+      }
       this.clock.setPlaying(true);
       this.emit("play");
     };
@@ -167,14 +176,17 @@ export class VkPlayerAdapter implements PlayerAdapter {
   }
 
   async play(): Promise<void> {
+    this.wantPlaying = true;
     this.whenReady(() => this.player?.play());
   }
 
   async pause(): Promise<void> {
+    this.wantPlaying = false;
     this.whenReady(() => this.player?.pause());
   }
 
   async seek(seconds: number): Promise<void> {
+    this.lastSeekAt = Date.now();
     this.clock.jump(seconds);
     this.whenReady(() => this.player?.seek(seconds));
   }

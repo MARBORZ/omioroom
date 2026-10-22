@@ -28,6 +28,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   const hints: Record<string, string> = {
     vk: t.room.hintVk,
     rutube: t.room.hintRutube,
+    yandex: t.room.hintYandex,
     dropbox: t.room.hintDropbox,
     file: t.room.hintFile,
   };

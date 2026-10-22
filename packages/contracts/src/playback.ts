@@ -17,6 +17,8 @@ export const MediaType = {
   TWITCH: "twitch",
   VIMEO: "vimeo",
   HLS: "hls",
+  /** A public Yandex Disk file; each viewer resolves its own temporary direct link. */
+  YANDEX_DISK: "yandex-disk",
 } as const;
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
@@ -150,6 +152,19 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
     }
 
     const pathnameLower = url.pathname.toLowerCase();
+
+    // Yandex Disk public link: /i/<key> (a file) or /d/<key>/<path to a file in a public folder)
+    if (/^(disk\.yandex\.(ru|com|by|kz|uz)|yadi\.sk)$/.test(url.hostname)) {
+      const file = url.pathname.match(/^\/i\/[\w-]+\/?$/);
+      const inFolder = url.pathname.match(/^\/d\/[\w-]+\/.+\.(mp4|webm|ogg|mov|m4v|mkv)$/i);
+      if (file || inFolder) {
+        return {
+          type: MediaType.YANDEX_DISK,
+          sourceId: url.pathname,
+          canonicalUrl: `https://${url.hostname}${url.pathname}`,
+        };
+      }
+    }
 
     // Dropbox share links serve an HTML page; ?raw=1 streams the file itself
     if (

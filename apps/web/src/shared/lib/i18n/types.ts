@@ -56,6 +56,7 @@ export interface Translations {
     playerError: string;
     hintVk: string;
     hintRutube: string;
+    hintYandex: string;
     hintDropbox: string;
     hintFile: string;
     tapToJoin: string;

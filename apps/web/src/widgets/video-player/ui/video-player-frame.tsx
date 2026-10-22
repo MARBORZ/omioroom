@@ -14,6 +14,7 @@ import {
 } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import type { PlayerAdapter, PlayerAdapterEvent } from "../../../shared/lib/adapters/player-adapter.js";
+import { YandexDiskPlayerAdapter } from "../../../shared/lib/adapters/yandex-disk-adapter.js";
 import { Html5PlayerAdapter } from "../../../shared/lib/adapters/html5-adapter.js";
 import { YouTubePlayerAdapter } from "../../../shared/lib/adapters/youtube-adapter.js";
 import { HlsPlayerAdapter } from "../../../shared/lib/adapters/hls-adapter.js";
@@ -267,6 +268,9 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           break;
         case MediaType.VIMEO:
           adapter = new VimeoPlayerAdapter();
+          break;
+        case MediaType.YANDEX_DISK:
+          adapter = new YandexDiskPlayerAdapter();
           break;
         case MediaType.HTML5:
         default:

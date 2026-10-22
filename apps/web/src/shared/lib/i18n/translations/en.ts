@@ -56,6 +56,7 @@ export const en: Translations = {
     playerError: "This video cannot be opened. It may be private, removed, or not allow embedding.",
     hintVk: "Open the video on VK → Share → Export and paste the whole code or the src address (it contains the hash). A regular video page link will not work.",
     hintRutube: "A regular link works. For private videos include the key (?p=…) in the link.",
+    hintYandex: "A public link to a file (Share → Copy link, like disk.yandex.ru/i/…). Free Disk has a daily download limit per link.",
     hintDropbox: "Use a link to the file itself (Share → Copy link), not a folder.",
     hintFile: "A direct link to a file (.mp4, .webm) or an .m3u8 stream. Long videos (hours) work too: they load as you watch.",
     tapToJoin: "Tap to watch together",
