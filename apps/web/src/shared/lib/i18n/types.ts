@@ -166,4 +166,16 @@ export interface Translations {
     viewOnly: string;
     createLimit: string;
   };
+  voice: {
+    title: string;
+    join: string;
+    leave: string;
+    mute: string;
+    unmute: string;
+    muted: string;
+    denied: string;
+    unsupported: string;
+    full: string;
+    failed: string;
+  };
 }

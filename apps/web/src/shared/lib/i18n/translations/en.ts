@@ -167,4 +167,16 @@ export const en: Translations = {
     viewOnly: "The owner controls playback",
     createLimit: "Participants in the room (2–32)",
   },
+  voice: {
+    title: "Voice",
+    join: "Join voice chat",
+    leave: "Leave",
+    mute: "Mute",
+    unmute: "Unmute",
+    muted: "muted",
+    denied: "Microphone access is blocked. Allow it in your browser settings.",
+    unsupported: "This browser does not support voice chat.",
+    full: "The voice chat is full.",
+    failed: "Could not connect to voice chat.",
+  },
 };

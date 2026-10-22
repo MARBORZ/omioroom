@@ -33,3 +33,4 @@ export const roomParticipantsSnapshotDtoSchema = z.object({
 });
 
 export type RoomParticipantsSnapshotDto = z.infer<typeof roomParticipantsSnapshotDtoSchema>;
+export const VOICE_MAX_PARTICIPANTS = 8;

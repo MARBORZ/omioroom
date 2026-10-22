@@ -8,6 +8,7 @@ import { PlaybackControls } from "../../../shared/ui/playback-controls/playback-
 import { ChangeMediaInput } from "../../../features/change-media/ui/change-media-input.js";
 import { RoomChat } from "../../../widgets/room-chat/ui/room-chat.js";
 import { ParticipantsPanel } from "../../../widgets/participants-panel/ui/participants-panel.js";
+import { VoicePanel } from "../../../widgets/voice-panel/ui/voice-panel.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
@@ -170,7 +171,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           ...partialPayload,
           commandId: generateClientRequestId(),
           roomId: snapshot.room.id,
-          expectedRevision: playbackRevisionRef.current,
         });
         applyPlayback(updatedState);
       } catch (err) {
@@ -385,6 +385,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onSaveSettings={handleSaveSettings}
             onToggleControl={handleToggleControl}
           />
+
+          <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
 
           <InvitePanel
             globalRoomId={snapshot.room.globalId}

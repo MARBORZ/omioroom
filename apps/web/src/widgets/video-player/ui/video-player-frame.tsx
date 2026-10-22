@@ -79,6 +79,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const containerRef = useRef<HTMLDivElement>(null);
     const adapterRef = useRef<PlayerAdapter | null>(null);
     const currentMediaTypeRef = useRef<MediaType | null>(null);
+    const loadedMediaKeyRef = useRef<string | null>(null);
     // Latest props/state for handlers bound once at adapter creation
     const latest = useRef({
       playbackState,
@@ -188,6 +189,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         adapterRef.current.destroy();
         adapterRef.current = null;
         currentMediaTypeRef.current = null;
+        loadedMediaKeyRef.current = null;
       }
       return;
     }
@@ -196,6 +198,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       if (adapterRef.current) {
         adapterRef.current.destroy();
       }
+      loadedMediaKeyRef.current = null;
 
       let adapter: PlayerAdapter;
       switch (media.type) {
@@ -271,7 +274,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           cur.onPlayStateChange?.(false);
         } else if (event.type === "buffering") {
           cur.onBufferingChange?.(true);
-          if (!stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
+          if (!isGuarded() && !stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
             stallTimerRef.current = setTimeout(() => {
               stallTimerRef.current = null;
               if (adapterRef.current?.isBuffering() && !stalledRef.current) {
@@ -287,15 +290,20 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       });
     }
 
-    if (adapterRef.current) {
+    // Every state update carries a fresh `media` object; only a different video may reload the player
+    const mediaKey = `${media.type}:${media.canonicalUrl}`;
+    if (adapterRef.current && loadedMediaKeyRef.current !== mediaKey) {
+      loadedMediaKeyRef.current = mediaKey;
       await adapterRef.current.loadMedia(media);
     }
   }, []);
 
   // Handle media source changes
+  const mediaKey = playbackState?.media ? `${playbackState.media.type}:${playbackState.media.canonicalUrl}` : null;
   useEffect(() => {
     initAdapter(playbackState?.media ?? null);
-  }, [playbackState?.media, initAdapter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaKey, initAdapter]);
 
   // Handle mute changes
   useEffect(() => {
@@ -358,9 +366,12 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
   }, []);
   revertRef.current = applyServerState;
 
+  const stateKey = playbackState
+    ? `${playbackState.revision}:${playbackState.status}:${playbackState.anchorServerTime}:${playbackState.playbackRate}`
+    : "";
   useEffect(() => {
     applyServerState();
-  }, [playbackState, applyServerState]);
+  }, [stateKey, mediaKey, applyServerState]);
 
   // The room is holding for stalled clients: after the wait, ask the server to let go of the laggards.
   // Every client does this (with jitter); the server call is idempotent.
