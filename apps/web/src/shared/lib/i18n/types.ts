@@ -161,6 +161,9 @@ export interface Translations {
     openImage: string;
     close: string;
     dropImage: string;
+    reply: string;
+    replyTo: string;
+    cancelReply: string;
   };
   friends: {
     title: string;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, LogOut, Settings } from "lucide-react";
+import { Users, LogOut, Settings, Copy, Check } from "lucide-react";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import styles from "./room-header.module.scss";
@@ -24,23 +24,42 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
 }) => {
   const { t } = useI18n();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyRoom = () => {
+    if (!roomNumber) return;
+    void navigator.clipboard?.writeText(roomNumber).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   return (
     <>
       <header className={styles.header} data-layout="room-header">
         <div className={styles.leftSection}>
-          <button type="button" className={styles.brand} onClick={onNavigateHome}>
+          <button type="button" className={styles.brand} onClick={onNavigateHome} title={t.common.brand}>
             <span className={styles.brandDot} />
-            {t.common.brand}
+            <span className={styles.brandText}>{t.common.brand}</span>
           </button>
           {roomNumber && (
             <button
               type="button"
-              className={styles.roomTitle}
-              title={t.common.copied}
-              onClick={() => void navigator.clipboard?.writeText(roomNumber).catch(() => {})}
+              className={`${styles.roomChip} ${copied ? styles.copiedChip : ""}`}
+              onClick={handleCopyRoom}
+              title={copied ? t.common.copied : t.common.copyLink}
+              aria-label={`${t.room.roomNumber} ${roomNumber}`}
             >
-              {t.room.roomNumber} {roomNumber}
+              <span className={styles.roomPrefix}>{t.room.roomNumber}</span>
+              <span className={styles.roomNum}>{roomNumber}</span>
+              {copied ? (
+                <span className={styles.copiedBadge}>
+                  <Check size={12} className={styles.copyIcon} />
+                  <span className={styles.copiedText}>{t.common.copied}</span>
+                </span>
+              ) : (
+                <Copy size={12} className={styles.copyIcon} />
+              )}
             </button>
           )}
         </div>
@@ -54,13 +73,15 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
               title={`${t.group.participants}: ${participantCount} / ${maxParticipants}`}
               aria-label={t.group.participants}
             >
-              <Users size={14} />
-              <span>{participantCount} / {maxParticipants}</span>
+              <span className={styles.pulseDot} />
+              <Users size={13} />
+              <span>{participantCount}/{maxParticipants}</span>
             </button>
           ) : (
             <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
-              <Users size={14} />
-              <span>{participantCount} / {maxParticipants}</span>
+              <span className={styles.pulseDot} />
+              <Users size={13} />
+              <span>{participantCount}/{maxParticipants}</span>
             </span>
           )}
 
@@ -71,7 +92,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             aria-label={t.settings.title}
             title={t.common.settings}
           >
-            <Settings size={15} />
+            <Settings size={15} className={styles.gearIcon} />
           </button>
 
           {onLeave && (
@@ -82,7 +103,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
               aria-label={t.room.leaveRoom}
               title={t.room.leaveRoom}
             >
-              <LogOut size={15} />
+              <LogOut size={14} />
               <span className={styles.leaveText}>{t.room.leaveRoom}</span>
             </button>
           )}

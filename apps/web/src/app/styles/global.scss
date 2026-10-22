@@ -47,6 +47,14 @@ textarea {
   outline-offset: 2px;
 }
 
+/* Form inputs handle their own clean focus states without ugly sharp double outlines */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+}
+
 /* Custom minimal scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

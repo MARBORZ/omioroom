@@ -3,12 +3,16 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-4);
-  height: 48px;
+  height: 50px;
   flex-shrink: 0;
   background-color: var(--color-surface);
   border-bottom: var(--border-width) solid var(--color-border);
   width: 100%;
   box-sizing: border-box;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  position: relative;
+  z-index: 20;
 }
 
 .leftSection {
@@ -16,46 +20,114 @@
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-  overflow: hidden;
 }
 
 .brand {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--color-text);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
   flex-shrink: 0;
+  transition: transform var(--motion-fast) var(--ease-spring), opacity var(--motion-fast) var(--ease-out);
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
 }
 
 .brandDot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   background-color: var(--color-accent);
-  border-radius: 2px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--color-accent);
+  flex-shrink: 0;
 }
 
-.roomTitle {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  cursor: pointer;
+.brandText {
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-text);
+  text-transform: uppercase;
+}
+
+.roomChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  white-space: nowrap;
+  transition: all var(--motion-fast) var(--ease-out);
+  max-width: 240px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
+
+  &:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-focus);
+    background-color: var(--color-surface-hover);
+    transform: translateY(-0.5px);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &.copiedChip {
+    border-color: var(--color-success);
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+}
+
+.roomPrefix {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.roomNum {
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.04em;
+}
+
+.copyIcon {
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.roomChip:hover .copyIcon {
+  opacity: 1;
+}
+
+.copiedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+  font-weight: 600;
+  animation: pop-in var(--motion-fast) var(--ease-spring) both;
+}
+
+.copiedText {
+  font-size: 11px;
 }
 
 .rightSection {
@@ -69,58 +141,91 @@
 .peopleBtn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  background: var(--color-surface-raised);
+  gap: 6px;
+  background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  border-radius: 20px;
   font-size: var(--font-size-xs);
+  font-weight: 500;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--motion-fast) var(--ease-out);
 
   &:hover {
     color: var(--color-text);
-    border-color: var(--color-border-hover);
+    border-color: var(--color-border-focus);
+    background-color: var(--color-surface-hover);
   }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.pulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  flex-shrink: 0;
 }
 
 .iconBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: none;
+  width: 34px;
+  height: 34px;
+  background: transparent;
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--motion-fast) var(--ease-out);
 
   &:hover {
     color: var(--color-text);
-    background-color: var(--color-surface-raised);
+    background-color: var(--color-surface-hover);
     border-color: var(--color-border);
   }
+
+  &:hover .gearIcon {
+    transform: rotate(45deg);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+}
+
+.gearIcon {
+  transition: transform var(--motion-base) var(--ease-spring);
 }
 
 .leaveBtn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  background: none;
+  gap: 6px;
+  background-color: transparent;
   border: var(--border-width) solid transparent;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  border-radius: 20px;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
+  font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--motion-fast) var(--ease-out);
 
   &:hover {
-    color: var(--color-error);
-    background-color: var(--color-surface-raised);
+    color: var(--color-danger);
+    background-color: var(--color-danger-soft);
+    border-color: var(--color-danger-border);
+  }
+
+  &:active {
+    transform: scale(0.96);
   }
 }
 
@@ -131,12 +236,20 @@
 @media (max-width: 640px) {
   .header {
     padding: 0 var(--space-3);
-    height: 44px;
+    height: 46px;
   }
 
-  .roomTitle {
-    max-width: 100px;
-    font-size: var(--font-size-xs);
+  .brandText {
+    display: none;
+  }
+
+  .roomChip {
+    max-width: 140px;
+    padding: 3px 8px;
+  }
+
+  .roomPrefix {
+    display: none;
   }
 
   .leaveText {

@@ -162,6 +162,9 @@ export const ru: Translations = {
     openImage: "Открыть изображение",
     close: "Закрыть",
     dropImage: "Перетащите изображение сюда",
+    reply: "Ответить",
+    replyTo: "В ответ",
+    cancelReply: "Отменить ответ",
   },
   friends: {
     title: "Друзья",

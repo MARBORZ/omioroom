@@ -162,6 +162,9 @@ export const en: Translations = {
     openImage: "Open image",
     close: "Close",
     dropImage: "Drop image here",
+    reply: "Reply",
+    replyTo: "Replying to",
+    cancelReply: "Cancel reply",
   },
   friends: {
     title: "Friends",

@@ -5,7 +5,6 @@
   background-color: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-3);
   width: 100%;
   flex: 1;
   min-height: 320px;
@@ -18,29 +17,12 @@
   }
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-2);
-  border-bottom: var(--border-width) solid var(--color-border);
-  margin-bottom: var(--space-2);
-}
-
-.title {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .dropOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-  z-index: 20;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -57,12 +39,13 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 4px;
+  padding: var(--space-3) var(--space-3) 24px; /* Generous bottom spacing from input bar */
+  gap: 2px;
+  scroll-behavior: smooth;
 }
 
 .skeletonList {
@@ -81,106 +64,382 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   margin: auto 0;
-  padding: var(--space-4) 0;
+  padding: var(--space-5) 0;
   text-align: center;
 }
 
 .emptyIcon {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
-.messageWrapper {
+/* Telegram Message Rows & Consecutive Grouping */
+.messageRow {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  max-width: 86%;
-  gap: 2px;
-}
-
-.ownWrapper {
-  align-self: flex-end;
   align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+  animation: apple-bubble-in var(--motion-fast) var(--ease-spring) both;
+
+  &.groupFirst {
+    margin-top: 10px;
+  }
+
+  &.groupSingle {
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+
+  &.highlighted {
+    animation: flash-highlight 1.5s var(--ease-out);
+  }
 }
 
-.otherWrapper {
-  align-self: flex-start;
-  align-items: flex-start;
+@keyframes flash-highlight {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.02); filter: brightness(1.25); }
+  100% { transform: scale(1); filter: brightness(1); }
 }
 
-.sender {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--color-text-muted);
-  padding: 0 4px;
+.ownRow {
+  justify-content: flex-end;
+
+  .replyActionBtn {
+    order: -1;
+  }
+}
+
+.otherRow {
+  justify-content: flex-start;
+}
+
+.senderName {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 2px;
+  letter-spacing: 0.02em;
 }
 
 .bubble {
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  line-height: 1.45;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  padding: 8px 12px 6px;
+  font-size: 14px;
+  line-height: 1.42;
   word-break: break-word;
   overflow-wrap: anywhere;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: all var(--motion-fast) var(--ease-out);
+}
+
+/* Grouping radii for Own Bubbles */
+.ownRow.groupSingle .bubble {
+  border-radius: 18px 18px 4px 18px;
+}
+.ownRow.groupFirst .bubble {
+  border-radius: 18px 18px 4px 18px;
+}
+.ownRow.groupMiddle .bubble {
+  border-radius: 18px 4px 4px 18px;
+}
+.ownRow.groupLast .bubble {
+  border-radius: 18px 4px 18px 18px;
+}
+
+/* Grouping radii for Other Bubbles */
+.otherRow.groupSingle .bubble {
+  border-radius: 18px 18px 18px 4px;
+}
+.otherRow.groupFirst .bubble {
+  border-radius: 18px 18px 18px 4px;
+}
+.otherRow.groupMiddle .bubble {
+  border-radius: 4px 18px 18px 4px;
+}
+.otherRow.groupLast .bubble {
+  border-radius: 4px 18px 18px 18px;
 }
 
 .ownBubble {
-  background-color: var(--color-accent);
-  color: var(--color-accent-contrast);
-  border-bottom-right-radius: 2px;
+  background: linear-gradient(135deg, #f2642e 0%, #db4c19 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 
   .text {
-    color: inherit;
+    color: #ffffff;
+  }
+
+  .time {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .checkIcon {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .quoteBlock {
+    background: rgba(0, 0, 0, 0.16);
+    border-left-color: #ffffff;
+
+    .quoteSender {
+      color: #ffffff;
+    }
+
+    .quoteSnippet {
+      color: rgba(255, 255, 255, 0.85);
+    }
   }
 }
 
 .otherBubble {
   background-color: var(--color-surface-raised);
-  color: var(--color-text);
   border: var(--border-width) solid var(--color-border);
-  border-bottom-left-radius: 2px;
+  color: var(--color-text);
+
+  .text {
+    color: var(--color-text);
+  }
+
+  .time {
+    color: var(--color-text-muted);
+  }
+
+  .quoteBlock {
+    background: rgba(0, 0, 0, 0.08);
+    border-left-color: var(--color-accent);
+
+    .quoteSender {
+      color: var(--color-accent);
+    }
+
+    .quoteSnippet {
+      color: var(--color-text-muted);
+    }
+  }
 }
 
 .text {
   margin: 0;
+  white-space: pre-wrap;
 }
 
-.imageButton {
-  display: block;
-  padding: 0;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
+/* Telegram Metadata Row inside bubble */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-end;
+  margin-top: 2px;
+  margin-left: 12px;
+  user-select: none;
+}
+
+.time {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.checkIcon {
+  flex-shrink: 0;
+}
+
+/* Quote Block inside message */
+.quoteBlock {
+  display: flex;
+  gap: 6px;
+  border-left: 2.5px solid var(--color-accent);
+  border-radius: 4px;
+  padding: 3px 6px;
+  margin-bottom: 4px;
   background: none;
-  cursor: zoom-in;
-  margin-top: 4px;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  text-align: left;
+  cursor: pointer;
   max-width: 100%;
   overflow: hidden;
+  transition: opacity var(--motion-fast);
+
+  &:hover {
+    opacity: 0.85;
+  }
 }
 
-.image {
-  display: block;
-  max-width: 100%;
-  max-height: 180px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
+.quoteStripe {
+  display: none;
 }
 
-.imagePlaceholder {
-  display: block;
-  width: 120px;
-  height: 80px;
-  border-radius: var(--radius-sm);
+.quoteBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.quoteSender {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.quoteSnippet {
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+/* Quick Reply Button on Hover */
+.replyActionBtn {
+  opacity: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-out);
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-hover);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
 }
 
+.messageRow:hover .replyActionBtn,
+.messageRow:focus-within .replyActionBtn {
+  opacity: 1;
+}
+
+/* Floating Scroll to Bottom Button */
+.scrollBottomBtn {
+  position: absolute;
+  right: var(--space-4);
+  bottom: 64px;
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-spring);
+  animation: pop-in var(--motion-fast) var(--ease-spring) both;
+
+  &:hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-hover);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+/* Form & Telegram Input Bar */
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 6px;
   margin-top: auto;
-  padding-top: var(--space-2);
+  padding: 6px var(--space-3) var(--space-3);
   border-top: var(--border-width) solid var(--color-border);
+  background-color: var(--color-surface);
+  position: relative;
+  z-index: 10;
 }
 
+/* Telegram Reply Banner above Input */
+.replyBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 12px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+}
+
+.replyBannerStripe {
+  width: 3px;
+  height: 28px;
+  background-color: var(--color-accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.replyBannerContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.replyBannerAuthor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.replyBannerIcon {
+  flex-shrink: 0;
+}
+
+.replyBannerSnippet {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.replyBannerClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--motion-fast);
+
+  &:hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-hover);
+  }
+}
+
+/* Image Preview */
 .previewContainer {
   display: inline-flex;
   align-items: center;
@@ -252,21 +511,23 @@
   color: var(--color-text-muted);
 }
 
-.inputRow {
+/* Telegram Unified Pill Container */
+.inputContainer {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  width: 100%;
+  gap: 6px;
   background-color: var(--color-surface-raised);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px; /* Telegram-style pill */
+  padding: 4px 6px 4px 10px;
   box-sizing: border-box;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: all var(--motion-fast) var(--ease-out);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
   &:focus-within {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 1px var(--color-accent);
+    background-color: var(--color-surface);
+    box-shadow: 0 0 0 3px rgba(255, 104, 71, 0.18), 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 }
 
@@ -274,35 +535,50 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--motion-fast) var(--ease-out);
 
   &:hover {
     color: var(--color-text);
     background-color: var(--color-surface-hover);
+    transform: scale(1.06);
+  }
+
+  &:active {
+    transform: scale(0.92);
   }
 }
 
 .input {
   flex: 1;
-  border: none;
-  background: transparent;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
   color: var(--color-text);
   font-family: inherit;
-  font-size: var(--font-size-sm);
-  outline: none;
-  padding: 6px var(--space-2);
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 8px 4px;
   min-width: 0;
+
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
 
   &::placeholder {
     color: var(--color-text-muted);
+    opacity: 0.65;
   }
 }
 
@@ -314,26 +590,28 @@
   height: 34px;
   min-width: 34px;
   border: none;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-accent);
-  color: var(--color-accent-contrast);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  opacity: 0.45;
+  cursor: default;
+  transition: all var(--motion-fast) var(--ease-spring);
 
-  &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    background-color: var(--color-surface-hover);
-    color: var(--color-text-muted);
-  }
+  &.sendBtnActive {
+    background-color: var(--color-accent);
+    color: var(--color-accent-contrast);
+    opacity: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(255, 104, 71, 0.35);
 
-  &:not(:disabled):hover {
-    background-color: var(--color-accent-hover);
-    transform: scale(1.04);
-  }
+    &:hover {
+      background-color: var(--color-accent-hover);
+      transform: scale(1.06);
+    }
 
-  &:not(:disabled):active {
-    transform: scale(0.96);
+    &:active {
+      transform: scale(0.92);
+    }
   }
 }
 
@@ -341,6 +619,35 @@
   color: var(--color-danger);
   font-size: var(--font-size-xs);
   padding: 2px 4px;
+}
+
+/* Image in chat */
+.imageButton {
+  display: block;
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: zoom-in;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.imagePlaceholder {
+  display: block;
+  width: 120px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-raised);
 }
 
 .lightbox {
@@ -351,7 +658,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-overlay);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
   cursor: zoom-out;
 
   img {
@@ -382,27 +689,17 @@
 }
 
 @media (max-width: 640px) {
-  .chat {
-    padding: var(--space-2);
-  }
-
-  .messageWrapper {
-    max-width: 92%;
-  }
-
   .bubble {
-    padding: 6px 10px;
-    font-size: 13px;
+    max-width: 88%;
+    font-size: 13.5px;
+    padding: 7px 11px 5px;
   }
 
-  .inputRow {
-    padding: 3px 4px;
+  .list {
+    padding: var(--space-2) var(--space-2) 20px;
   }
 
-  .attachBtn,
-  .sendBtn {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+  .replyActionBtn {
+    opacity: 0.8;
   }
 }

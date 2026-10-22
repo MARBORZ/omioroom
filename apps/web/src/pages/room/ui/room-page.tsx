@@ -155,7 +155,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 
-  // Keyboard accessibility: Space for play/pause, Left/Right arrow for seek
+  const handleToggleCinema = useCallback(() => {
+    setCinema((on) => {
+      if (!on) setCinemaChatOpen(window.innerWidth > 720);
+      return !on;
+    });
+  }, []);
+
+  // Keyboard accessibility:
+  // F - Fullscreen / Cinema toggle
+  // C - Chat toggle
+  // Space - Play / Pause (if canControl)
+  // Left/Right - Seek 10s (if canControl)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -164,7 +175,29 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         activeEl?.tagName === "TEXTAREA" ||
         (activeEl as HTMLElement)?.isContentEditable;
 
-      if (isInput || !canControl) return;
+      if (isInput) return;
+
+      // F or Russian А (fullscreen / cinema toggle)
+      if (e.code === "KeyF" || e.key.toLowerCase() === "f" || e.key.toLowerCase() === "а") {
+        e.preventDefault();
+        handleToggleCinema();
+        return;
+      }
+
+      // C or Russian С (chat toggle)
+      if (e.code === "KeyC" || e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
+        e.preventDefault();
+        if (cinema) {
+          setCinemaChatOpen((open) => !open);
+        } else {
+          setActiveTab("chat");
+          const input = document.querySelector<HTMLInputElement>('[data-widget="room-chat"] input');
+          input?.focus();
+        }
+        return;
+      }
+
+      if (!canControl) return;
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -184,7 +217,20 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, currentTime, duration, canControl]);
+  }, [isPlaying, currentTime, duration, canControl, cinema, handleToggleCinema]);
+
+  // Periodically save room video playback position to localStorage per room & media URL
+  useEffect(() => {
+    if (!initialSnapshot.room.id || currentTime <= 0) return;
+    const roomId = initialSnapshot.room.id;
+    const mediaUrl = playback?.media?.canonicalUrl;
+    try {
+      localStorage.setItem(`omioroom_last_pos_${roomId}`, String(Math.floor(currentTime)));
+      if (mediaUrl) {
+        localStorage.setItem(`omioroom_last_pos_${mediaUrl}`, String(Math.floor(currentTime)));
+      }
+    } catch {}
+  }, [initialSnapshot.room.id, playback?.media?.canonicalUrl, Math.floor(currentTime / 2)]);
 
   // Applies a playback state only if it is newer than what we already show
   const applyPlayback = useCallback((state: RoomPlaybackStateDto) => {
@@ -423,12 +469,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     await backend.sendChat(snapshot.room.id, text, path);
   };
 
-  const handleToggleCinema = () => {
-    setCinema((on) => {
-      if (!on) setCinemaChatOpen(window.innerWidth > 720);
-      return !on;
-    });
-  };
 
   // Cinema: Escape leaves it (unless a dialog is open), the page behind does not scroll
   useEffect(() => {
@@ -579,18 +619,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onNudge={chatSize.nudge}
             className={styles.resizeHandle}
           />
-          <button
-            type="button"
-            className={styles.chatCloseBtn}
-            onClick={() => setCinemaChatOpen(false)}
-            aria-label={t.room.chatClose}
-            title={t.room.chatClose}
-          >
-            <X size={16} />
-          </button>
-          {/* Room Navigation Tabs (Never overflows container) */}
-          <div className={styles.tabNavContainer} data-layout="room-tabs">
-            {/* Horizontal Overflow-scroll list */}
+          {/* Room Navigation Tabs & integrated close button in header */}
+          <div className={styles.sidebarHeader} data-layout="room-tabs">
             <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
               <button
                 type="button"
@@ -650,6 +680,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 </button>
               )}
             </nav>
+
+            {cinema && (
+              <button
+                type="button"
+                className={styles.sidebarCloseBtn}
+                onClick={() => setCinemaChatOpen(false)}
+                aria-label={t.room.chatClose}
+                title={t.room.chatClose}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
           {/* Active Panel Content */}
