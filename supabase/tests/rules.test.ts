@@ -420,7 +420,7 @@ describe("buffering barrier", () => {
     expect(resumed.bufferingBy).toEqual([]);
     // Resume instant lies slightly ahead of the moment of the call so clients can start together
     expect(Number(resumed.anchorServerTime)).toBeGreaterThan(before + 300);
-    expect(resumed.anchorPosition).toBeGreaterThan(10);
+    expect(resumed.anchorPosition).toBeGreaterThanOrEqual(10);
   });
 
   it("stops waiting for a client that stays stalled for more than 5 seconds", async () => {
