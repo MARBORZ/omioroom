@@ -800,4 +800,25 @@ describe("maintenance", () => {
     expect(snap.participants.find((p: any) => p.userId === a).chatSeenAt).not.toBeNull();
     expect(m.id).toBeTruthy();
   });
+  it("a room the owner left stays with its data; playback is paused where they left", async () => {
+    const owner = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" } });
+    await t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "play", p_position: 100 });
+    await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "keep me" });
+    await t.as(owner).rpc("leave_room", { p_room_id: r.id });
+    // the owner has been away for an hour
+    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour'`);
+    await t.db.exec(`update public.rooms set empty_since = now() - interval '1 hour' where id = '${r.id}'`);
+    await t.db.exec("select public.pause_empty_rooms()");
+    await t.db.exec("select public.close_inactive_rooms(interval '7 days')");
+
+    const back = await t.as(owner).rpc("resume_room", { p_room_id: r.id });
+    expect(back.room.id).toBe(r.id);
+    expect(back.playback.status).toBe("paused");
+    expect(back.playback.media.canonicalUrl).toBe("https://example.com/v.mp4");
+    expect(back.playback.anchorPosition).toBeGreaterThanOrEqual(100);
+    const history = await t.as(owner).query("select body from public.chat_messages where room_id = $1", [r.id]);
+    expect(history.map((m: any) => m.body)).toEqual(["keep me"]);
+  });
 });
