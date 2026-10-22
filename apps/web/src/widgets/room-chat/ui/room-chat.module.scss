@@ -178,3 +178,20 @@
   color: var(--color-text);
   cursor: pointer;
 }
+
+@media (max-width: 640px) {
+  .chat {
+    min-height: 340px;
+    height: 48vh;
+    padding: var(--space-3);
+  }
+
+  .list {
+    max-height: calc(48vh - 120px);
+  }
+
+  .input {
+    height: 44px;
+  }
+}
+

@@ -122,3 +122,25 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
   background-color: var(--color-surface-raised);
 }
+
+@media (max-width: 520px) {
+  .backdrop {
+    padding: var(--space-2);
+  }
+
+  .modal {
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .body {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .segmentBtn {
+    padding: var(--space-2);
+    font-size: 12px;
+  }
+}
+
