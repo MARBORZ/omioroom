@@ -124,20 +124,23 @@ export const HomePage: React.FC<HomePageProps> = ({
   return (
     <div className={styles.homeContainer}>
       {/* Top bar with language switch */}
-      <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
-        <LangSwitch />
+      <div className={styles.topBar}>
+        <div className={styles.brand}>
+          <span className={styles.brandDot} />
+          {t.common.brand}
+        </div>
+        <div className={styles.topBarRight}>
+          <StatusIndicator status={connectionStatus} />
+          <LangSwitch />
+        </div>
       </div>
+
+      <div className={styles.layout}>
+      <div className={styles.leftCol}>
 
       {/* Hero */}
       <div className={styles.hero}>
-        <div className={styles.brand}>
-          <span style={{ width: 10, height: 10, backgroundColor: "var(--color-accent)", borderRadius: 2 }} />
-          {t.common.brand}
-        </div>
-        <p className={styles.tagline}>
-          {t.home.tagline}
-        </p>
-        <StatusIndicator status={connectionStatus} style={{ marginTop: 4 }} />
+        <h1 className={styles.headline}>{t.home.tagline}</h1>
       </div>
 
       {/* User Card */}
@@ -209,6 +212,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         )}
       </div>
 
+      </div>
+
+      <div className={styles.rightCol}>
       {/* Create Room Card */}
       <div className={styles.card}>
         <div className={styles.cardTitle}>{t.home.createTitle}</div>
@@ -301,6 +307,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             {t.home.joinBtn}
           </Button>
         </form>
+      </div>
+      </div>
       </div>
     </div>
   );

@@ -1,15 +1,21 @@
 .container {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-5) var(--space-4);
-  max-width: 720px;
-  margin: 0 auto;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: var(--space-5) var(--space-6);
+  padding: var(--space-5) var(--space-7);
   width: 100%;
+  align-items: start;
+}
+
+.sidebar,
+.content {
+  min-width: 0;
 }
 
 .headerRow {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -25,9 +31,9 @@
 }
 
 .roomList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
   width: 100%;
 }
 
@@ -74,13 +80,12 @@
 }
 
 .emptyState {
-  text-align: center;
-  padding: var(--space-7) var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-6);
   color: var(--color-text-muted);
   border: var(--border-width) dashed var(--color-border);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-3);
 }

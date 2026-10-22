@@ -100,8 +100,11 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         <LangSwitch />
       </div>
 
-      <FriendsPanel onNavigateIdentity={onNavigateIdentity} />
+      <aside className={styles.sidebar}>
+        <FriendsPanel onNavigateIdentity={onNavigateIdentity} />
+      </aside>
 
+      <div className={styles.content}>
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-muted)" }}>
           {t.common.loading}
@@ -164,6 +167,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 };

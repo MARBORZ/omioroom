@@ -91,11 +91,14 @@ export const InvitePage: React.FC<InvitePageProps> = ({
         <LangSwitch />
       </div>
 
-      <div className={styles.card}>
+      <div className={styles.hero}>
         <div className={styles.kicker}>{t.invite.kicker}</div>
         <h1 className={styles.title}>
           {t.common.room} <span className={styles.roomId}>{globalId}</span>
         </h1>
+      </div>
+
+      <div className={styles.card}>
 
         {user && (
           <div className={styles.asRow}>
