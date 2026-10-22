@@ -57,6 +57,8 @@ export const backend = {
    * the room is gone, closed, or the user is no longer in it.
    */
   resumeRoom: (roomId: string) => rpc<RoomSnapshotDto>("resume_room", { p_room_id: roomId }),
+  /** Heartbeat that reports the state: "OK" | "ROOM_NOT_FOUND" | "ROOM_CLOSED" | "NOT_MEMBER" | "BANNED". */
+  heartbeatRoom: (roomId: string) => rpc<string>("heartbeat_room", { p_room_id: roomId }),
   touchRoom: (roomId: string) => rpc<null>("touch_room", { p_room_id: roomId }),
   leaveRoom: (roomId: string) => rpc<null>("leave_room", { p_room_id: roomId }),
   kickMember: (roomId: string, userId: string) => rpc<null>("kick_member", { p_room_id: roomId, p_user_id: userId }),

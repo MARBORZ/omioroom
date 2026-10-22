@@ -768,4 +768,19 @@ describe("maintenance", () => {
     await t.as(owner).rpc("close_room", { p_room_id: r.id });
     expect(await code(t.as(owner).rpc("resume_room", { p_room_id: r.id }))).toBe("ROOM_CLOSED");
   });
+  it("heartbeat reports the room state; closed rooms are purged after the retention period", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    expect(await t.as(a).rpc("heartbeat_room", { p_room_id: r.id })).toBe("OK");
+    await t.as(owner).rpc("kick_member", { p_room_id: r.id, p_user_id: a });
+    expect(await t.as(a).rpc("heartbeat_room", { p_room_id: r.id })).toBe("NOT_MEMBER");
+    await t.as(owner).rpc("close_room", { p_room_id: r.id });
+    expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_CLOSED");
+
+    await t.db.exec(`update public.rooms set updated_at = now() - interval '4 days' where id = '${r.id}'`);
+    await t.db.exec("select public.purge_closed_rooms()");
+    expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_NOT_FOUND");
+  });
 });
