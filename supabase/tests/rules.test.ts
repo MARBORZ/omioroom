@@ -849,4 +849,16 @@ describe("maintenance", () => {
     expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_CLOSED");
     expect(await t.as(owner).query("select 1 from public.chat_messages where room_id = $1", [r.id])).toHaveLength(0);
   });
+  it("refuses a link to the video that is already in the player", async () => {
+    const owner = await t.newUser();
+    const r = await room(owner, "public");
+    const media = { type: "youtube", sourceId: "abc12345678", canonicalUrl: "https://www.youtube.com/watch?v=abc12345678" };
+    const send = (m: object) =>
+      code(t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: m }));
+    expect(await send(media)).toBe("OK");
+    // the same video, even through another form of the link
+    expect(await send({ ...media, canonicalUrl: "https://youtu.be/abc12345678" })).toBe("MEDIA_ALREADY_LOADED");
+    expect(await send(media)).toBe("MEDIA_ALREADY_LOADED");
+    expect(await send({ type: "youtube", sourceId: "zzz98765432", canonicalUrl: "https://www.youtube.com/watch?v=zzz98765432" })).toBe("OK");
+  });
 });
