@@ -23,6 +23,8 @@ export const participantDtoSchema = z.object({
   canControl: z.boolean(),
   joinedAt: z.string().datetime(),
   isOnline: z.boolean(),
+  /** Time of the newest chat message this member has seen (read receipts); null before any. */
+  chatSeenAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export type ParticipantDto = z.infer<typeof participantDtoSchema>;

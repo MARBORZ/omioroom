@@ -54,6 +54,12 @@ export const backend = {
   getSnapshot: (roomId: string) => rpc<RoomSnapshotDto>("get_room_snapshot", { p_room_id: roomId }),
   touchRoom: (roomId: string) => rpc<null>("touch_room", { p_room_id: roomId }),
   leaveRoom: (roomId: string) => rpc<null>("leave_room", { p_room_id: roomId }),
+  kickMember: (roomId: string, userId: string) => rpc<null>("kick_member", { p_room_id: roomId, p_user_id: userId }),
+  banMember: (roomId: string, userId: string) => rpc<null>("ban_member", { p_room_id: roomId, p_user_id: userId }),
+  unbanMember: (roomId: string, userId: string) => rpc<null>("unban_member", { p_room_id: roomId, p_user_id: userId }),
+  /** Marks chat as read up to this message; call debounced, only for the newest visible message. */
+  markChatSeen: (roomId: string, messageId: string) =>
+    rpc<null>("mark_chat_seen", { p_room_id: roomId, p_message_id: messageId }),
   listMyRooms: () => rpc<RoomSummaryDto[]>("list_my_rooms"),
   closeRoom: (roomId: string) => rpc<{ closed: boolean }>("close_room", { p_room_id: roomId }),
 

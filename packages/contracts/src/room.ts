@@ -67,6 +67,10 @@ export const roomSnapshotDtoSchema = z.object({
   /** The viewer's own permission to control playback. */
   canControl: z.boolean(),
   participants: z.array(participantDtoSchema),
+  /** Chat messages from others that the viewer has not seen yet. */
+  unreadCount: z.number().int().nonnegative().default(0),
+  /** Banned users; filled for the owner only. */
+  bannedUsers: z.array(z.object({ userId: z.string().uuid(), displayName: z.string() })).default([]),
   playback: roomPlaybackStateDtoSchema.nullable(),
 });
 

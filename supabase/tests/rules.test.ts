@@ -672,4 +672,84 @@ describe("maintenance", () => {
     await expect(t.as(u).rpc("close_inactive_rooms")).rejects.toThrow(/permission denied/);
     await expect(t.as(u).rpc("check_rate", { p_user: u, p_kind: "x", p_max: 1, p_window: "1 hour" })).rejects.toThrow(/permission denied/);
   });
+  it("leaving removes a member who must then use the code again; the owner keeps their place", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "private");
+    const key = (await t.as(owner).rpc("rotate_private_code", { p_room_id: r.id })).privateCode;
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId, p_private_code: key });
+
+    await t.as(a).rpc("leave_room", { p_room_id: r.id });
+    expect(await code(t.as(a).rpc("join_room", { p_global_id: r.globalId }))).toBe("PRIVATE_CODE_REQUIRED");
+    await expect(t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).rejects.toThrow();
+
+    await t.as(owner).rpc("leave_room", { p_room_id: r.id });
+    const back = await t.as(owner).rpc("join_room", { p_global_id: r.globalId });
+    expect(back.isOwner).toBe(true);
+  });
+
+  it("drops members who stayed offline for five minutes, never the owner", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const b = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(b).rpc("join_room", { p_global_id: r.globalId });
+    await t.db.exec(
+      `update public.member_activity set last_active_at = now() - interval '6 minutes' where user_id in ('${a}', '${owner}')`
+    );
+    await t.db.exec("select public.drop_offline_members()");
+    const snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    const ids = snap.participants.map((p: any) => p.userId);
+    expect(ids).toContain(owner);
+    expect(ids).toContain(b);
+    expect(ids).not.toContain(a);
+  });
+
+  it("lets only the owner kick and ban; a ban blocks rejoining until lifted", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const b = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    await t.as(b).rpc("join_room", { p_global_id: r.globalId });
+
+    await expect(t.as(a).rpc("kick_member", { p_room_id: r.id, p_user_id: b })).rejects.toThrow();
+    await expect(t.as(owner).rpc("kick_member", { p_room_id: r.id, p_user_id: owner })).rejects.toThrow(/INVALID_PAYLOAD/);
+
+    await t.as(owner).rpc("kick_member", { p_room_id: r.id, p_user_id: a });
+    expect((await t.as(a).rpc("join_room", { p_global_id: r.globalId })).room.id).toBe(r.id);
+
+    await t.as(owner).rpc("ban_member", { p_room_id: r.id, p_user_id: b });
+    expect(await code(t.as(b).rpc("join_room", { p_global_id: r.globalId }))).toBe("BANNED");
+    const snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.bannedUsers.map((u: any) => u.userId)).toEqual([b]);
+
+    await t.as(owner).rpc("unban_member", { p_room_id: r.id, p_user_id: b });
+    expect((await t.as(b).rpc("join_room", { p_global_id: r.globalId })).room.id).toBe(r.id);
+  });
+
+  it("tracks chat read state: unread counter and read receipts", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+
+    const m1 = await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "one" });
+    const m2 = await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "two" });
+    let snap = await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.unreadCount).toBe(2);
+
+    await t.as(a).rpc("mark_chat_seen", { p_room_id: r.id, p_message_id: m1.id });
+    snap = await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.unreadCount).toBe(1);
+
+    await t.as(a).rpc("mark_chat_seen", { p_room_id: r.id, p_message_id: m2.id });
+    // An older message never moves the marker back
+    await t.as(a).rpc("mark_chat_seen", { p_room_id: r.id, p_message_id: m1.id });
+    snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    const seenByA = snap.participants.find((p: any) => p.userId === a).chatSeenAt;
+    expect(new Date(seenByA).getTime()).toBeGreaterThanOrEqual(new Date(m2.createdAt ?? m2.created_at).getTime() - 1000);
+    expect((await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).unreadCount).toBe(0);
+  });
 });
