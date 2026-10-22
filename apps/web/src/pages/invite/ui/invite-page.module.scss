@@ -1,0 +1,58 @@
+.container {
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.roomId {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.asRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 14px;
+}

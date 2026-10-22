@@ -132,4 +132,12 @@ export interface Translations {
     addFailed: string;
     loadFailed: string;
   };
+  invite: {
+    kicker: string;
+    joiningAs: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    toHome: string;
+    rateLimited: string;
+  };
 }

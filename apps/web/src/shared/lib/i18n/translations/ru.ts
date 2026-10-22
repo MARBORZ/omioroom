@@ -133,4 +133,12 @@ export const ru: Translations = {
     addFailed: "Не удалось выполнить действие",
     loadFailed: "Не удалось загрузить друзей",
   },
+  invite: {
+    kicker: "Вас пригласили",
+    joiningAs: "Вы войдёте как",
+    nameLabel: "Ваше имя (необязательно)",
+    namePlaceholder: "Например, Алекс",
+    toHome: "На главную",
+    rateLimited: "Слишком много попыток. Подождите минуту.",
+  },
 };

@@ -133,4 +133,12 @@ export const en: Translations = {
     addFailed: "Action failed",
     loadFailed: "Failed to load friends",
   },
+  invite: {
+    kicker: "You're invited",
+    joiningAs: "You will join as",
+    nameLabel: "Your name (optional)",
+    namePlaceholder: "e.g., Alex",
+    toHome: "Go to home",
+    rateLimited: "Too many attempts. Wait a minute.",
+  },
 };

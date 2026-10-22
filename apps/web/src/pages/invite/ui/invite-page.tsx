@@ -1,0 +1,149 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { LogIn } from "lucide-react";
+import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { Button } from "../../../shared/ui/button/button.js";
+import { TextField } from "../../../shared/ui/text-field/text-field.js";
+import { Pill } from "../../../shared/ui/pill/pill.js";
+import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
+import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
+import { emitCommand } from "../../../shared/api/socket.js";
+import {
+  ClientCommand,
+  type JoinRoomPayload,
+  type RoomSnapshotDto,
+} from "@omioroom/contracts";
+import styles from "./invite-page.module.scss";
+
+interface InvitePageProps {
+  globalId: string;
+  initialCode: string | null;
+  /** Returning users (identity already chosen) are joined without an extra click. */
+  autoJoin: boolean;
+  onJoined: (snapshot: RoomSnapshotDto) => void;
+  onCancel: () => void;
+}
+
+export const InvitePage: React.FC<InvitePageProps> = ({
+  globalId,
+  initialCode,
+  autoJoin,
+  onJoined,
+  onCancel,
+}) => {
+  const { socket, connectionStatus, user, updateDisplayName } = useSocketContext();
+  const { t } = useI18n();
+
+  const [code, setCode] = useState(initialCode ?? "");
+  const [needsCode, setNeedsCode] = useState(false);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const autoTriedRef = useRef(false);
+
+  const canRename = user?.kind !== "registered";
+
+  const join = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      if (canRename && name.trim() && name.trim() !== user?.displayName) {
+        await updateDisplayName(name.trim());
+      }
+      const snapshot = await emitCommand<JoinRoomPayload, RoomSnapshotDto>(
+        socket,
+        ClientCommand.ROOM_JOIN,
+        { globalId, privateCode: code.trim() || undefined }
+      );
+      onJoined(snapshot);
+    } catch (err: any) {
+      const e = t.home.errors;
+      if (err?.code === "PRIVATE_CODE_REQUIRED") {
+        setNeedsCode(true);
+        setError(e.privateCodeRequired);
+      } else if (err?.code === "INVALID_PRIVATE_CODE") {
+        setNeedsCode(true);
+        setError(e.invalidPrivateCode);
+      } else if (err?.code === "ROOM_FULL") {
+        setError(e.roomFull);
+      } else if (err?.code === "ROOM_NOT_FOUND") {
+        setError(e.roomNotFound);
+      } else if (err?.code === "RATE_LIMITED") {
+        setError(t.invite.rateLimited);
+      } else {
+        setError(e.genericJoinError);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [socket, globalId, code, name, user, canRename, updateDisplayName, onJoined, t]);
+
+  useEffect(() => {
+    if (!autoJoin || autoTriedRef.current || connectionStatus !== "connected" || !user) return;
+    autoTriedRef.current = true;
+    join();
+  }, [autoJoin, connectionStatus, user, join]);
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.topBar}>
+        <StatusIndicator status={connectionStatus} />
+        <LangSwitch />
+      </div>
+
+      <div className={styles.card}>
+        <div className={styles.kicker}>{t.invite.kicker}</div>
+        <h1 className={styles.title}>
+          {t.common.room} <span className={styles.roomId}>{globalId}</span>
+        </h1>
+
+        {user && (
+          <div className={styles.asRow}>
+            <span>{t.invite.joiningAs}</span>
+            <Pill variant="accent">{user.displayName}</Pill>
+          </div>
+        )}
+
+        {canRename && (
+          <TextField
+            label={t.invite.nameLabel}
+            placeholder={t.invite.namePlaceholder}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={30}
+          />
+        )}
+
+        {(needsCode || !initialCode) && (
+          <TextField
+            label={t.home.privateKeyLabel}
+            placeholder={t.home.privateKeyPlaceholder}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            mono
+          />
+        )}
+
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
+
+        <Button
+          variant="primary"
+          loading={loading}
+          disabled={connectionStatus !== "connected" || !user}
+          onClick={join}
+          icon={<LogIn size={16} />}
+          style={{ width: "100%" }}
+        >
+          {t.home.joinBtn}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          {t.invite.toHome}
+        </Button>
+      </div>
+    </div>
+  );
+};

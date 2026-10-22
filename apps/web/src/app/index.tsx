@@ -1,72 +1,59 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "../shared/lib/i18n/index.js";
 import { SocketProvider } from "./providers/socket-provider.js";
-import { useSocketContext } from "./providers/socket-context.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
 import { RoomPage } from "../pages/room/ui/room-page.js";
+import { InvitePage } from "../pages/invite/ui/invite-page.js";
 import { IdentityPage } from "../pages/identity/ui/identity-page.js";
-import { emitCommand } from "../shared/api/socket.js";
-import {
-  ClientCommand,
-  type RoomSnapshotDto,
-  type JoinRoomPayload,
-} from "@omioroom/contracts";
+import type { RoomSnapshotDto } from "@omioroom/contracts";
 import "./styles/global.scss";
 
-type Screen = "identity" | "home" | "my-rooms" | "room";
+type Screen = "identity" | "invite" | "home" | "my-rooms" | "room";
+
+interface InviteTarget {
+  globalId: string;
+  code: string | null;
+}
+
+/** Reads #room=<id>&code=<key>; the secret is stripped from the address bar immediately. */
+let cachedInvite: InviteTarget | null | undefined;
+
+function readInviteFromHash(): InviteTarget | null {
+  // StrictMode runs state initializers twice; the hash is only readable once
+  if (cachedInvite !== undefined) return cachedInvite;
+  cachedInvite = parseInviteHash();
+  return cachedInvite;
+}
+
+function parseInviteHash(): InviteTarget | null {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const globalId = params.get("room");
+  if (!globalId || !/^\d{6}$/.test(globalId)) return null;
+  const code = params.get("code");
+  if (code) {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#room=${globalId}`);
+  }
+  return { globalId, code };
+}
 
 const MainApp: React.FC = () => {
-  const { socket, connectionStatus } = useSocketContext();
+  const [invite] = useState<InviteTarget | null>(readInviteFromHash);
+  const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
   const [screen, setScreen] = useState<Screen>(() => {
-    // If auto-joining from hash or already chose identity, start on home
-    if (window.location.hash.startsWith("#room=")) return "home";
-    if (localStorage.getItem("omioroom_identity_chosen") === "true") return "home";
-    return "identity";
+    if (invite) return "invite";
+    return identityChosen ? "home" : "identity";
   });
   const [activeRoomSnapshot, setActiveRoomSnapshot] = useState<RoomSnapshotDto | null>(null);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
-
-  // Auto-join from URL hash if present (e.g. #room=482731&code=XYZ)
-  const autoJoinAttemptedRef = React.useRef(false);
-
-  useEffect(() => {
-    if (connectionStatus !== "connected") return;
-    if (autoJoinAttemptedRef.current) return;
-
-    const hash = window.location.hash;
-    if (hash.startsWith("#room=")) {
-      autoJoinAttemptedRef.current = true;
-      const params = new URLSearchParams(hash.slice(1));
-      const roomCode = params.get("room");
-      const privateCode = params.get("code");
-
-      if (roomCode && /^\d{6}$/.test(roomCode)) {
-        emitCommand<JoinRoomPayload, RoomSnapshotDto>(socket, ClientCommand.ROOM_JOIN, {
-          globalId: roomCode,
-          privateCode: privateCode || undefined,
-        })
-          .then((snapshot) => {
-            setActiveRoomSnapshot(snapshot);
-            setOwnerKey(privateCode || null);
-            setScreen("room");
-          })
-          .catch((err) => {
-            console.warn("Auto-join to room failed (likely expired after server restart):", err?.message || err);
-            // Clear dead hash from address bar so it doesn't loop
-            window.location.hash = "";
-            setScreen("home");
-          });
-      }
-    }
-  }, [connectionStatus, socket]);
 
   const handleRoomJoined = (snapshot: RoomSnapshotDto, key?: string | null) => {
     setActiveRoomSnapshot(snapshot);
     setOwnerKey(key ?? null);
     setScreen("room");
-    window.location.hash = `room=${snapshot.room.globalId}${key ? `&code=${key}` : ""}`;
+    // Never keep the private key in the address bar; members re-enter via their membership
+    window.location.hash = `room=${snapshot.room.globalId}`;
   };
 
   const handleLeaveRoom = () => {
@@ -84,6 +71,18 @@ const MainApp: React.FC = () => {
         onLeave={handleLeaveRoom}
         onNavigateHome={handleLeaveRoom}
         onNavigateMyRooms={() => setScreen("my-rooms")}
+      />
+    );
+  }
+
+  if (screen === "invite" && invite) {
+    return (
+      <InvitePage
+        globalId={invite.globalId}
+        initialCode={invite.code}
+        autoJoin={identityChosen}
+        onJoined={(snapshot) => handleRoomJoined(snapshot)}
+        onCancel={handleLeaveRoom}
       />
     );
   }
