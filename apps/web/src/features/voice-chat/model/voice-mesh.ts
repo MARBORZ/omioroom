@@ -19,6 +19,7 @@ interface Peer {
   pc: RTCPeerConnection;
   pendingIce: RTCIceCandidateInit[];
   restartTimer: ReturnType<typeof setTimeout> | null;
+  createdAt: number;
 }
 
 export class VoiceMesh {
@@ -33,6 +34,15 @@ export class VoiceMesh {
 
   has(peerId: string): boolean {
     return this.peers.has(peerId);
+  }
+
+  /** True when a connection exists but is dead or never got going, so it must be rebuilt. */
+  isStale(peerId: string, nowMs: number): boolean {
+    const peer = this.peers.get(peerId);
+    if (!peer) return false;
+    const state = peer.pc.connectionState;
+    if (state === "failed" || state === "closed" || state === "disconnected") return true;
+    return state !== "connected" && nowMs - peer.createdAt > 15_000;
   }
 
   /** Called when a peer shows up in the voice presence list. */
@@ -92,7 +102,7 @@ export class VoiceMesh {
 
   private createPeer(peerId: string): Peer {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
-    const peer: Peer = { pc, pendingIce: [], restartTimer: null };
+    const peer: Peer = { pc, pendingIce: [], restartTimer: null, createdAt: Date.now() };
     this.peers.set(peerId, peer);
 
     for (const track of this.localStream.getTracks()) pc.addTrack(track, this.localStream);

@@ -8,6 +8,8 @@ export type VoiceError = "unsupported" | "denied" | "full" | "failed" | null;
 
 interface PresenceMeta {
   muted: boolean;
+  /** Changes on every join, so others can tell a rejoin from the old, dead connection. */
+  sid: string;
 }
 
 export interface VoicePeer {
@@ -70,6 +72,8 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
   }>({ channel: null, mesh: null, local: null, ctx: null, stops: [] });
   const mutedMap = useRef<Record<string, boolean>>({});
   const speakingMap = useRef<Record<string, boolean>>({});
+  const sessionId = useRef(crypto.randomUUID());
+  const peerSessions = useRef<Record<string, string>>({});
 
   const publishPeers = useCallback((presentIds: string[]) => {
     setPeers(
@@ -92,6 +96,7 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
     stateRef.current = { channel: null, mesh: null, local: null, ctx: null, stops: [] };
     mutedMap.current = {};
     speakingMap.current = {};
+    peerSessions.current = {};
     setStreams({});
     setPeers([]);
     setSelfSpeaking(false);
@@ -102,6 +107,7 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
   const join = useCallback(async () => {
     if (!userId || status !== "off") return;
     setError(null);
+    sessionId.current = crypto.randomUUID();
 
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === "undefined") {
       setError("unsupported");
@@ -133,7 +139,11 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
 
     const mesh = new VoiceMesh(userId, local, iceServers(), {
       send: (to, message) => {
-        void channel.send({ type: "broadcast", event: "signal", payload: { to, from: userId, msg: message } });
+        void channel.send({
+          type: "broadcast",
+          event: "signal",
+          payload: { to, from: userId, sid: sessionId.current, msg: message },
+        });
       },
       onRemoteStream: (peerId, stream) => {
         setStreams((prev) => ({ ...prev, [peerId]: stream }));
@@ -156,18 +166,28 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
 
     channel
       .on("broadcast", { event: "signal" }, ({ payload }) => {
-        const p = payload as { to: string; from: string; msg: SignalMessage };
-        if (p.to === userId) void mesh.handleSignal(p.from, p.msg).catch(() => {});
+        const p = payload as { to: string; from: string; sid?: string; msg: SignalMessage };
+        if (p.to !== userId) return;
+        // The sender rejoined (reload, reconnect): the old connection is dead, start over with the new one
+        if (p.sid && peerSessions.current[p.from] && peerSessions.current[p.from] !== p.sid) mesh.removePeer(p.from);
+        if (p.sid) peerSessions.current[p.from] = p.sid;
+        void mesh.handleSignal(p.from, p.msg).catch(() => {});
       })
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState<PresenceMeta>();
         const ids = Object.keys(state);
-        for (const id of ids) mutedMap.current[id] = Boolean(state[id]?.[0]?.muted);
+        for (const id of ids) {
+          mutedMap.current[id] = Boolean(state[id]?.[0]?.muted);
+          const sid = state[id]?.[0]?.sid;
+          if (sid && peerSessions.current[id] && peerSessions.current[id] !== sid) mesh.removePeer(id);
+          if (sid) peerSessions.current[id] = sid;
+        }
         for (const id of ids) if (id !== userId) mesh.connectTo(id);
         // Drop peers that left
         for (const known of Object.keys(mutedMap.current)) {
           if (!ids.includes(known)) {
             delete mutedMap.current[known];
+            delete peerSessions.current[known];
             mesh.removePeer(known);
           }
         }
@@ -181,8 +201,18 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
             teardown();
             return;
           }
-          await channel.track({ muted: false } satisfies PresenceMeta);
+          await channel.track({ muted: false, sid: sessionId.current } satisfies PresenceMeta);
           setStatus("on");
+
+          // Watchdog: presence does not change when a connection silently dies, so check the links regularly
+          const watchdog = setInterval(() => {
+            const present = Object.keys(channel.presenceState()).filter((id) => id !== userId);
+            for (const id of present) {
+              if (mesh.isStale(id, Date.now())) mesh.removePeer(id);
+              mesh.connectTo(id);
+            }
+          }, 5000);
+          s.stops.push(() => clearInterval(watchdog));
         } else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
           setError("failed");
           teardown();
@@ -196,7 +226,7 @@ export function useVoiceChat(roomId: string, userId: string | undefined) {
     const next = !muted;
     s.local.getAudioTracks().forEach((t) => (t.enabled = !next));
     setMuted(next);
-    void s.channel.track({ muted: next } satisfies PresenceMeta);
+    void s.channel.track({ muted: next, sid: sessionId.current } satisfies PresenceMeta);
   }, [muted]);
 
   // Leaving the room page ends the call
