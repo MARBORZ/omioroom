@@ -53,6 +53,8 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
       return;
     }
     try {
+      // Uploaded chat images live in Storage and must be removed explicitly
+      await backend.deleteRoomAttachments(roomId).catch(() => {});
       await backend.closeRoom(roomId);
       setRooms((prev) => prev.filter((r) => r.id !== roomId));
     } catch (err: any) {

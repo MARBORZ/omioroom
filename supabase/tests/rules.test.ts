@@ -462,33 +462,66 @@ describe("buffering barrier", () => {
 });
 
 describe("chat", () => {
-  it("members chat; outsiders cannot; urls are validated; history capped at 100", async () => {
+  const upload = (userId: string, roomId: string, file = `${randomUUID()}.png`) => {
+    const path = `${roomId}/${file}`;
+    return t
+      .as(userId)
+      .query("insert into storage.objects (bucket_id, name) values ('chat-attachments', $1)", [path])
+      .then(() => path);
+  };
+
+  it("members chat; outsiders cannot; history is capped at 100", async () => {
     const owner = await t.newUser();
     const stranger = await t.newUser();
     const r = await room(owner, "public");
 
-    const msg = await t.as(owner).rpc("send_chat", {
-      p_room_id: r.id, p_text: "hello", p_attachment_url: "https://x.io/a.png", p_attachment_type: "image",
-    });
-    expect(msg).toMatchObject({ text: "hello", attachmentType: "image" });
+    const msg = await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "hello" });
+    expect(msg).toMatchObject({ text: "hello", attachmentPath: null });
     expect(await code(t.as(stranger).rpc("send_chat", { p_room_id: r.id, p_text: "hi" }))).toBe("FORBIDDEN");
-    expect(
-      await code(t.as(owner).rpc("send_chat", {
-        p_room_id: r.id, p_text: "x", p_attachment_url: "javascript:alert(1)", p_attachment_type: "file",
-      }))
-    ).toBe("INVALID_PAYLOAD");
     expect(await code(t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "   " }))).toBe("INVALID_PAYLOAD");
 
-    // History visible to members only
     expect(await t.as(owner).query("select * from public.chat_messages where room_id = $1", [r.id])).toHaveLength(1);
     expect(await t.as(stranger).query("select * from public.chat_messages")).toHaveLength(0);
 
-    // Cap at 100 (bypass the rate limiter by clearing its log between batches)
     for (let i = 0; i < 110; i++) {
       await t.db.query("delete from public.rate_events");
       await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: `m${i}` });
     }
     expect(await t.as(owner).query("select * from public.chat_messages where room_id = $1", [r.id])).toHaveLength(100);
+  });
+
+  it("accepts only uploaded images from the room's own folder", async () => {
+    const owner = await t.newUser();
+    const guest = await t.newUser();
+    const other = await t.newUser();
+    const r = await room(owner, "public");
+    const r2 = await room(other, "public");
+    await t.as(guest).rpc("join_room", { p_global_id: r.globalId });
+
+    const path = await upload(guest, r.id);
+    const sent = await t.as(guest).rpc("send_chat", { p_room_id: r.id, p_text: "", p_attachment_path: path });
+    expect(sent).toMatchObject({ attachmentPath: path, attachmentType: "image" });
+
+    // Not a file the sender uploaded
+    expect(await code(t.as(owner).rpc("send_chat", { p_room_id: r.id, p_attachment_path: path }))).toBe("INVALID_PAYLOAD");
+    // Another room's folder, a missing object, a non-image name, and a URL are all rejected
+    const foreign = await upload(other, r2.id);
+    expect(await code(t.as(guest).rpc("send_chat", { p_room_id: r.id, p_attachment_path: foreign }))).toBe("INVALID_PAYLOAD");
+    expect(await code(t.as(guest).rpc("send_chat", { p_room_id: r.id, p_attachment_path: `${r.id}/${randomUUID()}.png` }))).toBe("INVALID_PAYLOAD");
+    const pdf = await upload(guest, r.id, `${randomUUID()}.pdf`);
+    expect(await code(t.as(guest).rpc("send_chat", { p_room_id: r.id, p_attachment_path: pdf }))).toBe("INVALID_PAYLOAD");
+    expect(await code(t.as(guest).rpc("send_chat", { p_room_id: r.id, p_attachment_path: "https://x.io/a.png" }))).toBe("INVALID_PAYLOAD");
+  });
+
+  it("storage rules: members upload and read their room's images, outsiders cannot", async () => {
+    const owner = await t.newUser();
+    const stranger = await t.newUser();
+    const r = await room(owner, "public");
+
+    await upload(owner, r.id);
+    await expect(upload(stranger, r.id)).rejects.toThrow(/row-level security|permission denied|violates/i);
+    expect(await t.as(owner).query("select * from storage.objects")).toHaveLength(1);
+    expect(await t.as(stranger).query("select * from storage.objects")).toHaveLength(0);
   });
 
   it("rate limits chat floods", async () => {

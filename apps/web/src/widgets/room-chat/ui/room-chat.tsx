@@ -1,33 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Paperclip, Send, FileText, X } from "lucide-react";
-import { CHAT_MAX_TEXT_LENGTH, type ChatMessageDto, type AttachmentType } from "@omioroom/contracts";
+import { ImagePlus, Send, X } from "lucide-react";
+import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
+import { ChatImage } from "./chat-image.js";
 import styles from "./room-chat.module.scss";
-
-const IMAGE_EXT = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
-
-function detectAttachmentType(url: string): AttachmentType {
-  try {
-    return IMAGE_EXT.test(new URL(url).pathname + new URL(url).search) ? "image" : "file";
-  } catch {
-    return "file";
-  }
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 interface RoomChatProps {
   messages: ChatMessageDto[];
-  onSend: (text: string, attachmentUrl: string | null, attachmentType: AttachmentType | null) => Promise<void>;
+  onSend: (text: string, image: File | null) => Promise<void>;
 }
 
 export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
@@ -35,37 +18,57 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
   const { t } = useI18n();
 
   const [text, setText] = useState("");
-  const [attachUrl, setAttachUrl] = useState("");
-  const [showAttach, setShowAttach] = useState(false);
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // Local preview of the chosen image
+  useEffect(() => {
+    if (!image) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(image);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
+
+  const pickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!isAllowedChatImage(file)) {
+      setError(t.chat.imageType);
+      return;
+    }
+    setError(null);
+    setImage(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
-    const url = attachUrl.trim();
-    if (!trimmed && !url) return;
-    if (url && !isHttpUrl(url)) {
-      setError(t.chat.badUrl);
-      return;
-    }
+    if (!trimmed && !image) return;
 
     setError(null);
     setSending(true);
     try {
-      await onSend(trimmed, url || null, url ? detectAttachmentType(url) : null);
+      await onSend(trimmed, image);
       setText("");
-      setAttachUrl("");
-      setShowAttach(false);
+      setImage(null);
     } catch (err: any) {
-      setError(err?.code === "RATE_LIMITED" ? t.chat.rateLimited : t.chat.sendFailed);
+      if (err instanceof ChatImageError) setError(err.reason === "size" ? t.chat.imageTooLarge : t.chat.imageType);
+      else if (err?.code === "RATE_LIMITED") setError(t.chat.rateLimited);
+      else setError(t.chat.sendFailed);
     } finally {
       setSending(false);
     }
@@ -81,36 +84,21 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
           <div key={m.id} className={`${styles.message} ${m.senderId === user?.id ? styles.own : ""}`}>
             <span className={styles.sender}>{m.senderName}</span>
             {m.text && <span className={styles.text}>{m.text}</span>}
-            {m.attachmentUrl && m.attachmentType === "image" && (
-              <button
-                type="button"
-                className={styles.imageButton}
-                onClick={() => setZoomUrl(m.attachmentUrl)}
-                aria-label={t.chat.openImage}
-              >
-                <img src={m.attachmentUrl} alt="" className={styles.image} loading="lazy" referrerPolicy="no-referrer" />
-              </button>
-            )}
-            {m.attachmentUrl && m.attachmentType === "file" && (
-              <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer nofollow" className={styles.file}>
-                <FileText size={14} />
-                <span>{m.attachmentUrl}</span>
-              </a>
+            {m.attachmentPath && (
+              <ChatImage path={m.attachmentPath} onOpen={setZoomUrl} openLabel={t.chat.openImage} className={styles} />
             )}
           </div>
         ))}
       </div>
 
       <form onSubmit={handleSubmit} className={styles.form}>
-        {showAttach && (
-          <input
-            className={styles.input}
-            type="url"
-            placeholder={t.chat.attachPlaceholder}
-            value={attachUrl}
-            onChange={(e) => setAttachUrl(e.target.value)}
-            aria-label={t.chat.attach}
-          />
+        {preview && (
+          <div className={styles.preview}>
+            <img src={preview} alt="" className={styles.previewImage} />
+            <button type="button" className={styles.removePreview} onClick={() => setImage(null)} aria-label={t.chat.removeImage}>
+              <X size={14} />
+            </button>
+          </div>
         )}
         <input
           className={styles.input}
@@ -121,14 +109,15 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
           aria-label={t.chat.placeholder}
         />
         {error && <div className={styles.error} role="alert">{error}</div>}
+        <input
+          ref={fileRef}
+          type="file"
+          accept={CHAT_IMAGE_MIME_TYPES.join(",")}
+          onChange={pickImage}
+          hidden
+        />
         <div className={styles.actions}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            icon={<Paperclip size={14} />}
-            onClick={() => setShowAttach((v) => !v)}
-          >
+          <Button type="button" variant="ghost" size="sm" icon={<ImagePlus size={14} />} onClick={() => fileRef.current?.click()}>
             {t.chat.attach}
           </Button>
           <Button
@@ -136,7 +125,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
             variant="primary"
             size="sm"
             loading={sending}
-            disabled={!text.trim() && !attachUrl.trim()}
+            disabled={!text.trim() && !image}
             icon={<Send size={14} />}
           >
             {t.chat.send}

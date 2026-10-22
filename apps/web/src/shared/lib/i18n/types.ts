@@ -117,9 +117,10 @@ export interface Translations {
     empty: string;
     placeholder: string;
     attach: string;
-    attachPlaceholder: string;
     send: string;
-    badUrl: string;
+    imageType: string;
+    imageTooLarge: string;
+    removeImage: string;
     rateLimited: string;
     sendFailed: string;
     openImage: string;

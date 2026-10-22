@@ -259,8 +259,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }
   };
 
-  const handleSendChat = async (text: string, attachmentUrl: string | null, attachmentType: "image" | "file" | null) => {
-    await backend.sendChat({ roomId: snapshot.room.id, text, attachmentUrl, attachmentType });
+  const handleSendChat = async (text: string, image: File | null) => {
+    const path = image ? await backend.uploadChatImage(snapshot.room.id, image) : null;
+    await backend.sendChat(snapshot.room.id, text, path);
   };
 
   const handleLeave = async () => {

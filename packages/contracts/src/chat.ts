@@ -3,21 +3,19 @@ import { z } from "zod";
 export const CHAT_MAX_TEXT_LENGTH = 1000;
 export const CHAT_HISTORY_LIMIT = 100;
 
+/** Chat attachments are images (and gifs) uploaded from the device; nothing else. */
+export const CHAT_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"] as const;
+export const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Photos larger than this (either side) are downscaled before upload. */
+export const CHAT_IMAGE_MAX_DIMENSION = 1920;
+
 export const AttachmentType = {
   IMAGE: "image",
-  FILE: "file",
 } as const;
 
 export type AttachmentType = (typeof AttachmentType)[keyof typeof AttachmentType];
 
 export const attachmentTypeSchema = z.nativeEnum(AttachmentType);
-
-const httpUrlSchema = z
-  .string()
-  .trim()
-  .max(2048)
-  .url()
-  .refine((value) => /^https?:\/\//i.test(value), "Only http(s) attachment URLs are allowed");
 
 export const chatMessageDtoSchema = z.object({
   id: z.string().uuid(),
@@ -25,31 +23,10 @@ export const chatMessageDtoSchema = z.object({
   senderId: z.string().uuid(),
   senderName: z.string(),
   text: z.string(),
-  attachmentUrl: httpUrlSchema.nullable(),
+  /** Storage path ("<roomId>/<file>"); shown through a signed URL. */
+  attachmentPath: z.string().nullable(),
   attachmentType: attachmentTypeSchema.nullable(),
   createdAt: z.string().datetime(),
 });
 
 export type ChatMessageDto = z.infer<typeof chatMessageDtoSchema>;
-
-export const sendChatMessagePayloadSchema = z
-  .object({
-    roomId: z.string().uuid(),
-    text: z.string().trim().max(CHAT_MAX_TEXT_LENGTH).default(""),
-    attachmentUrl: httpUrlSchema.nullish(),
-    attachmentType: attachmentTypeSchema.nullish(),
-  })
-  .refine((v) => v.text.length > 0 || Boolean(v.attachmentUrl), {
-    message: "Message must contain text or an attachment",
-  })
-  .refine((v) => !v.attachmentUrl || Boolean(v.attachmentType), {
-    message: "attachmentType is required with attachmentUrl",
-  });
-
-export type SendChatMessagePayload = z.input<typeof sendChatMessagePayloadSchema>;
-
-export const chatHistoryPayloadSchema = z.object({
-  roomId: z.string().uuid(),
-});
-
-export type ChatHistoryPayload = z.infer<typeof chatHistoryPayloadSchema>;

@@ -10,11 +10,13 @@ import type {
   RoomSnapshotDto,
   RoomSummaryDto,
   RoomVisibility,
-  SendChatMessagePayload,
   User,
 } from "@omioroom/contracts";
 import { rpc } from "./rpc.js";
+import { prepareChatImage } from "../lib/image/prepare-chat-image.js";
 import { supabase } from "./supabase.js";
+
+const CHAT_BUCKET = "chat-attachments";
 
 export function generateClientRequestId(): string {
   return crypto.randomUUID();
@@ -87,17 +89,37 @@ export const backend = {
     }),
   resolveBuffering: (roomId: string) => rpc<RoomPlaybackStateDto | null>("resolve_buffering", { p_room_id: roomId }),
 
-  sendChat: (msg: SendChatMessagePayload) =>
+  sendChat: (roomId: string, text: string, attachmentPath: string | null) =>
     rpc<ChatMessageDto>("send_chat", {
-      p_room_id: msg.roomId,
-      p_text: msg.text ?? "",
-      p_attachment_url: msg.attachmentUrl ?? null,
-      p_attachment_type: msg.attachmentType ?? null,
+      p_room_id: roomId,
+      p_text: text,
+      p_attachment_path: attachmentPath,
     }),
+  /** Uploads an image to the room's folder and returns its storage path. */
+  uploadChatImage: async (roomId: string, file: File): Promise<string> => {
+    const prepared = await prepareChatImage(file);
+    const path = `${roomId}/${crypto.randomUUID()}.${prepared.extension}`;
+    const { error } = await supabase.storage
+      .from(CHAT_BUCKET)
+      .upload(path, prepared.blob, { contentType: prepared.blob.type, upsert: false });
+    if (error) throw error;
+    return path;
+  },
+  signedImageUrl: async (path: string): Promise<string> => {
+    const { data, error } = await supabase.storage.from(CHAT_BUCKET).createSignedUrl(path, 3600);
+    if (error || !data) throw error ?? new Error("SIGNED_URL_FAILED");
+    return data.signedUrl;
+  },
+  /** Owner cleanup when a room closes: Storage objects are not removed by deleting rows. */
+  deleteRoomAttachments: async (roomId: string): Promise<void> => {
+    const { data } = await supabase.storage.from(CHAT_BUCKET).list(roomId, { limit: 1000 });
+    const paths = (data ?? []).map((o) => `${roomId}/${o.name}`);
+    if (paths.length > 0) await supabase.storage.from(CHAT_BUCKET).remove(paths);
+  },
   chatHistory: async (roomId: string): Promise<ChatMessageDto[]> => {
     const { data, error } = await supabase
       .from("chat_messages")
-      .select("id, room_id, sender_id, sender_name, body, attachment_url, attachment_type, created_at")
+      .select("id, room_id, sender_id, sender_name, body, attachment_path, attachment_type, created_at")
       .eq("room_id", roomId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -116,8 +138,8 @@ interface ChatRow {
   sender_id: string;
   sender_name: string;
   body: string;
-  attachment_url: string | null;
-  attachment_type: "image" | "file" | null;
+  attachment_path: string | null;
+  attachment_type: "image" | null;
   created_at: string;
 }
 
@@ -128,7 +150,7 @@ export function mapChatRow(row: ChatRow): ChatMessageDto {
     senderId: row.sender_id,
     senderName: row.sender_name,
     text: row.body,
-    attachmentUrl: row.attachment_url,
+    attachmentPath: row.attachment_path,
     attachmentType: row.attachment_type,
     createdAt: row.created_at,
   };
