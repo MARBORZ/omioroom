@@ -5,7 +5,8 @@
   "description": "Minimalist anonymous two-person video watch party platform",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "supabase"
   ],
   "scripts": {
     "build": "npm run --workspaces --if-present build",
