@@ -83,7 +83,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   // chat as a resizable side panel that collapses into a round button
   const [cinema, setCinema] = useState(false);
   const [cinemaChatOpen, setCinemaChatOpen] = useState(true);
-  const [seenMessages, setSeenMessages] = useState(0);
+  // Unread messages from others (starts from the server count, then grows while the chat is out of sight)
+  const [unreadMessages, setUnreadMessages] = useState(initialSnapshot.unreadCount ?? 0);
+  const chatVisibleRef = useRef(false);
 
   // Draggable floating chat button in cinema mode
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
@@ -281,8 +283,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
     const close = openRoomChannel(roomId, user.id, {
       onPlayback: applyPlayback,
-      onChat: (msg) =>
-        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100))),
+      onChat: (msg) => {
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100)));
+        if (msg.senderId !== user.id && !chatVisibleRef.current) setUnreadMessages((n) => n + 1);
+      },
+      onChatSeen: (uid, seenAt) =>
+        setSnapshot((prev) => ({
+          ...prev,
+          participants: prev.participants.map((p) => (p.userId === uid ? { ...p, chatSeenAt: seenAt } : p)),
+        })),
       onRoomChanged: (row) => {
         if (row.status === "closed") {
           clearStoredActiveRoom();
@@ -535,11 +544,12 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }, [cinema]);
 
   // Unread counter for the collapsed chat button
-  const chatVisible = !cinema || cinemaChatOpen;
+  const chatVisible = cinema ? cinemaChatOpen : activeTab === "chat";
+  chatVisibleRef.current = chatVisible;
   useEffect(() => {
-    if (chatVisible && (activeTab === "chat" || cinema)) setSeenMessages(messages.length);
-  }, [chatVisible, activeTab, cinema, messages.length]);
-  const unreadMessages = Math.max(0, messages.length - seenMessages);
+    if (chatVisible) setUnreadMessages(0);
+  }, [chatVisible, messages.length]);
+  const unreadLabel = unreadMessages > 99 ? "99+" : String(unreadMessages);
 
   // Presence is live; fall back to the seat state from the database until it syncs
   const participants = snapshot.participants.map((p) => ({
@@ -697,6 +707,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 >
                   <MessageSquare size={14} />
                   <span>{t.room.tabChat}</span>
+                  {unreadMessages > 0 && activeTab !== "chat" && <span className={styles.tabBadge}>{unreadLabel}</span>}
                 </button>
 
                 <button
@@ -825,7 +836,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             title={t.room.chatOpen}
           >
             <MessageSquare size={22} />
-            {unreadMessages > 0 && <span className={styles.chatFabBadge}>{unreadMessages > 99 ? "99+" : unreadMessages}</span>}
+            {unreadMessages > 0 && <span className={styles.chatFabBadge}>{unreadLabel}</span>}
           </button>
         )}
       </main>

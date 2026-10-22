@@ -19,6 +19,8 @@ export interface RoomChannelHandlers {
   onRoomChanged: (row: RoomRowChange) => void;
   /** A member joined or had their permissions changed; refetch participants. */
   onMemberChanged: () => void;
+  /** Someone read the chat up to this time (read receipts). */
+  onChatSeen?: (userId: string, seenAt: string) => void;
   /** User ids currently present in the room channel. */
   onPresence: (userIds: string[]) => void;
   onStatus: (status: RoomChannelStatus) => void;
@@ -94,6 +96,14 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
       "postgres_changes",
       { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
       () => handlers.onMemberChanged()
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "chat_seen", filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        const row = payload.new as { user_id?: string; last_seen_at?: string };
+        if (row.user_id && row.last_seen_at) handlers.onChatSeen?.(row.user_id, row.last_seen_at);
+      }
     )
     .on("presence", { event: "sync" }, () => handlers.onPresence(Object.keys(channel.presenceState())))
     .subscribe((status) => {
