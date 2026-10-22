@@ -161,6 +161,7 @@ export const ru: Translations = {
     sendFailed: "Не удалось отправить сообщение",
     openImage: "Открыть изображение",
     close: "Закрыть",
+    dropImage: "Перетащите изображение сюда",
   },
   friends: {
     title: "Друзья",

@@ -161,6 +161,7 @@ export const en: Translations = {
     sendFailed: "Failed to send message",
     openImage: "Open image",
     close: "Close",
+    dropImage: "Drop image here",
   },
   friends: {
     title: "Friends",

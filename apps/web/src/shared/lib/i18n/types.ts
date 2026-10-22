@@ -160,6 +160,7 @@ export interface Translations {
     sendFailed: string;
     openImage: string;
     close: string;
+    dropImage: string;
   };
   friends: {
     title: string;
