@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" fill="none">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#101012" />
+  
+  <!-- Subtle room viewport outline -->
+  <rect x="80" y="60" width="1040" height="510" rx="24" stroke="#222226" stroke-width="2" fill="#141417" />
+  
+  <!-- Centered Logo Brand Mark -->
+  <g transform="translate(500, 160)">
+    <rect width="200" height="150" rx="32" fill="#1C1C20" stroke="#2A2A30" stroke-width="3" />
+    <circle cx="70" cy="75" r="38" stroke="#FF6847" stroke-width="14" fill="none" />
+    <circle cx="130" cy="75" r="38" stroke="#FF6847" stroke-width="14" fill="none" />
+  </g>
+  
+  <!-- Typography -->
+  <text x="600" y="380" text-anchor="middle" font-family="Inter, -apple-system, sans-serif" font-weight="800" font-size="52" letter-spacing="0.03em">
+    <tspan fill="#F4F0E8">OMIO</tspan><tspan fill="#FF6847">ROOM</tspan>
+  </text>
+  
+  <text x="600" y="440" text-anchor="middle" font-family="Inter, -apple-system, sans-serif" font-weight="500" font-size="24" fill="#A0A0A8">
+    Смотрите видео вместе с друзьями. Синхронно, с чатом и голосом.
+  </text>
+  
+  <text x="600" y="490" text-anchor="middle" font-family="Inter, -apple-system, sans-serif" font-weight="400" font-size="16" fill="#666670">
+    YouTube • VK Видео • RuTube • Vimeo • MP4 / HLS
+  </text>
+</svg>

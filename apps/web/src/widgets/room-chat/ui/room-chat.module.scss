@@ -43,9 +43,8 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--space-3) var(--space-3) 24px; /* Generous bottom spacing from input bar */
+  padding: var(--space-3) var(--space-3) 16px;
   gap: 2px;
-  scroll-behavior: smooth;
 }
 
 .skeletonList {
@@ -621,11 +620,114 @@
   padding: 2px 4px;
 }
 
-/* Image in chat */
+/* Image in chat - Clean Telegram edge-to-edge styles */
+.imageOnlyBubble {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  position: relative;
+
+  .imageButton {
+    border: none !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    display: block;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  .image {
+    display: block;
+    border-radius: 16px !important;
+    max-height: 280px;
+    max-width: 100%;
+    object-fit: cover;
+  }
+
+  .imagePlaceholder {
+    border-radius: 16px !important;
+    border: none !important;
+  }
+}
+
+.withImageBubble {
+  .imageButton {
+    border: none !important;
+    margin: -8px -12px 6px -12px !important;
+    border-radius: 16px 16px 0 0 !important;
+    display: block;
+    overflow: hidden;
+  }
+
+  .image {
+    display: block;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 240px;
+    width: 100%;
+    object-fit: cover;
+  }
+}
+
+.imageFloatingMeta {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+  z-index: 2;
+
+  .time {
+    color: #ffffff;
+    font-size: 10px;
+  }
+
+  .checkIcon {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.imageSenderOverlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(6px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  user-select: none;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bottomAnchor {
+  height: 28px;
+  min-height: 28px;
+  width: 100%;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
 .imageButton {
   display: block;
   padding: 0;
-  border: var(--border-width) solid var(--color-border);
+  border: none;
   border-radius: var(--radius-sm);
   background: none;
   cursor: zoom-in;
@@ -637,7 +739,7 @@
 .image {
   display: block;
   max-width: 100%;
-  max-height: 180px;
+  max-height: 240px;
   object-fit: cover;
   border-radius: var(--radius-sm);
 }

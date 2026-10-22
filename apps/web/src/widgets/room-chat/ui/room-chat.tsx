@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, CheckCheck } from "lucide-react";
-import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto } from "@omioroom/contracts";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck } from "lucide-react";
+import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
+import { backend } from "../../../shared/api/backend.js";
 import { ChatImage } from "./chat-image.js";
 import styles from "./room-chat.module.scss";
 
@@ -12,6 +13,8 @@ interface RoomChatProps {
   messages: ChatMessageDto[];
   loading?: boolean;
   onSend: (text: string, image: File | null) => Promise<void>;
+  participants?: ParticipantDto[];
+  roomId?: string;
 }
 
 interface ReplyState {
@@ -58,7 +61,13 @@ function formatMsgTime(iso: string): string {
   }
 }
 
-export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, onSend }) => {
+export const RoomChat: React.FC<RoomChatProps> = ({
+  messages,
+  loading = false,
+  onSend,
+  participants,
+  roomId,
+}) => {
   const { user } = useSession();
   const { t } = useI18n();
 
@@ -74,35 +83,85 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, o
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isNearBottomRef = useRef(true);
+  const lastMarkedIdRef = useRef<string | null>(null);
+  const markSeenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
     const el = listRef.current;
-    if (el) {
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
-    }
+    if (!el) return;
+
+    isNearBottomRef.current = true;
+    setShowScrollBottom(false);
+
+    const doScroll = () => {
+      if (!listRef.current) return;
+      const target = listRef.current.scrollHeight;
+      if (smooth) {
+        listRef.current.scrollTo({ top: target, behavior: "smooth" });
+      } else {
+        listRef.current.scrollTop = target;
+      }
+    };
+
+    doScroll();
+
+    // Re-check after paint & layout recalculation (for multi-line text, emojis, and bubbles)
+    requestAnimationFrame(() => {
+      doScroll();
+      setTimeout(doScroll, 40);
+      setTimeout(() => {
+        if (listRef.current && isNearBottomRef.current) {
+          listRef.current.scrollTop = listRef.current.scrollHeight;
+          setShowScrollBottom(false);
+        }
+      }, 150);
+    });
   }, []);
+
+  const triggerMarkSeen = useCallback(() => {
+    if (!roomId) return;
+    const lastOther = [...messages].reverse().find((m) => m.senderId !== user?.id);
+    if (!lastOther || lastOther.id === lastMarkedIdRef.current) return;
+
+    if (markSeenTimeoutRef.current) clearTimeout(markSeenTimeoutRef.current);
+    markSeenTimeoutRef.current = setTimeout(() => {
+      lastMarkedIdRef.current = lastOther.id;
+      backend.markChatSeen(roomId, lastOther.id).catch(() => {});
+    }, 1200);
+  }, [messages, roomId, user?.id]);
 
   const handleScroll = () => {
     const el = listRef.current;
     if (!el) return;
     const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const nearBottom = distanceToBottom < 70;
+    // Generous threshold to avoid false "scrolled away" triggers during smooth movement
+    const nearBottom = distanceToBottom < 120;
     isNearBottomRef.current = nearBottom;
     setShowScrollBottom(!nearBottom);
+
+    if (nearBottom) {
+      triggerMarkSeen();
+    }
   };
 
   // Initial scroll and auto-scroll on new messages
   useEffect(() => {
     if (isNearBottomRef.current || messages.length <= 1) {
       scrollToBottom(true);
+      triggerMarkSeen();
     }
-  }, [messages.length, scrollToBottom]);
+  }, [messages.length, scrollToBottom, triggerMarkSeen]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (markSeenTimeoutRef.current) clearTimeout(markSeenTimeoutRef.current);
+    };
+  }, []);
 
   // Scroll to bottom on first load
   useEffect(() => {
@@ -277,6 +336,20 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, o
           const parsed = parseMessageText(m.text);
           const isHighlighted = highlightedId === m.id;
 
+          const hasImage = Boolean(m.attachmentPath);
+          const hasText = Boolean(parsed.body);
+          const hasReply = Boolean(parsed.reply);
+          const isImageOnly = hasImage && !hasText && !hasReply;
+
+          const isRead = Boolean(
+            participants?.some(
+              (p) =>
+                p.userId !== user?.id &&
+                p.chatSeenAt &&
+                new Date(p.chatSeenAt).getTime() >= new Date(m.createdAt).getTime()
+            )
+          );
+
           let groupClass = "";
           if (isSameSenderAbove && isSameSenderBelow) groupClass = styles.groupMiddle;
           else if (isSameSenderAbove) groupClass = styles.groupLast;
@@ -289,47 +362,85 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, o
               id={`msg-${m.id}`}
               className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
             >
-              <div className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble}`}>
-                {/* Sender name shown only on first message of the group */}
-                {!isOwn && !isSameSenderAbove && (
-                  <span className={styles.senderName}>{m.senderName}</span>
-                )}
-
-                {/* Reply quote banner inside message bubble */}
-                {parsed.reply && (
-                  <button
-                    type="button"
-                    className={styles.quoteBlock}
-                    onClick={() => handleQuoteClick(parsed.reply!.id)}
-                    title={t.chat.reply}
-                  >
-                    <div className={styles.quoteStripe} />
-                    <div className={styles.quoteBody}>
-                      <span className={styles.quoteSender}>{parsed.reply.senderName}</span>
-                      <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
-                    </div>
-                  </button>
-                )}
-
-                {/* Message text content */}
-                {parsed.body && <p className={styles.text}>{parsed.body}</p>}
-
-                {/* Image attachment */}
-                {m.attachmentPath && (
+              {isImageOnly ? (
+                <div
+                  className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${styles.imageOnlyBubble}`}
+                >
+                  {!isOwn && !isSameSenderAbove && (
+                    <span className={styles.imageSenderOverlay}>{m.senderName}</span>
+                  )}
                   <ChatImage
-                    path={m.attachmentPath}
+                    path={m.attachmentPath!}
                     onOpen={setZoomUrl}
                     openLabel={t.chat.openImage}
                     className={styles}
+                    onLoad={() => {
+                      if (isNearBottomRef.current) scrollToBottom(true);
+                    }}
                   />
-                )}
-
-                {/* Telegram-style metadata timestamp */}
-                <div className={styles.metaRow}>
-                  <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
-                  {isOwn && <CheckCheck size={13} className={styles.checkIcon} />}
+                  <div className={styles.imageFloatingMeta}>
+                    <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
+                    {isOwn &&
+                      (isRead ? (
+                        <CheckCheck size={12} className={styles.checkIcon} />
+                      ) : (
+                        <Check size={12} className={styles.checkIcon} />
+                      ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div
+                  className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${hasImage ? styles.withImageBubble : ""}`}
+                >
+                  {/* Sender name shown only on first message of the group */}
+                  {!isOwn && !isSameSenderAbove && (
+                    <span className={styles.senderName}>{m.senderName}</span>
+                  )}
+
+                  {/* Image attachment in multi-content bubble */}
+                  {hasImage && (
+                    <ChatImage
+                      path={m.attachmentPath!}
+                      onOpen={setZoomUrl}
+                      openLabel={t.chat.openImage}
+                      className={styles}
+                      onLoad={() => {
+                        if (isNearBottomRef.current) scrollToBottom(true);
+                      }}
+                    />
+                  )}
+
+                  {/* Reply quote banner inside message bubble */}
+                  {parsed.reply && (
+                    <button
+                      type="button"
+                      className={styles.quoteBlock}
+                      onClick={() => handleQuoteClick(parsed.reply!.id)}
+                      title={t.chat.reply}
+                    >
+                      <div className={styles.quoteStripe} />
+                      <div className={styles.quoteBody}>
+                        <span className={styles.quoteSender}>{parsed.reply.senderName}</span>
+                        <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Message text content */}
+                  {parsed.body && <p className={styles.text}>{parsed.body}</p>}
+
+                  {/* Telegram-style metadata timestamp */}
+                  <div className={styles.metaRow}>
+                    <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
+                    {isOwn &&
+                      (isRead ? (
+                        <CheckCheck size={13} className={styles.checkIcon} />
+                      ) : (
+                        <Check size={13} className={styles.checkIcon} />
+                      ))}
+                  </div>
+                </div>
+              )}
 
               {/* Hover action to reply */}
               <button
@@ -344,6 +455,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, o
             </div>
           );
         })}
+        <div ref={bottomAnchorRef} className={styles.bottomAnchor} />
       </div>
 
       {/* Floating scroll to bottom button */}

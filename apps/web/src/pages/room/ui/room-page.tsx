@@ -18,6 +18,8 @@ import { useResizableWidth } from "../../../shared/lib/use-resizable-width.js";
 import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
+import { showToast } from "../../../shared/ui/toast/toast.js";
+import { clearStoredActiveRoom } from "../../../shared/lib/active-room.js";
 import {
   PlaybackStatus,
   type ChatMessageDto,
@@ -155,12 +157,20 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 
+  const prevTabRef = useRef<RoomTab>(activeTab);
+
   const handleToggleCinema = useCallback(() => {
     setCinema((on) => {
-      if (!on) setCinemaChatOpen(window.innerWidth > 720);
+      if (!on) {
+        prevTabRef.current = activeTab;
+        setActiveTab("chat");
+        setCinemaChatOpen(window.innerWidth > 720);
+      } else {
+        setActiveTab(prevTabRef.current || "chat");
+      }
       return !on;
     });
-  }, []);
+  }, [activeTab]);
 
   // Keyboard accessibility:
   // F - Fullscreen / Cinema toggle
@@ -275,7 +285,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100))),
       onRoomChanged: (row) => {
         if (row.status === "closed") {
-          alert(tRef.current.room.closedAlert);
+          clearStoredActiveRoom();
+          showToast(tRef.current.room.roomClosedNotice, { id: "room-ended" });
           onLeaveRef.current();
           return;
         }
@@ -297,15 +308,60 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       onResync: () => void reloadAll(),
     });
 
-    // Keeps our seat alive; the seat frees itself ~90s after the last sign of life
-    const heartbeat = setInterval(() => void backend.touchRoom(roomId).catch(() => {}), 45_000);
+    const runHeartbeat = async () => {
+      if (disposed) return;
+      try {
+        const state = await backend.heartbeatRoom(roomId);
+        if (disposed) return;
+        if (state === "OK") return;
+        if (state === "ROOM_CLOSED" || state === "ROOM_NOT_FOUND") {
+          clearStoredActiveRoom();
+          showToast(tRef.current.room.roomClosedNotice, { id: "room-ended" });
+          onLeaveRef.current();
+        } else if (state === "BANNED") {
+          clearStoredActiveRoom();
+          showToast(tRef.current.room.bannedNotice, { id: "room-banned" });
+          onLeaveRef.current();
+        } else if (state === "NOT_MEMBER") {
+          if (initialSnapshot.room.visibility === "public") {
+            try {
+              await backend.joinRoom(initialSnapshot.room.globalId);
+            } catch {
+              clearStoredActiveRoom();
+              showToast(tRef.current.room.notMemberNotice, { id: "room-not-member" });
+              onLeaveRef.current();
+            }
+          } else {
+            clearStoredActiveRoom();
+            showToast(tRef.current.room.notMemberNotice, { id: "room-not-member" });
+            onLeaveRef.current();
+          }
+        }
+      } catch {}
+    };
+
+    // Heartbeat every 45 seconds, on tab visibility return, and when coming back online
+    const heartbeatTimer = setInterval(() => void runHeartbeat(), 45_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void runHeartbeat();
+      }
+    };
+    const onOnline = () => {
+      void runHeartbeat();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
     const onPageHide = () => void backend.leaveRoom(roomId).catch(() => {});
     window.addEventListener("pagehide", onPageHide);
 
     return () => {
       disposed = true;
       if (snapshotTimer) clearTimeout(snapshotTimer);
-      clearInterval(heartbeat);
+      clearInterval(heartbeatTimer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("pagehide", onPageHide);
       close();
     };
@@ -341,6 +397,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const confirmExit = async () => {
     const target = pendingExit;
     setPendingExit(null);
+    clearStoredActiveRoom();
     try {
       await backend.leaveRoom(snapshot.room.id);
     } catch {
@@ -363,14 +420,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         });
         applyPlayback(updatedState);
       } catch (err) {
-        console.error("Player command error:", err);
+        showToast(tRef.current.room.commandFailed, { id: "player-cmd-error" });
+        setPendingRate(null);
+        if (playback) {
+          setCurrentTime(playback.anchorPosition);
+        }
       } finally {
         setTimeout(() => {
           isLocalCommandRef.current = false;
         }, 200);
       }
     },
-    [snapshot.room.id, applyPlayback]
+    [snapshot.room.id, applyPlayback, playback]
   );
 
   const handlePlay = () => {
@@ -607,69 +668,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onNudge={chatSize.nudge}
             className={styles.resizeHandle}
           />
-          {/* Room Navigation Tabs & integrated close button in header */}
-          <div className={styles.sidebarHeader} data-layout="room-tabs">
-            <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "chat"}
-                className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
-                onClick={() => setActiveTab("chat")}
-              >
-                <MessageSquare size={14} />
-                <span>{t.room.tabChat}</span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "voice"}
-                className={`${styles.tabBtn} ${activeTab === "voice" ? styles.activeTab : ""}`}
-                onClick={() => setActiveTab("voice")}
-              >
-                <Mic size={14} />
-                <span>{t.room.tabVoice}</span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "participants"}
-                className={`${styles.tabBtn} ${activeTab === "participants" ? styles.activeTab : ""}`}
-                onClick={() => setActiveTab("participants")}
-              >
-                <Users size={14} />
-                <span>{t.room.tabParticipants}</span>
-                <span className={styles.tabBadge}>{activeParticipantsCount}</span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "invite"}
-                className={`${styles.tabBtn} ${activeTab === "invite" ? styles.activeTab : ""}`}
-                onClick={() => setActiveTab("invite")}
-              >
-                <Share2 size={14} />
-                <span>{t.room.tabInvite}</span>
-              </button>
-
-              {canControl && (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "media"}
-                  className={`${styles.tabBtn} ${activeTab === "media" ? styles.activeTab : ""}`}
-                  onClick={() => setActiveTab("media")}
-                >
-                  <Film size={14} />
-                  <span>{t.room.tabMedia}</span>
-                </button>
-              )}
-            </nav>
-
-            {cinema && (
+          {/* In cinema mode: show ONLY clean chat title and close button (no tabs!) */}
+          {cinema ? (
+            <div className={styles.cinemaSidebarHeader}>
+              <div className={styles.cinemaChatTitle}>
+                <MessageSquare size={16} />
+                <span>{t.chat.title}</span>
+              </div>
               <button
                 type="button"
                 className={styles.sidebarCloseBtn}
@@ -679,8 +684,70 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               >
                 <X size={16} />
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className={styles.sidebarHeader} data-layout="room-tabs">
+              <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "chat"}
+                  className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
+                  onClick={() => setActiveTab("chat")}
+                >
+                  <MessageSquare size={14} />
+                  <span>{t.room.tabChat}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "voice"}
+                  className={`${styles.tabBtn} ${activeTab === "voice" ? styles.activeTab : ""}`}
+                  onClick={() => setActiveTab("voice")}
+                >
+                  <Mic size={14} />
+                  <span>{t.room.tabVoice}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "participants"}
+                  className={`${styles.tabBtn} ${activeTab === "participants" ? styles.activeTab : ""}`}
+                  onClick={() => setActiveTab("participants")}
+                >
+                  <Users size={14} />
+                  <span>{t.room.tabParticipants}</span>
+                  <span className={styles.tabBadge}>{activeParticipantsCount}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "invite"}
+                  className={`${styles.tabBtn} ${activeTab === "invite" ? styles.activeTab : ""}`}
+                  onClick={() => setActiveTab("invite")}
+                >
+                  <Share2 size={14} />
+                  <span>{t.room.tabInvite}</span>
+                </button>
+
+                {canControl && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "media"}
+                    className={`${styles.tabBtn} ${activeTab === "media" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("media")}
+                  >
+                    <Film size={14} />
+                    <span>{t.room.tabMedia}</span>
+                  </button>
+                )}
+              </nav>
+            </div>
+          )}
 
           {/* Active Panel Content */}
           <div className={styles.panelsContainer}>
@@ -695,7 +762,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             </div>
 
             <div data-panel="chat" className={styles.panelWrapper}>
-              <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
+              <RoomChat
+                messages={messages}
+                loading={chatLoading}
+                onSend={handleSendChat}
+                participants={participants}
+                roomId={snapshot.room.id}
+              />
             </div>
 
             <div data-panel="participants" className={styles.panelWrapper}>
@@ -705,8 +778,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 isOwner={snapshot.isOwner}
                 maxParticipants={snapshot.room.maxParticipants}
                 controlMode={snapshot.room.controlMode}
+                bannedUsers={snapshot.bannedUsers}
                 onSaveSettings={handleSaveSettings}
                 onToggleControl={handleToggleControl}
+                onKickMember={async (uid) => {
+                  await backend.kickMember(snapshot.room.id, uid);
+                }}
+                onBanMember={async (uid) => {
+                  await backend.banMember(snapshot.room.id, uid);
+                }}
+                onUnbanMember={async (uid) => {
+                  await backend.unbanMember(snapshot.room.id, uid);
+                }}
               />
             </div>
 

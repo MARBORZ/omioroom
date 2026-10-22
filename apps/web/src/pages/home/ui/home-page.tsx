@@ -8,6 +8,7 @@ import { ControlModeSelect } from "../../../shared/ui/control-mode-select/contro
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import {
   DEFAULT_ROOM_PARTICIPANTS,
   MIN_ROOM_PARTICIPANTS,
@@ -121,8 +122,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Top bar with language switch & settings */}
       <div className={styles.topBar} data-layout="top-bar">
         <div className={styles.brand}>
-          <span className={styles.brandDot} />
-          {t.common.brand}
+          <Logo size="sm" showText={true} />
         </div>
         <div className={styles.topBarRight} data-layout="top-bar-right">
           <button

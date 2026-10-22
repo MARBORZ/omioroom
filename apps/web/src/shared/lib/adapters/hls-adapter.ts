@@ -8,6 +8,7 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
   private bufferingState = false;
   private wantPlaying = false;
+  private currentRate = 1;
 
   async attach(container: HTMLElement): Promise<void> {
     container.innerHTML = "";
@@ -31,7 +32,16 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   }
 
   private bindEvents(video: HTMLVideoElement) {
+    video.addEventListener("loadedmetadata", () => {
+      if (this.currentRate !== 1 && video.playbackRate !== this.currentRate) {
+        video.playbackRate = this.currentRate;
+      }
+    });
+
     video.addEventListener("play", () => {
+      if (this.currentRate !== 1 && video.playbackRate !== this.currentRate) {
+        video.playbackRate = this.currentRate;
+      }
       this.bufferingState = false;
       this.emit({
         type: "play",
@@ -162,7 +172,9 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   }
 
   async setPlaybackRate(rate: number): Promise<void> {
+    this.currentRate = rate;
     if (this.videoElement) {
+      this.videoElement.defaultPlaybackRate = rate;
       this.videoElement.playbackRate = rate;
     }
   }

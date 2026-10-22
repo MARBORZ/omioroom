@@ -112,6 +112,14 @@ export interface Translations {
     leaveMessage: string;
     leaveStay: string;
     speedUnsupported: string;
+    roomClosedNotice: string;
+    roomNotFoundNotice: string;
+    notMemberNotice: string;
+    bannedNotice: string;
+    noConnectionNotice: string;
+    retry: string;
+    commandFailed: string;
+    resumingRoom: string;
   };
   myRooms: {
     title: string;
@@ -204,6 +212,12 @@ export interface Translations {
     waitingFor: string;
     viewOnly: string;
     createLimit: string;
+    kick: string;
+    ban: string;
+    unban: string;
+    bannedTitle: string;
+    kickConfirm: (name: string) => string;
+    banConfirm: (name: string) => string;
   };
   voice: {
     title: string;

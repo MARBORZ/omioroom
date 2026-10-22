@@ -5,6 +5,7 @@ import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import styles from "./identity-page.module.scss";
 
 type IdentityMode = "anon" | "nick" | "account";
@@ -98,8 +99,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
     <div className={styles.container} data-layout="identity-page">
       <div className={styles.topBar} data-layout="top-bar">
         <div className={styles.brand}>
-          <span className={styles.brandDot} />
-          {t.common.brand}
+          <Logo size="sm" showText={true} />
         </div>
         <div className={styles.topBarRight} data-layout="top-bar-right">
           <button

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Users, LogOut, Settings, Copy, Check } from "lucide-react";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { Logo } from "../../../shared/ui/logo/logo.js";
 import styles from "./room-header.module.scss";
 
 interface RoomHeaderProps {
@@ -39,8 +40,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
       <header className={styles.header} data-layout="room-header">
         <div className={styles.leftSection}>
           <button type="button" className={styles.brand} onClick={onNavigateHome} title={t.common.brand}>
-            <span className={styles.brandDot} />
-            <span className={styles.brandText}>{t.common.brand}</span>
+            <Logo size="sm" showText={true} />
           </button>
           {roomNumber && (
             <button

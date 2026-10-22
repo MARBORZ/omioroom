@@ -5,6 +5,7 @@ import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Link2 } from "lucide-react";
 import { VIDEO_SOURCES } from "../model/sources.js";
+import { SourceSelect } from "./source-select.js";
 import styles from "./change-media-input.module.scss";
 
 interface ChangeMediaInputProps {
@@ -54,28 +55,13 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     <form onSubmit={handleSubmit} className={styles.form}>
       <div className={styles.label}>{t.room.videoSource}</div>
 
-      <div className={styles.chips} role="group" aria-label={t.room.videoSource}>
-        <button
-          type="button"
-          className={`${styles.chip} ${source === null ? styles.active : ""}`}
-          aria-pressed={source === null}
-          onClick={() => setSourceId(null)}
+      <div className={styles.sourceSelectorRow}>
+        <SourceSelect
+          value={sourceId}
+          onChange={setSourceId}
+          anyLinkLabel={t.room.anyLink}
           disabled={disabled}
-        >
-          {t.room.anyLink}
-        </button>
-        {VIDEO_SOURCES.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`${styles.chip} ${source?.id === s.id ? styles.active : ""}`}
-            aria-pressed={source?.id === s.id}
-            onClick={() => setSourceId(s.id)}
-            disabled={disabled}
-          >
-            {s.label}
-          </button>
-        ))}
+        />
       </div>
 
       <div className={styles.row}>

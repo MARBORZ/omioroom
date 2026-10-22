@@ -17,9 +17,10 @@ interface ChatImageProps {
   onOpen: (url: string) => void;
   openLabel: string;
   className: { readonly [key: string]: string };
+  onLoad?: () => void;
 }
 
-export const ChatImage: React.FC<ChatImageProps> = ({ path, onOpen, openLabel, className }) => {
+export const ChatImage: React.FC<ChatImageProps> = ({ path, onOpen, openLabel, className, onLoad }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -37,7 +38,14 @@ export const ChatImage: React.FC<ChatImageProps> = ({ path, onOpen, openLabel, c
   if (!url) return <span className={className.imagePlaceholder} aria-hidden />;
   return (
     <button type="button" className={className.imageButton} onClick={() => onOpen(url)} aria-label={openLabel}>
-      <img src={url} alt="" className={className.image} loading="lazy" referrerPolicy="no-referrer" />
+      <img
+        src={url}
+        alt=""
+        className={className.image}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onLoad={onLoad}
+      />
     </button>
   );
 };

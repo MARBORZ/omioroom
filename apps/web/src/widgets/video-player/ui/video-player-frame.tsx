@@ -120,7 +120,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
     const guardUntilRef = useRef(0);
     const adapterPlayingRef = useRef(false);
-    const appliedRateRef = useRef(1);
+    const appliedRateRef = useRef(0);
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
 
     // A local action in the player: report it when allowed, otherwise snap back to the room state
@@ -287,7 +287,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       await adapter.attach(containerRef.current);
       adapterRef.current = adapter;
       adapterPlayingRef.current = false;
-      appliedRateRef.current = 1;
+      appliedRateRef.current = 0;
       currentMediaTypeRef.current = media.type;
       // A new player starts unmuted: carry over the current choice
       if (latest.current.isMuted) adapter.setMuted(true);
@@ -363,7 +363,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       setOverlayStatus(null);
       await adapterRef.current.loadMedia(media);
       // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
-      appliedRateRef.current = 1;
+      appliedRateRef.current = 0;
       // The room state may have arrived long before the player existed (reload, late join):
       // line the freshly loaded player up with it now.
       revertRef.current();

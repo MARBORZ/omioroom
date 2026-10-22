@@ -1,0 +1,47 @@
+.resumeContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: var(--color-bg);
+}
+
+.resumeLoader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  animation: fade-in var(--motion-fast) var(--ease-out) both;
+}
+
+.resumeText {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.resumeErrorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  max-width: 320px;
+  text-align: center;
+  animation: pop-in var(--motion-fast) var(--ease-spring) both;
+
+  h3 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    color: var(--color-text);
+  }
+}
+
+.resumeActions {
+  display: flex;
+  gap: var(--space-2);
+}

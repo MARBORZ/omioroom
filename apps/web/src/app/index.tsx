@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "./providers/session-context.js";
 import ReactDOM from "react-dom/client";
-import { I18nProvider } from "../shared/lib/i18n/index.js";
+import { I18nProvider, useI18n } from "../shared/lib/i18n/index.js";
 import { SettingsProvider } from "../shared/lib/settings/index.js";
 import { isBackendConfigured } from "../shared/api/supabase.js";
+import { backend } from "../shared/api/backend.js";
 import { SessionProvider } from "./providers/session-provider.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
@@ -14,7 +15,16 @@ import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
 import { BootSplash } from "./boot-splash.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
+import { ToastContainer, showToast } from "../shared/ui/toast/toast.js";
+import {
+  getStoredActiveRoom,
+  setStoredActiveRoom,
+  clearStoredActiveRoom,
+} from "../shared/lib/active-room.js";
+import { Loader } from "../shared/ui/loader/loader.js";
+import { Button } from "../shared/ui/button/button.js";
 import setupStyles from "./styles/setup-notice.module.scss";
+import resumeStyles from "./styles/resume-screen.module.scss";
 import "./styles/global.scss";
 
 type Screen = "identity" | "invite" | "home" | "my-rooms" | "room";
@@ -49,11 +59,13 @@ const MainScreens: React.FC = () => {
   const [invite] = useState<InviteTarget | null>(readInviteFromHash);
   const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
   const { user, connectionStatus, ensureUser } = useSession();
+  const { t } = useI18n();
 
   // Identity was chosen before but the stored session is gone: recreate it quietly
   useEffect(() => {
     if (identityChosen && !user && connectionStatus === "connected") void ensureUser().catch(() => {});
   }, [identityChosen, user, connectionStatus, ensureUser]);
+
   const [screen, setScreen] = useState<Screen>(() => {
     if (invite) return "invite";
     return identityChosen ? "home" : "identity";
@@ -61,20 +73,108 @@ const MainScreens: React.FC = () => {
   const [activeRoomSnapshot, setActiveRoomSnapshot] = useState<RoomSnapshotDto | null>(null);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
 
-  const handleRoomJoined = (snapshot: RoomSnapshotDto, key?: string | null) => {
+  // Auto-resume state: if stored room exists and no invite in URL, resume without home screen flash
+  const [isResuming, setIsResuming] = useState(() => !invite && Boolean(getStoredActiveRoom()));
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const resumeAttemptedRef = useRef(false);
+
+  const handleRoomJoined = useCallback((snapshot: RoomSnapshotDto, key?: string | null) => {
+    setStoredActiveRoom({
+      roomId: snapshot.room.id,
+      globalId: snapshot.room.globalId,
+    });
     setActiveRoomSnapshot(snapshot);
     setOwnerKey(key ?? null);
     setScreen("room");
-    // Never keep the private key in the address bar; members re-enter via their membership
     window.location.hash = `room=${snapshot.room.globalId}`;
-  };
+  }, []);
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = useCallback(() => {
+    clearStoredActiveRoom();
     setActiveRoomSnapshot(null);
     setOwnerKey(null);
     setScreen("home");
     window.location.hash = "";
-  };
+  }, []);
+
+  const attemptResume = useCallback(async () => {
+    const stored = getStoredActiveRoom();
+    if (!stored) {
+      setIsResuming(false);
+      return;
+    }
+    setResumeError(null);
+    try {
+      const snapshot = await backend.resumeRoom(stored.roomId);
+      handleRoomJoined(snapshot);
+      setIsResuming(false);
+    } catch (err: any) {
+      if (err?.code === "ROOM_CLOSED") {
+        clearStoredActiveRoom();
+        showToast(t.room.roomClosedNotice, { id: "room-closed" });
+        setIsResuming(false);
+        setScreen("home");
+      } else if (err?.code === "ROOM_NOT_FOUND") {
+        clearStoredActiveRoom();
+        showToast(t.room.roomNotFoundNotice, { id: "room-not-found" });
+        setIsResuming(false);
+        setScreen("home");
+      } else if (err?.code === "BANNED") {
+        clearStoredActiveRoom();
+        showToast(t.room.bannedNotice, { id: "room-banned" });
+        setIsResuming(false);
+        setScreen("home");
+      } else if (err?.code === "NOT_MEMBER") {
+        clearStoredActiveRoom();
+        showToast(t.room.notMemberNotice, { id: "room-not-member" });
+        setIsResuming(false);
+        setScreen("home");
+      } else {
+        // Network connectivity error: keep stored active room, offer retry button
+        setResumeError(t.room.noConnectionNotice);
+      }
+    }
+  }, [handleRoomJoined, t]);
+
+  useEffect(() => {
+    if (isResuming && user && connectionStatus === "connected" && !resumeAttemptedRef.current) {
+      resumeAttemptedRef.current = true;
+      void attemptResume();
+    }
+  }, [isResuming, user, connectionStatus, attemptResume]);
+
+  if (isResuming) {
+    return (
+      <div className={resumeStyles.resumeContainer}>
+        {resumeError ? (
+          <div className={resumeStyles.resumeErrorCard}>
+            <h3>{t.room.noConnectionNotice}</h3>
+            <div className={resumeStyles.resumeActions}>
+              <Button onClick={() => void attemptResume()} size="sm">
+                {t.room.retry}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  clearStoredActiveRoom();
+                  setIsResuming(false);
+                  setScreen("home");
+                }}
+              >
+                {t.invite.toHome}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className={resumeStyles.resumeLoader}>
+            <Loader size="md" />
+            <p className={resumeStyles.resumeText}>{t.room.resumingRoom}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (screen === "room" && activeRoomSnapshot) {
     return (
@@ -140,6 +240,7 @@ const MainApp: React.FC = () => {
       <BootSplash ready={connectionStatus !== "connecting"} />
       <ConnectionNotice status={connectionStatus} />
       <MainScreens />
+      <ToastContainer />
     </>
   );
 };

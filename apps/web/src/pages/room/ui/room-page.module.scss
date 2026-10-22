@@ -91,6 +91,40 @@
   }
 }
 
+.cinemaSidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+
+  .sidebarCloseBtn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.cinemaChatTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  user-select: none;
+
+  svg {
+    color: var(--color-accent);
+  }
+}
+
 .tabBar {
   display: flex;
   align-items: center;
