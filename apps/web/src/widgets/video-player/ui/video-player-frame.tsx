@@ -42,6 +42,7 @@ const REMOTE_APPLY_GUARD_MS = 800;
 const USER_SEEK_JUMP_SECONDS = 1.5;
 const DRIFT_CHECK_INTERVAL_MS = 1000;
 const FIXED_RATE_SEEK_THRESHOLD_S = 0.5;
+const SEEK_REPORT_DEBOUNCE_MS = 350;
 const CORRECTION_COOLDOWN_MS = 3000;
 
 export interface VideoPlayerFrameProps {
@@ -117,6 +118,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
     // A local action in the player: report it when allowed, otherwise snap back to the room state
     const lastCorrectionRef = useRef(0);
+    const seekReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastActionRef = useRef<{ type: UserPlayerAction["type"]; at: number } | null>(null);
     const handleLocalAction = (action: UserPlayerAction) => {
       // Players fire several events for one click (play + playing); report it once
@@ -124,11 +126,21 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       if (prev && prev.type === action.type && Date.now() - prev.at < 700) return;
       lastActionRef.current = { type: action.type, at: Date.now() };
       const cur = latest.current;
-      if (cur.canControl) {
-        cur.onUserAction?.(action);
-      } else {
+      if (!cur.canControl) {
         revertRef.current();
+        return;
       }
+      if (action.type === "seek") {
+        // Scrubbing fires a burst of jumps: report only where it settles
+        if (seekReportTimerRef.current) clearTimeout(seekReportTimerRef.current);
+        seekReportTimerRef.current = setTimeout(() => {
+          seekReportTimerRef.current = null;
+          latest.current.onUserAction?.(action);
+        }, SEEK_REPORT_DEBOUNCE_MS);
+        lastActionRef.current = null;
+        return;
+      }
+      cur.onUserAction?.(action);
     };
     const revertRef = useRef<() => void>(() => {});
 
@@ -172,6 +184,25 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     };
     const isGuarded = () => Date.now() < guardUntilRef.current;
 
+    // Events we cause ourselves (play/pause/seek issued to the player) are remembered and swallowed once.
+    // This replaces a blanket "ignore everything for 800 ms", which also dropped genuine user clicks.
+    const expectedRef = useRef<Array<{ type: "play" | "pause" | "seek"; target?: number; until: number }>>([]);
+    const expectEvent = (type: "play" | "pause" | "seek", target?: number) => {
+      const now = Date.now();
+      expectedRef.current = expectedRef.current.filter((e) => e.until > now);
+      expectedRef.current.push({ type, target, until: now + 1500 });
+    };
+    const consumeExpected = (type: "play" | "pause" | "seek", position?: number): boolean => {
+      const now = Date.now();
+      expectedRef.current = expectedRef.current.filter((e) => e.until > now);
+      const i = expectedRef.current.findIndex(
+        (e) => e.type === type && (type !== "seek" || Math.abs((position ?? 0) - (e.target ?? 0)) < 2.5)
+      );
+      if (i < 0) return false;
+      expectedRef.current.splice(i, 1);
+      return true;
+    };
+
     const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
     const [mediaLoading, setMediaLoading] = useState(false);
     const [needsGesture, setNeedsGesture] = useState(false);
@@ -179,15 +210,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
     useImperativeHandle(ref, () => ({
       play: async () => {
-        armGuard();
+        expectEvent("play");
         await adapterRef.current?.play();
       },
       pause: async () => {
-        armGuard();
+        expectEvent("pause");
         await adapterRef.current?.pause();
       },
       seek: async (sec: number) => {
         armGuard();
+        expectEvent("seek", sec);
         await adapterRef.current?.seek(sec);
       },
       getCurrentTime: () => adapterRef.current?.getCurrentTime() || 0,
@@ -258,11 +290,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           const now = Date.now();
           const prev = lastSampleRef.current;
           lastSampleRef.current = { time: event.currentTime, wall: now };
-          if (prev && !isGuarded() && server?.media) {
+          if (prev && server?.media) {
             const rate = adapterPlayingRef.current ? server.playbackRate : 0;
             const expectedDelta = ((now - prev.wall) / 1000) * rate;
             const jump = event.currentTime - prev.time - expectedDelta;
-            if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS) {
+            if (Math.abs(jump) > USER_SEEK_JUMP_SECONDS && !consumeExpected("seek", event.currentTime)) {
               handleLocalAction({ type: "seek", position: event.currentTime });
             }
           }
@@ -276,13 +308,13 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           }
           reportRecovered();
           cur.onPlayStateChange?.(true);
-          if (!isGuarded() && server?.media && server.status !== PlaybackStatus.PLAYING) {
+          if (!consumeExpected("play") && server?.media && server.status !== PlaybackStatus.PLAYING) {
             handleLocalAction({ type: "play", position: event.currentTime });
           }
         } else if (event.type === "pause") {
           adapterPlayingRef.current = false;
           cur.onPlayStateChange?.(false);
-          if (!isGuarded() && server?.media && server.status === PlaybackStatus.PLAYING) {
+          if (!consumeExpected("pause") && server?.media && server.status === PlaybackStatus.PLAYING) {
             handleLocalAction({ type: "pause", position: event.currentTime });
           }
         } else if (event.type === "ended") {
@@ -360,6 +392,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     setNeedsGesture(false);
     armGuard();
     const expected = calculateExpectedPosition(state, latest.current.getEstimatedServerNow());
+    expectEvent("seek", expected);
+    expectEvent("play");
     adapter.seek(expected).catch(() => {});
     adapter.play().catch(() => {});
   };
@@ -388,8 +422,12 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     // Playback that starts at a future instant (group resume): line up now, start together
     const startsIn = state.anchorServerTime - serverNow;
     if (state.status === PlaybackStatus.PLAYING && startsIn > 30) {
-      if (adapterPlayingRef.current) adapter.pause().catch(() => {});
+      if (adapterPlayingRef.current) {
+        expectEvent("pause");
+        adapter.pause().catch(() => {});
+      }
       if (Math.abs(adapter.getCurrentTime() - state.anchorPosition) > 0.3) {
+        expectEvent("seek", state.anchorPosition);
         adapter.seek(state.anchorPosition).catch(() => {});
       }
       const revision = state.revision;
@@ -397,6 +435,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         startTimerRef.current = null;
         if (latest.current.playbackState?.revision !== revision) return;
         armGuard();
+        expectEvent("play");
         adapter.play().catch(() => {});
       }, startsIn);
       return;
@@ -404,9 +443,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
     if (state.status === PlaybackStatus.PLAYING) {
       if (!adapterPlayingRef.current) {
+        expectEvent("play");
         adapter.play().catch(() => {});
         // Browsers refuse to start media without a user gesture: say so instead of sitting silent
         if (autoplayCheckRef.current) clearTimeout(autoplayCheckRef.current);
+      if (seekReportTimerRef.current) clearTimeout(seekReportTimerRef.current);
         autoplayCheckRef.current = setTimeout(() => {
           const live = latest.current.playbackState;
           if (live?.status === PlaybackStatus.PLAYING && !adapterPlayingRef.current) setNeedsGesture(true);
@@ -414,11 +455,13 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       }
     } else if (adapterPlayingRef.current) {
       // Paused, ended, or the room is holding for a stalled participant
+      expectEvent("pause");
       adapter.pause().catch(() => {});
     }
 
     const target = state.status === PlaybackStatus.PLAYING ? expected : state.anchorPosition;
     if (Math.abs(adapter.getCurrentTime() - target) > SYNC_THRESHOLD_DRIFT_RATE_MS / 1000) {
+      expectEvent("seek", target);
       adapter.seek(target).catch(() => {});
     }
   }, []);
@@ -473,6 +516,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         if (Date.now() - lastCorrectionRef.current < CORRECTION_COOLDOWN_MS) return;
         lastCorrectionRef.current = Date.now();
         armGuard();
+        expectEvent("seek", expected);
         adapter.seek(expected).catch(() => {});
         return;
       }

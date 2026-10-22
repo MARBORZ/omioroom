@@ -91,13 +91,13 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.topBar}>
+    <div className={styles.container} data-layout="identity-page">
+      <div className={styles.topBar} data-layout="top-bar">
         <div className={styles.brand}>
           <span className={styles.brandDot} />
           {t.common.brand}
         </div>
-        <div className={styles.topBarRight}>
+        <div className={styles.topBarRight} data-layout="top-bar-right">
           <LangSwitch />
           <button
             type="button"
@@ -113,12 +113,12 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      <div className={styles.hero}>
+      <div className={styles.hero} data-layout="identity-hero">
         <h1 className={styles.title}>{t.onboarding.welcome}</h1>
         <p className={styles.subtitle}>{t.onboarding.subtitle}</p>
       </div>
 
-      <div className={styles.optionsList}>
+      <div className={styles.optionsList} data-layout="identity-options">
         {/* OPTION 1: Anonymous in 1-Click */}
         <div className={styles.card}>
           <div className={styles.cardHeader}>

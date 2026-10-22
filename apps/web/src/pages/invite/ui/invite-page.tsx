@@ -78,10 +78,10 @@ export const InvitePage: React.FC<InvitePageProps> = ({
   }, [autoJoin, connectionStatus, user, join]);
 
   return (
-    <div className={styles.container}>
-      <div className={styles.topBar}>
+    <div className={styles.container} data-layout="invite-page">
+      <div className={styles.topBar} data-layout="top-bar">
         <span />
-        <div className={styles.topBarRight}>
+        <div className={styles.topBarRight} data-layout="top-bar-right">
           <LangSwitch />
           <button
             type="button"
@@ -97,14 +97,14 @@ export const InvitePage: React.FC<InvitePageProps> = ({
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      <div className={styles.hero}>
+      <div className={styles.hero} data-layout="invite-hero">
         <div className={styles.kicker}>{t.invite.kicker}</div>
         <h1 className={styles.title}>
           {t.common.room} <span className={styles.roomId}>{globalId}</span>
         </h1>
       </div>
 
-      <div className={styles.card}>
+      <div className={styles.card} data-layout="invite-card">
 
         {user && (
           <div className={styles.asRow}>

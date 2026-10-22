@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { MessageSquare, Mic, Users, Share2, Film } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -53,6 +54,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"chat" | "voice" | "participants" | "invite" | "media">("chat");
 
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
@@ -199,13 +201,16 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     });
   };
 
+  // Dragging the slider fires a stream of values: show them at once, act on where it settles
+  const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSeek = (pos: number) => {
     setCurrentTime(pos);
-    videoPlayerRef.current?.seek(pos);
-    sendPlayerCommand({
-      type: "seek",
-      position: pos,
-    });
+    if (seekTimerRef.current) clearTimeout(seekTimerRef.current);
+    seekTimerRef.current = setTimeout(() => {
+      seekTimerRef.current = null;
+      videoPlayerRef.current?.seek(pos);
+      sendPlayerCommand({ type: "seek", position: pos });
+    }, 250);
   };
 
   const handleRateChange = (rate: number) => {
@@ -293,7 +298,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   );
 
   return (
-    <div className={styles.roomContainer}>
+    <div className={styles.roomContainer} data-layout="room-page">
       {sessionStatus === "connected" && <ConnectionNotice status={channelStatus} />}
       <RoomHeader
         participantCount={activeParticipantsCount}
@@ -304,9 +309,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         onLeave={handleLeave}
       />
 
-      <main className={styles.mainContent}>
+      <main className={styles.mainContent} data-layout="room-main">
         {/* Cinematic Video Player Section */}
-        <div className={styles.videoSection} ref={videoSectionRef}>
+        <div className={styles.videoSection} ref={videoSectionRef} data-layout="room-video">
           <VideoPlayerFrame
             ref={videoPlayerRef}
             playbackState={playback}
@@ -356,37 +361,105 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               {waitingNames.length > 0 ? `${t.group.waitingFor}: ${waitingNames.join(", ")}` : t.status.buffering}
             </div>
           )}
+
+          {/* Mobile & Tablet Tab Bar (hidden on desktop) */}
+          <nav className={styles.mobileTabBar} role="tablist" aria-label="Room sections">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === "chat"}
+              className={`${styles.mobileTabBtn} ${mobileTab === "chat" ? styles.activeTab : ""}`}
+              onClick={() => setMobileTab("chat")}
+            >
+              <MessageSquare size={15} />
+              <span>{t.chat.title}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === "voice"}
+              className={`${styles.mobileTabBtn} ${mobileTab === "voice" ? styles.activeTab : ""}`}
+              onClick={() => setMobileTab("voice")}
+            >
+              <Mic size={15} />
+              <span>{t.voice.title}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === "participants"}
+              className={`${styles.mobileTabBtn} ${mobileTab === "participants" ? styles.activeTab : ""}`}
+              onClick={() => setMobileTab("participants")}
+            >
+              <Users size={15} />
+              <span>{participants.length}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === "invite"}
+              className={`${styles.mobileTabBtn} ${mobileTab === "invite" ? styles.activeTab : ""}`}
+              onClick={() => setMobileTab("invite")}
+            >
+              <Share2 size={15} />
+              <span>{t.room.inviteTitle}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === "media"}
+              className={`${styles.mobileTabBtn} ${mobileTab === "media" ? styles.activeTab : ""}`}
+              onClick={() => setMobileTab("media")}
+            >
+              <Film size={15} />
+              <span>{t.room.videoSource}</span>
+            </button>
+          </nav>
         </div>
 
         {/* Sidebar Controls Section */}
-        <aside className={styles.sidebarSection}>
-          <ChangeMediaInput onMediaSelect={handleMediaSelect} disabled={!canControl} />
-          {!canControl && <div className={styles.viewOnly}>{t.group.viewOnly}</div>}
+        <aside
+          className={styles.sidebarSection}
+          data-layout="room-sidebar"
+          data-active-tab={mobileTab}
+        >
+          <div data-panel="media" className={styles.panelWrapper}>
+            <ChangeMediaInput onMediaSelect={handleMediaSelect} disabled={!canControl} />
+            {!canControl && <div className={styles.viewOnly}>{t.group.viewOnly}</div>}
+          </div>
 
-          <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+          <div data-panel="voice" className={styles.panelWrapper}>
+            <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+          </div>
 
-          <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
+          <div data-panel="chat" className={styles.panelWrapper}>
+            <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
+          </div>
 
-          <ParticipantsPanel
-            participants={participants}
-            currentUserId={user?.id}
-            isOwner={snapshot.isOwner}
-            maxParticipants={snapshot.room.maxParticipants}
-            controlMode={snapshot.room.controlMode}
-            onSaveSettings={handleSaveSettings}
-            onToggleControl={handleToggleControl}
-          />
+          <div data-panel="participants" className={styles.panelWrapper}>
+            <ParticipantsPanel
+              participants={participants}
+              currentUserId={user?.id}
+              isOwner={snapshot.isOwner}
+              maxParticipants={snapshot.room.maxParticipants}
+              controlMode={snapshot.room.controlMode}
+              onSaveSettings={handleSaveSettings}
+              onToggleControl={handleToggleControl}
+            />
+          </div>
 
-          <InvitePanel
-            globalRoomId={snapshot.room.globalId}
-            isOwner={snapshot.isOwner}
-            visibility={snapshot.room.visibility}
-            privateCode={ownerKey}
-            codeRevoked={codeRevoked}
-            onRevokeCode={handleRevokePrivateCode}
-            onRotateCode={handleRotatePrivateCode}
-            onToggleVisibility={handleToggleVisibility}
-          />
+          <div data-panel="invite" className={styles.panelWrapper}>
+            <InvitePanel
+              globalRoomId={snapshot.room.globalId}
+              isOwner={snapshot.isOwner}
+              visibility={snapshot.room.visibility}
+              privateCode={ownerKey}
+              codeRevoked={codeRevoked}
+              onRevokeCode={handleRevokePrivateCode}
+              onRotateCode={handleRotatePrivateCode}
+              onToggleVisibility={handleToggleVisibility}
+            />
+          </div>
         </aside>
       </main>
     </div>

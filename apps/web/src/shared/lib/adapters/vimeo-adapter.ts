@@ -122,9 +122,11 @@ export class VimeoPlayerAdapter implements PlayerAdapter {
     if (this.player) {
       try {
         await this.player.play();
-      } catch {
-        await this.player.setMuted(true);
-        await this.player.play();
+      } catch (err: any) {
+        // Only a blocked autoplay needs the user; an interrupted play() must not be retried
+        if (err?.name === "NotAllowedError") {
+          this.emit({ type: "autoplay-blocked", currentTime: this.currentTime, duration: this.duration });
+        }
       }
     }
   }

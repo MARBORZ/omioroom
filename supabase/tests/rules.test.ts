@@ -469,6 +469,19 @@ describe("buffering barrier", () => {
   });
 });
 
+describe("playback rate limit", () => {
+  it("rejects a flood of playback commands but allows normal use", async () => {
+    const owner = await t.newUser();
+    const r = await room(owner, "public");
+    for (let i = 0; i < 10; i++) await play(owner, r.id, { p_position: i });
+    let limited = false;
+    for (let i = 0; i < 80; i++) {
+      if ((await code(play(owner, r.id, { p_position: i }))) === "RATE_LIMITED") { limited = true; break; }
+    }
+    expect(limited).toBe(true);
+  });
+});
+
 describe("chat", () => {
   const upload = (userId: string, roomId: string, file = `${randomUUID()}.png`) => {
     const path = `${roomId}/${file}`;

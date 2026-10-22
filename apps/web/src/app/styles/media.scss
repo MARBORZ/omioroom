@@ -10,91 +10,114 @@
    Tablet (721px – 1100px)
    -------------------------------------------------------------------------- */
 @media (max-width: 1100px) {
-  /* Page Padding */
-  [class*="homeContainer"],
-  [class*="identity-page_container"],
-  [class*="my-rooms-page_container"],
-  [class*="invite-page_container"] {
-    padding: var(--space-4) var(--space-5);
-    gap: var(--space-5);
+  /* Page Paddings */
+  [data-layout="home-page"],
+  [data-layout="identity-page"],
+  [data-layout="my-rooms-page"],
+  [data-layout="invite-page"],
+  [class*="homeContainer"] {
+    padding: var(--space-4) var(--space-5) !important;
+    gap: var(--space-5) !important;
   }
 
   /* Home Layout */
-  [class*="home-page_layout"] {
-    grid-template-columns: 1fr;
-    gap: var(--space-6);
+  [data-layout="home-layout"],
+  [class*="layout"] {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: var(--space-5) !important;
   }
 
-  [class*="home-page_hero"] {
-    padding-top: var(--space-2);
+  [data-layout="home-left"],
+  [data-layout="home-right"],
+  [class*="leftCol"],
+  [class*="rightCol"] {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
-  [class*="home-page_userCard"] {
-    max-width: 100%;
+  [data-layout="home-hero"],
+  [class*="hero"] {
+    padding-top: var(--space-2) !important;
+  }
+
+  [data-layout="user-card"],
+  [class*="userCard"] {
+    max-width: 100% !important;
   }
 
   /* Identity Screen */
-  [class*="identity-page_optionsList"] {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-4);
+  [data-layout="identity-options"],
+  [class*="optionsList"] {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    gap: var(--space-4) !important;
   }
 
   /* My Rooms Screen */
-  [class*="my-rooms-page_container"] {
-    grid-template-columns: 1fr;
-    gap: var(--space-5);
+  [data-layout="my-rooms-page"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-5) !important;
   }
 
-  [class*="my-rooms-page_sidebar"] {
-    width: 100%;
+  [data-layout="my-rooms-sidebar"],
+  [data-layout="my-rooms-content"] {
+    width: 100% !important;
   }
 
   /* Invite Screen */
-  [class*="invite-page_container"] {
-    grid-template-columns: 1fr;
-    max-width: 600px;
-    margin: 0 auto;
-    gap: var(--space-4);
+  [data-layout="invite-page"] {
+    display: flex !important;
+    flex-direction: column !important;
+    max-width: 600px !important;
+    margin: 0 auto !important;
+    gap: var(--space-4) !important;
   }
 
-  [class*="invite-page_hero"],
-  [class*="invite-page_card"] {
-    grid-column: 1;
-    grid-row: auto;
+  [data-layout="invite-hero"],
+  [data-layout="invite-card"] {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    width: 100% !important;
   }
 
-  [class*="invite-page_hero"] {
-    padding-top: var(--space-2);
+  [data-layout="invite-hero"] {
+    padding-top: var(--space-2) !important;
   }
 
-  /* Room Page */
-  [class*="room-page_roomContainer"] {
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+  /* Room Page on Tablet */
+  [data-layout="room-page"],
+  [class*="roomContainer"] {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
-  [class*="room-page_mainContent"] {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-4);
-    gap: var(--space-4);
-    height: auto;
-    overflow: visible;
+  [data-layout="room-main"],
+  [class*="mainContent"] {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: var(--space-4) !important;
+    gap: var(--space-4) !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  [class*="room-page_videoSection"] {
-    overflow: visible;
-    height: auto;
+  [data-layout="room-video"],
+  [class*="videoSection"] {
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
-  [class*="room-page_sidebarSection"] {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
-    overflow: visible;
-    height: auto;
+  [data-layout="room-sidebar"],
+  [class*="sidebarSection"] {
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 }
 
@@ -102,20 +125,22 @@
    Mobile Phones (<= 720px)
    -------------------------------------------------------------------------- */
 @media (max-width: 720px) {
-  /* Prevent horizontal scroll */
+  /* Prevent horizontal scroll globally */
   html, body, #root {
-    overflow-x: hidden;
-    width: 100%;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
   }
 
-  /* Container standard mobile paddings */
-  [class*="homeContainer"],
-  [class*="identity-page_container"],
-  [class*="my-rooms-page_container"],
-  [class*="invite-page_container"] {
-    padding: var(--space-4) var(--space-3);
-    gap: var(--space-4);
-    min-height: 100vh;
+  /* Standard mobile paddings */
+  [data-layout="home-page"],
+  [data-layout="identity-page"],
+  [data-layout="my-rooms-page"],
+  [data-layout="invite-page"],
+  [class*="homeContainer"] {
+    padding: var(--space-4) var(--space-3) !important;
+    gap: var(--space-4) !important;
+    min-height: 100vh !important;
   }
 
   /* Touch targets minimum 44px */
@@ -127,153 +152,173 @@
   }
 
   /* Top bar compact */
-  [class*="topBar"] {
-    flex-wrap: wrap;
-    gap: var(--space-2);
+  [data-layout="top-bar"],
+  [class*="topBar"],
+  [class*="headerRow"] {
+    flex-wrap: wrap !important;
+    gap: var(--space-2) !important;
   }
 
+  [data-layout="top-bar-right"],
   [class*="topBarRight"],
   [class*="headerRight"],
   [class*="rightSection"] {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: var(--space-2) !important;
+    align-items: center !important;
   }
 
   /* Home layout single column */
-  [class*="home-page_layout"] {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
+  [data-layout="home-layout"],
+  [class*="layout"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-5) !important;
+    width: 100% !important;
   }
 
-  [class*="home-page_headline"] {
-    font-size: clamp(28px, 8vw, 44px);
-    max-width: 100%;
+  [class*="headline"] {
+    font-size: clamp(26px, 7.5vw, 40px) !important;
+    max-width: 100% !important;
+    word-break: break-word !important;
   }
 
-  [class*="home-page_userCard"] {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-    width: 100%;
+  [data-layout="user-card"],
+  [class*="userCard"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: var(--space-3) !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
-  [class*="home-page_userCardActions"] {
-    width: 100%;
-    justify-content: flex-start;
+  [class*="userCardActions"] {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: var(--space-2) !important;
   }
 
   /* Identity 1-column */
-  [class*="identity-page_optionsList"] {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    width: 100%;
+  [data-layout="identity-options"],
+  [class*="optionsList"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-4) !important;
+    width: 100% !important;
   }
 
-  [class*="identity-page_title"] {
-    font-size: clamp(28px, 8vw, 40px);
+  [class*="identity-page_title"],
+  [data-layout="identity-hero"] h1 {
+    font-size: clamp(26px, 7.5vw, 38px) !important;
   }
 
   /* My Rooms 1-column */
-  [class*="my-rooms-page_container"] {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-4) var(--space-3);
+  [data-layout="my-rooms-page"] {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: var(--space-4) var(--space-3) !important;
+    width: 100% !important;
   }
 
-  [class*="my-rooms-page_roomList"] {
-    grid-template-columns: 1fr;
+  [data-layout="my-rooms-list"],
+  [class*="roomList"] {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
   }
 
-  [class*="my-rooms-page_roomCard"] {
-    width: 100%;
+  [class*="roomCard"] {
+    width: 100% !important;
   }
 
-  [class*="my-rooms-page_metaRow"] {
-    margin-top: var(--space-2);
+  [class*="metaRow"] {
+    margin-top: var(--space-2) !important;
   }
 
   /* Room Page on Mobile */
-  [class*="room-page_roomContainer"] {
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+  [data-layout="room-page"],
+  [class*="roomContainer"] {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
-  [class*="room-page_mainContent"] {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-3);
-    gap: var(--space-3);
-    height: auto;
-    overflow: visible;
+  [data-layout="room-main"],
+  [class*="mainContent"] {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: var(--space-3) !important;
+    gap: var(--space-3) !important;
+    height: auto !important;
+    overflow: visible !important;
+    width: 100% !important;
   }
 
-  [class*="room-page_videoSection"] {
-    width: 100%;
-    overflow: visible;
-    height: auto;
+  [data-layout="room-video"],
+  [class*="videoSection"] {
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
-  [class*="room-page_sidebarSection"] {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    width: 100%;
-    overflow: visible;
-    height: auto;
+  [data-layout="room-sidebar"],
+  [class*="sidebarSection"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-3) !important;
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   /* Room Header */
-  [class*="room-header_header"] {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: var(--space-3);
-    gap: var(--space-2);
+  [class*="header"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: var(--space-3) !important;
+    gap: var(--space-2) !important;
   }
 
-  [class*="room-header_rightSection"] {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+  [class*="rightSection"] {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
   }
 
   /* Room Chat */
-  [class*="room-chat_chat"] {
-    min-height: 380px;
+  [class*="chat"] {
+    min-height: 380px !important;
   }
 
-  [class*="room-chat_list"] {
-    max-height: 45vh;
+  [class*="list"] {
+    max-height: 45vh !important;
   }
 
-  [class*="room-chat_lightbox"] {
-    padding: var(--space-2);
+  [class*="lightbox"] {
+    padding: var(--space-2) !important;
 
     img {
-      max-width: 96vw;
-      max-height: 80vh;
+      max-width: 96vw !important;
+      max-height: 80vh !important;
     }
   }
 
-  [class*="room-chat_close"] {
-    top: var(--space-3);
-    right: var(--space-3);
-    min-width: 44px;
-    min-height: 44px;
+  [class*="close"] {
+    top: var(--space-3) !important;
+    right: var(--space-3) !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 
   /* Long strings don't cause overflow */
   [class*="value"],
   [class*="name"],
   [class*="roomTitle"] {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    min-width: 0;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    min-width: 0 !important;
   }
 }
 
@@ -281,26 +326,28 @@
    Narrow Phones (<= 400px)
    -------------------------------------------------------------------------- */
 @media (max-width: 400px) {
-  [class*="homeContainer"],
-  [class*="identity-page_container"],
-  [class*="my-rooms-page_container"],
-  [class*="invite-page_container"] {
-    padding: var(--space-3) var(--space-2);
-    gap: var(--space-3);
+  [data-layout="home-page"],
+  [data-layout="identity-page"],
+  [data-layout="my-rooms-page"],
+  [data-layout="invite-page"],
+  [class*="homeContainer"] {
+    padding: var(--space-3) var(--space-2) !important;
+    gap: var(--space-3) !important;
   }
 
-  [class*="room-page_mainContent"] {
-    padding: var(--space-2);
-    gap: var(--space-2);
+  [data-layout="room-main"],
+  [class*="mainContent"] {
+    padding: var(--space-2) !important;
+    gap: var(--space-2) !important;
   }
 
   [class*="toggleRow"] {
-    flex-direction: column;
+    flex-direction: column !important;
   }
 
   [class*="actionsRow"],
   [class*="userCardActions"] {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
 }

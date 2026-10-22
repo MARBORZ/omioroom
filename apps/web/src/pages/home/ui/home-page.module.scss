@@ -188,3 +188,61 @@
   }
 }
 
+@media (max-width: 900px) {
+  .homeContainer {
+    padding: var(--space-4) var(--space-3);
+    gap: var(--space-4);
+  }
+
+  .layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .leftCol,
+  .rightCol {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hero {
+    padding-top: var(--space-2);
+  }
+
+  .headline {
+    font-size: clamp(28px, 8vw, 44px);
+    max-width: 100%;
+  }
+
+  .userCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .userCardActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 400px) {
+  .homeContainer {
+    padding: var(--space-3) var(--space-2);
+    gap: var(--space-3);
+  }
+
+  .toggleRow {
+    flex-direction: column;
+  }
+
+  .userCardActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+

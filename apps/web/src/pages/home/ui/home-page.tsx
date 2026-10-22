@@ -118,14 +118,14 @@ export const HomePage: React.FC<HomePageProps> = ({
   };
 
   return (
-    <div className={styles.homeContainer}>
+    <div className={styles.homeContainer} data-layout="home-page">
       {/* Top bar with language switch & settings */}
-      <div className={styles.topBar}>
+      <div className={styles.topBar} data-layout="top-bar">
         <div className={styles.brand}>
           <span className={styles.brandDot} />
           {t.common.brand}
         </div>
-        <div className={styles.topBarRight}>
+        <div className={styles.topBarRight} data-layout="top-bar-right">
           <LangSwitch />
           <button
             type="button"
@@ -141,16 +141,16 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      <div className={styles.layout}>
-      <div className={styles.leftCol}>
+      <div className={styles.layout} data-layout="home-layout">
+      <div className={styles.leftCol} data-layout="home-left">
 
       {/* Hero */}
-      <div className={styles.hero}>
+      <div className={styles.hero} data-layout="home-hero">
         <h1 className={styles.headline}>{t.home.tagline}</h1>
       </div>
 
       {/* User Card */}
-      <div className={styles.userCard}>
+      <div className={styles.userCard} data-layout="user-card">
         {isEditingName ? (
           <div className={styles.editNameRow}>
             <TextField
@@ -217,7 +217,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       </div>
 
-      <div className={styles.rightCol}>
+      <div className={styles.rightCol} data-layout="home-right">
       {/* Create Room Card */}
       <div className={styles.card}>
         <div className={styles.cardTitle}>{t.home.createTitle}</div>

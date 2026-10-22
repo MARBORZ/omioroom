@@ -121,3 +121,33 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+@media (max-width: 900px) {
+  .container {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4) var(--space-3);
+    gap: var(--space-4);
+  }
+
+  .sidebar,
+  .content {
+    width: 100%;
+  }
+
+  .roomList {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .container {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .actionsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+

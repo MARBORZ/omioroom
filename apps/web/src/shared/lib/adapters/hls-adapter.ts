@@ -7,6 +7,7 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   private hls: Hls | null = null;
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
   private bufferingState = false;
+  private wantPlaying = false;
 
   async attach(container: HTMLElement): Promise<void> {
     container.innerHTML = "";
@@ -131,16 +132,26 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   }
 
   async play(): Promise<void> {
-    if (!this.videoElement) return;
+    const video = this.videoElement;
+    if (!video) return;
+    this.wantPlaying = true;
     try {
-      await this.videoElement.play();
-    } catch {
-      this.videoElement.muted = true;
-      await this.videoElement.play();
+      await video.play();
+    } catch (err) {
+      // A pause() or a new load interrupting this play() is not a failure to report, and above all
+      // must not be "retried": that restarted paused videos by themselves.
+      if ((err as DOMException)?.name === "NotAllowedError" && this.wantPlaying) {
+        this.emit({
+          type: "autoplay-blocked",
+          currentTime: video.currentTime,
+          duration: video.duration || 0,
+        });
+      }
     }
   }
 
   async pause(): Promise<void> {
+    this.wantPlaying = false;
     this.videoElement?.pause();
   }
 

@@ -45,3 +45,111 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+.mobileTabBar {
+  display: none;
+}
+
+.mobileTabBtn {
+  display: none;
+}
+
+.panelWrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .roomContainer {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .mainContent {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: var(--space-4) !important;
+    gap: var(--space-4) !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .videoSection {
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .mobileTabBar {
+    display: flex !important;
+    align-items: center;
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    gap: 2px;
+    width: 100%;
+  }
+
+  .mobileTabBtn {
+    flex: 1;
+    min-width: 0;
+    min-height: 42px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    padding: var(--space-2);
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+
+    &.activeTab {
+      background-color: var(--color-surface-raised);
+      color: var(--color-accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
+  .sidebarSection {
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+
+    & > * {
+      display: none !important;
+    }
+
+    &[data-active-tab="chat"] > [data-panel="chat"],
+    &[data-active-tab="voice"] > [data-panel="voice"],
+    &[data-active-tab="participants"] > [data-panel="participants"],
+    &[data-active-tab="invite"] > [data-panel="invite"],
+    &[data-active-tab="media"] > [data-panel="media"] {
+      display: flex !important;
+      width: 100% !important;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .mainContent {
+    padding: var(--space-3) !important;
+    gap: var(--space-3) !important;
+  }
+
+  .mobileTabBtn {
+    font-size: 11px;
+    padding: 6px 2px;
+    gap: 3px;
+  }
+}

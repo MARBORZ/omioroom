@@ -74,13 +74,13 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.headerRow}>
+    <div className={styles.container} data-layout="my-rooms-page">
+      <div className={styles.headerRow} data-layout="top-bar">
         <Button variant="ghost" size="sm" onClick={onBack} icon={<ArrowLeft size={16} />}>
           {t.common.back}
         </Button>
         <h1 className={styles.pageTitle}>{t.myRooms.title}</h1>
-        <div className={styles.headerRight}>
+        <div className={styles.headerRight} data-layout="top-bar-right">
           <LangSwitch />
           <button
             type="button"
@@ -96,13 +96,13 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      <aside className={styles.sidebar}>
+      <aside className={styles.sidebar} data-layout="my-rooms-sidebar">
         <FriendsPanel onNavigateIdentity={onNavigateIdentity} />
       </aside>
 
-      <div className={styles.content}>
+      <div className={styles.content} data-layout="my-rooms-content">
       {loading ? (
-        <div className={styles.roomList}>
+        <div className={styles.roomList} data-layout="my-rooms-list">
           {[0, 1, 2].map((i) => (
             <div key={i} className={styles.roomCard}>
               <Skeleton width="55%" shape="text" height={18} />
@@ -119,7 +119,7 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
           </Button>
         </div>
       ) : (
-        <div className={styles.roomList}>
+        <div className={styles.roomList} data-layout="my-rooms-list">
           {rooms.map((room, i) => (
             <div key={room.id} className={`${styles.roomCard} motion-rise`} style={{ "--i": i } as React.CSSProperties}>
               <div className={styles.roomHeader}>
