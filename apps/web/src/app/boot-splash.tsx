@@ -51,7 +51,7 @@ export const BootSplash: React.FC<{ ready?: boolean }> = ({ ready = true }) => {
   return (
     <div className={`${styles.splash} ${reduced ? styles.still : ""} ${leaving ? styles.lifting : ""}`} role="presentation" aria-hidden>
       <div className={styles.center}>
-        <svg className={styles.mark} viewBox="0 0 64 64" width="96" height="96">
+        <svg className={styles.mark} viewBox="0 0 64 64">
           <defs>
             <clipPath id="boot-left-disc">
               <circle cx="22" cy="32" r="14" />
