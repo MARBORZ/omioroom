@@ -5,7 +5,7 @@ Watch videos together with friends: 2 to 32 people per room. Open source, no ser
 - Anonymous, nickname, or registered accounts (Supabase Auth; the anonymous identity lives in the browser's storage).
 - Public and private rooms with a secret code only the owner sees; room id stays stable when the code is rotated/revoked.
 - Voice chat (audio-only WebRTC, up to 8 people) and image sharing in chat (png/jpeg/gif/webp/avif from the device).
-- Rooms of 2–32 participants (set by the owner); the owner also picks who controls playback (everyone / owner + selected / owner only); synchronized playback (YouTube, VK Video, RuTube, Twitch, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
+- Rooms of 2–32 participants (set by the owner); the owner also picks who controls playback (everyone / owner + selected / owner only); synchronized playback (YouTube, VK Video, RuTube, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
 
 ## How it works
 

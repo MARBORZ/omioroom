@@ -97,21 +97,6 @@ describe("Contracts and Domain Logic", () => {
       canonicalUrl: "https://rutube.ru/play/embed/e1c07cf27599052bfae6f477033cb24f",
     });
 
-    // Twitch VOD and Channel
-    const twitchVod = parseMediaUrl("https://www.twitch.tv/videos/123456789");
-    expect(twitchVod).toEqual({
-      type: MediaType.TWITCH,
-      sourceId: "v123456789",
-      canonicalUrl: "https://www.twitch.tv/videos/123456789",
-    });
-
-    const twitchChannel = parseMediaUrl("https://www.twitch.tv/shroud");
-    expect(twitchChannel).toEqual({
-      type: MediaType.TWITCH,
-      sourceId: "shroud",
-      canonicalUrl: "https://www.twitch.tv/shroud",
-    });
-
     // Vimeo
     const vimeo = parseMediaUrl("https://vimeo.com/76979871");
     expect(vimeo).toEqual({
@@ -191,11 +176,6 @@ describe("Contracts and Domain Logic", () => {
     expect(mediaSourceInfoSchema.safeParse({ ...base, canonicalUrl: "https://a.com/v.mp4" }).success).toBe(true);
   });
 
-  it("turns Dropbox share links into streamable direct links", () => {
-    const parsed = parseMediaUrl("https://www.dropbox.com/s/abc123/movie.mp4?dl=0");
-    expect(parsed?.type).toBe("html5");
-    expect(parsed?.canonicalUrl).toBe("https://www.dropbox.com/s/abc123/movie.mp4?raw=1");
-  });
 
   it("understands links from every supported source", () => {
     expect(parseMediaUrl("https://vk.com/video-22822305_456239018")?.type).toBe("vk");
@@ -207,8 +187,6 @@ describe("Contracts and Domain Logic", () => {
     expect(rt?.type).toBe("rutube");
     const priv = parseMediaUrl("https://rutube.ru/video/private/0123456789abcdef0123456789abcdef/?p=SECRETKEY");
     expect(priv?.canonicalUrl).toBe("https://rutube.ru/play/embed/0123456789abcdef0123456789abcdef?p=SECRETKEY");
-
-    expect(parseMediaUrl("https://www.twitch.tv/videos/123456789")?.sourceId).toBe("v123456789");
     expect(parseMediaUrl("https://vimeo.com/76979871")?.canonicalUrl).toBe("https://player.vimeo.com/video/76979871");
     expect(parseMediaUrl("https://vimeo.com/76979871/abcdef123456")?.canonicalUrl).toBe(
       "https://player.vimeo.com/video/76979871?h=abcdef123456"
@@ -228,12 +206,4 @@ describe("Contracts and Domain Logic", () => {
     expect(ru?.canonicalUrl.startsWith("https://vkvideo.ru/")).toBe(true);
   });
 
-  it("recognizes public Yandex Disk file links", () => {
-    expect(parseMediaUrl("https://disk.yandex.ru/i/AbCdEf123456")?.type).toBe("yandex-disk");
-    expect(parseMediaUrl("https://yadi.sk/i/AbCdEf123456")?.type).toBe("yandex-disk");
-    expect(parseMediaUrl("https://disk.yandex.ru/d/FolderKey/movies/film.mp4")?.type).toBe("yandex-disk");
-    // A folder or a non-video path is not a playable file
-    expect(parseMediaUrl("https://disk.yandex.ru/d/FolderKey")).toBeNull();
-    expect(parseMediaUrl("https://disk.yandex.ru/client/disk")).toBeNull();
-  });
 });

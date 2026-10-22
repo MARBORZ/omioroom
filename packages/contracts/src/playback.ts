@@ -14,11 +14,8 @@ export const MediaType = {
   HTML5: "html5",
   VK: "vk",
   RUTUBE: "rutube",
-  TWITCH: "twitch",
   VIMEO: "vimeo",
   HLS: "hls",
-  /** A public Yandex Disk file; each viewer resolves its own temporary direct link. */
-  YANDEX_DISK: "yandex-disk",
 } as const;
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
@@ -153,33 +150,6 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
 
     const pathnameLower = url.pathname.toLowerCase();
 
-    // Yandex Disk public link: /i/<key> (a file) or /d/<key>/<path to a file in a public folder)
-    if (/^(disk\.yandex\.(ru|com|by|kz|uz)|yadi\.sk)$/.test(url.hostname)) {
-      const file = url.pathname.match(/^\/i\/[\w-]+\/?$/);
-      const inFolder = url.pathname.match(/^\/d\/[\w-]+\/.+\.(mp4|webm|ogg|mov|m4v|mkv)$/i);
-      if (file || inFolder) {
-        return {
-          type: MediaType.YANDEX_DISK,
-          sourceId: url.pathname,
-          canonicalUrl: `https://${url.hostname}${url.pathname}`,
-        };
-      }
-    }
-
-    // Dropbox share links serve an HTML page; ?raw=1 streams the file itself
-    if (
-      (url.hostname === "www.dropbox.com" || url.hostname === "dropbox.com" || url.hostname === "dl.dropboxusercontent.com") &&
-      /\.(mp4|webm|ogg|mov|m4v)$/.test(pathnameLower)
-    ) {
-      url.searchParams.delete("dl");
-      url.searchParams.set("raw", "1");
-      return {
-        type: MediaType.HTML5,
-        sourceId: url.toString(),
-        canonicalUrl: url.toString(),
-      };
-    }
-
     // Direct MP4 / WebM / OGG / MOV
     if (
       pathnameLower.endsWith(".mp4") ||
@@ -247,26 +217,6 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
           type: MediaType.RUTUBE,
           sourceId: id,
           canonicalUrl: `https://rutube.ru/play/embed/${id}${key ? `?p=${encodeURIComponent(key)}` : ""}`,
-        };
-      }
-    }
-
-    // Twitch
-    if (url.hostname === "twitch.tv" || url.hostname === "www.twitch.tv" || url.hostname === "m.twitch.tv") {
-      const vodMatch = url.pathname.match(/\/videos\/(\d+)/);
-      if (vodMatch && vodMatch[1]) {
-        return {
-          type: MediaType.TWITCH,
-          sourceId: `v${vodMatch[1]}`,
-          canonicalUrl: `https://www.twitch.tv/videos/${vodMatch[1]}`,
-        };
-      }
-      const channelMatch = url.pathname.match(/^\/([a-zA-Z0-9_]{3,25})$/);
-      if (channelMatch && channelMatch[1] && !["directory", "p", "downloads", "jobs"].includes(channelMatch[1])) {
-        return {
-          type: MediaType.TWITCH,
-          sourceId: channelMatch[1],
-          canonicalUrl: `https://www.twitch.tv/${channelMatch[1]}`,
         };
       }
     }
