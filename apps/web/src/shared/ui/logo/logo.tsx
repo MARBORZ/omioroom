@@ -8,23 +8,28 @@ interface LogoProps {
 }
 
 export const Logo: React.FC<LogoProps> = ({ size = "md", showText = true, className = "" }) => {
-  const markSize = size === "sm" ? 20 : size === "lg" ? 36 : 26;
+  const markSize = size === "sm" ? 16 : size === "lg" ? 30 : 22;
 
   return (
     <div className={`${styles.logo} ${className}`} aria-label="OMIOROOM">
       <div className={styles.mark}>
         <svg
-          width={markSize}
           height={markSize}
-          viewBox="0 0 32 32"
+          viewBox="4 14 56 36"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           className={styles.markIcon}
+          style={{ width: "auto", aspectRatio: "56 / 36" }}
           aria-hidden="true"
         >
-          <rect width="32" height="32" rx="7" fill="currentColor" fillOpacity="0.08" />
-          <circle cx="11.5" cy="16" r="6.5" stroke="var(--color-accent, #FF6847)" strokeWidth="3" />
-          <circle cx="20.5" cy="16" r="6.5" stroke="var(--color-accent, #FF6847)" strokeWidth="3" />
+          <defs>
+            <clipPath id="logo-left-disc">
+              <circle cx="22" cy="32" r="14" />
+            </clipPath>
+          </defs>
+          <circle cx="22" cy="32" r="14" stroke="var(--color-text, #F4F0E8)" strokeWidth="6" />
+          <circle cx="42" cy="32" r="14" fill="var(--color-accent, #FF6847)" clipPath="url(#logo-left-disc)" />
+          <circle cx="42" cy="32" r="14" stroke="var(--color-accent, #FF6847)" strokeWidth="6" />
         </svg>
       </div>
       {showText && (

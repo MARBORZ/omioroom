@@ -6,12 +6,13 @@
   <rect x="80" y="60" width="1040" height="510" rx="24" stroke="#222226" stroke-width="2" fill="#141417" />
   
   <!-- Centered Logo Brand Mark -->
-  <g transform="translate(500, 160)">
-    <rect width="200" height="150" rx="32" fill="#1C1C20" stroke="#2A2A30" stroke-width="3" />
-    <circle cx="70" cy="75" r="38" stroke="#FF6847" stroke-width="14" fill="none" />
-    <circle cx="130" cy="75" r="38" stroke="#FF6847" stroke-width="14" fill="none" />
+  <g transform="translate(520, 150) scale(2.4)">
+    <defs><clipPath id="l"><circle cx="22" cy="32" r="14" /></clipPath></defs>
+    <circle cx="22" cy="32" r="14" stroke="#F4F0E8" stroke-width="6" fill="none" />
+    <circle cx="42" cy="32" r="14" fill="#FF6847" clip-path="url(#l)" />
+    <circle cx="42" cy="32" r="14" stroke="#FF6847" stroke-width="6" fill="none" />
   </g>
-  
+
   <!-- Typography -->
   <text x="600" y="380" text-anchor="middle" font-family="Inter, -apple-system, sans-serif" font-weight="800" font-size="52" letter-spacing="0.03em">
     <tspan fill="#F4F0E8">OMIO</tspan><tspan fill="#FF6847">ROOM</tspan>
