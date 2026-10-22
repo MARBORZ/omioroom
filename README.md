@@ -1,140 +1,56 @@
 # OMIOROOM
 
-> Minimalist anonymous two-person video watch party platform with a **Bold Minimal × Retro / VHS** aesthetic.
+Minimalist watch party for two. Open source, no servers to run: **React on Vercel + Supabase** (Auth, Postgres, Realtime).
 
-![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen)
-![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
-![React](https://img.shields.io/badge/React-19-blue)
-![Express](https://img.shields.io/badge/Express-4-lightgrey)
-![Socket.IO](https://img.shields.io/badge/Socket.IO-4-black)
+- Anonymous, nickname, or registered accounts (Supabase Auth; the anonymous identity lives in the browser's storage).
+- Public and private rooms with a secret code only the owner sees; room id stays stable when the code is rotated/revoked.
+- Two participants per room, synchronized playback (YouTube, VK Video, RuTube, Twitch, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
 
----
+## How it works
 
-## Architecture Overview
+| Piece | Where | Role |
+|---|---|---|
+| `apps/web` | Vercel | React + Vite UI (FSD) |
+| `supabase/migrations` | your Supabase project | tables, RLS, RPC functions (the rules) |
+| `packages/contracts` | shared | DTO types, Zod schemas, media URL parsing, drift math |
 
-```
-┌─────────────────────────────────┐
-│     Client A (Web / Mobile)     │
-└───────────────┬─────────────────┘
-                │
-                │ HTTPS / WSS
-                ▼
-┌─────────────────────────────────┐
-│   Vercel (React + Vite + FSD)   │
-└───────────────┬─────────────────┘
-                │
-                │ Cloudflare Tunnel
-                ▼
-┌─────────────────────────────────┐
-│  Local Backend (Owner Server)   │
-│   Express + TS + Socket.IO      │
-│   In-Memory Authoritative Store │
-└─────────────────────────────────┘
-```
+All writes go through database functions (`create_room`, `join_room`, `player_command`, `send_chat`, ...). They check the caller,
+enforce the rules (2 seats, private codes, revisions, command dedup, rate limits) and keep the **authoritative playback state** in
+Postgres. Clients read through RLS-protected tables and Realtime (`postgres_changes`), so only room members receive updates.
+Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
 
-- **Frontend (`apps/web`)**: React 19 + TypeScript + Vite + SCSS tokens. Deployed to Vercel. Feature-Sliced Design (FSD).
-- **Backend (`apps/server`)**: Express + TypeScript + Socket.IO. Runs locally on the owner's machine. Exposed publicly via a secure tunnel (e.g., Cloudflare Tunnel).
-- **Contracts (`packages/contracts`)**: Shared TypeScript types, Zod schemas, error codes, and WebSocket envelope protocols.
+## Self-host in 10 minutes
 
----
+1. **Supabase project.** Create one at supabase.com (or run it yourself).
+   - Authentication > Sign In / Providers: enable **Allow anonymous sign-ins**. For the simplest beta, disable **Confirm email**.
+   - Apply the schema: `supabase link --project-ref <ref> && supabase db push` (or paste `supabase/migrations/*.sql` into the SQL editor).
+   - Database > Extensions: enable `pg_cron` if you want idle rooms closed automatically (the second migration schedules it).
+2. **Vercel.** Import the repo. `vercel.json` already sets the build. Add env vars:
+   - `VITE_SUPABASE_URL` = project URL
+   - `VITE_SUPABASE_ANON_KEY` = anon (public) key
+3. In Supabase Authentication > URL Configuration set **Site URL** to your Vercel domain.
 
-## Key Features
+Never expose the `service_role` key to the frontend.
 
-- **Strict Two-Person Rooms**: Max 2 active participants per room. 3rd participant is rejected with `ROOM_FULL`.
-- **Authoritative Video Sync**:
-  - Millisecond-level clock drift compensation (`estimatedServerNow`).
-  - Drift thresholds: <250ms ignored; 250–750ms tempo adjustment; >750ms seek.
-  - Command deduplication via `commandId` and monotonic state `revision`.
-- **Public & Private Rooms**:
-  - Global 6-digit Room ID (e.g. `482731`) for discovery/joining.
-  - Private rooms require a cryptographically hashed secret invite key.
-  - Key rotation and revocation (owner-only).
-- **Anonymous & Quick Entry**:
-  - Instant session generation (no forced registration).
-  - Customizable display nickname (`quiet-fox-482`, `velvet-pilot-109`).
-  - "My Rooms" dashboard for managing multiple rooms.
-- **Player Adapters**:
-  - Native HTML5 Video (`.mp4`, `.webm`).
-  - Official YouTube IFrame Player API.
-
----
-
-## Getting Started Locally
-
-### Prerequisites
-- Node.js >= 20.x
-- npm >= 10.x
-
-### Installation
+## Develop
 
 ```bash
-git clone https://github.com/MARBORZ/omioroom.git
-cd omioroom
 npm install
+cp apps/web/.env.example apps/web/.env.local   # fill in your Supabase URL + anon key
+npm run dev                                    # http://localhost:5174
+npm run typecheck && npm test
 ```
 
-### Running in Development
+Local Supabase (needs Docker): `supabase start` then use the printed API URL/anon key.
 
-In the repository root:
+`npm test` runs the contract/web tests and `supabase/tests`, which apply the real migrations to an embedded Postgres (PGlite)
+and verify permissions, private codes, seats, playback rules, chat and friends.
 
-```bash
-# Start backend (port 4000) and frontend (port 5173)
-npm run dev:server
-npm run dev:web
-```
+## Limits
 
-- Web UI: [http://localhost:5173](http://localhost:5173)
-- Server Health Check: [http://localhost:4000/health](http://localhost:4000/health)
+- Chat keeps the last 100 messages per room and is deleted when the room closes.
+- A seat frees ~90 s after a participant's last activity (heartbeat every 30 s).
+- Realtime presence channels are named by the room's random UUID; row data is protected by RLS.
+- Mobile/tablet styling: see `docs/prompts/media.scss.md`.
 
-### Running Tests & Typecheck
-
-```bash
-# Run unit & domain tests across all packages
-npm run test
-
-# Run strict TypeScript typecheck
-npm run typecheck
-
-# Production build test
-npm run build
-```
-
----
-
-## Production Deployment & Cloudflare Tunnel
-
-### 1. Tunnel Setup (Locally)
-To expose the local Express + Socket.IO backend securely:
-
-```bash
-# Install cloudflared (macOS example)
-brew install cloudflared
-
-# Run a quick ad-hoc tunnel to port 4000
-cloudflared tunnel --url http://localhost:4000
-```
-This gives you a public HTTPS/WSS URL, e.g. `https://your-tunnel.trycloudflare.com`.
-
-### 2. Frontend Deployment (Vercel)
-1. Push this repository to GitHub: `https://github.com/MARBORZ/omioroom`.
-2. Import the project into [Vercel](https://vercel.com).
-3. Set the Root Directory to `apps/web`.
-4. Configure the environment variable:
-   - `VITE_API_URL`: `https://your-tunnel.trycloudflare.com`
-5. Deploy!
-
----
-
-## Design System
-
-Inspired by **Bold Minimal × Retro / VHS**:
-- Dark primary palette (`#101010`, `#191919`, `#222222`).
-- Analog warm accent color (`#FF6847`).
-- Clean typography: `Inter` for interface, `IBM Plex Mono` for timecodes and room codes.
-- Restrained analog details: subtle indicators, no gimmicky constant scanlines or video distortion.
-
----
-
-## License
-
-MIT © Open Source
+Specs live in `docs/` (design, technical, user/room/protocol). The transport described there (Socket.IO) has been replaced by Supabase RPC + Realtime; the rules and error codes are unchanged.

@@ -1,21 +1,18 @@
-import type { Socket } from "socket.io-client";
-import {
-  ClientCommand,
-  type TimePingPayload,
-  type TimePongPayload,
-} from "@omioroom/contracts";
-
+/**
+ * Estimates the offset between this device's clock and the database clock, so the
+ * expected playback position can be computed without trusting device clocks.
+ */
 export class TimeSyncClient {
   private offsetMs = 0;
-  private syncInterval: any = null;
+  private hasSample = false;
+  private syncInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly socket: Socket) {}
+  constructor(private readonly fetchServerTimeMs: () => Promise<number>) {}
 
   startSync(intervalMs = 15000) {
-    this.ping();
-    this.syncInterval = setInterval(() => {
-      this.ping();
-    }, intervalMs);
+    this.stopSync();
+    void this.sample();
+    this.syncInterval = setInterval(() => void this.sample(), intervalMs);
   }
 
   stopSync() {
@@ -25,26 +22,21 @@ export class TimeSyncClient {
     }
   }
 
-  private ping() {
-    if (!this.socket.connected) return;
+  private async sample() {
+    const sentAt = Date.now();
+    try {
+      const serverMs = await this.fetchServerTimeMs();
+      const receivedAt = Date.now();
+      const roundTrip = receivedAt - sentAt;
+      // Ignore samples with extreme network jitter
+      if (roundTrip > 800) return;
 
-    const clientSendTime = Date.now();
-    const payload: TimePingPayload = { clientSendTime };
-
-    this.socket.emit(ClientCommand.TIME_PING, payload, (pong: TimePongPayload) => {
-      const clientReceiveTime = Date.now();
-      const roundTrip = clientReceiveTime - pong.clientSendTime;
-
-      // Ignore samples with extreme network jitter (> 500ms round trip)
-      if (roundTrip > 500) return;
-
-      const offset =
-        (pong.serverReceiveTime - pong.clientSendTime + (pong.serverSendTime - clientReceiveTime)) /
-        2;
-
-      // Smooth moving average
-      this.offsetMs = this.offsetMs === 0 ? offset : this.offsetMs * 0.7 + offset * 0.3;
-    });
+      const offset = serverMs - (sentAt + receivedAt) / 2;
+      this.offsetMs = this.hasSample ? this.offsetMs * 0.7 + offset * 0.3 : offset;
+      this.hasSample = true;
+    } catch {
+      // Keep the previous estimate; the next tick retries
+    }
   }
 
   getEstimatedServerNow(): number {

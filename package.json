@@ -2,7 +2,7 @@
   "name": "omioroom-root",
   "version": "0.1.0",
   "private": true,
-  "description": "Minimalist anonymous two-person video watch party platform",
+  "description": "Minimalist watch party for two: React on Vercel + Supabase (Auth, Postgres, Realtime)",
   "workspaces": [
     "packages/*",
     "apps/*",
@@ -12,13 +12,10 @@
     "build": "npm run --workspaces --if-present build",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm run --workspaces --if-present test",
-    "dev": "concurrently -n \"server,web\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:web\"",
-    "restart": "bash ./scripts/restart.sh",
-    "dev:server": "npm run --workspace=@omioroom/server dev",
+    "dev": "npm run dev:web",
     "dev:web": "npm run --workspace=@omioroom/web dev"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6",
     "typescript": "^5.7.3"
   }
 }

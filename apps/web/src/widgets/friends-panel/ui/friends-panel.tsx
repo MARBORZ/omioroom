@@ -1,15 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { UserPlus, UserMinus, Lock } from "lucide-react";
-import {
-  ClientCommand,
-  getUserCapabilities,
-  type FriendDto,
-  type AddFriendPayload,
-  type RemoveFriendPayload,
-} from "@omioroom/contracts";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { getUserCapabilities, type FriendDto } from "@omioroom/contracts";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
-import { emitCommand } from "../../../shared/api/socket.js";
+import { backend } from "../../../shared/api/backend.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import styles from "./friends-panel.module.scss";
@@ -19,7 +13,7 @@ interface FriendsPanelProps {
 }
 
 export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }) => {
-  const { socket, user } = useSocketContext();
+  const { user } = useSession();
   const { t } = useI18n();
   const [friends, setFriends] = useState<FriendDto[]>([]);
   const [username, setUsername] = useState("");
@@ -30,11 +24,11 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
 
   const load = useCallback(async () => {
     try {
-      setFriends(await emitCommand<{}, FriendDto[]>(socket, ClientCommand.FRIEND_LIST, {}));
+      setFriends(await backend.listFriends());
     } catch {
       setError(t.friends.loadFailed);
     }
-  }, [socket, t]);
+  }, [t]);
 
   useEffect(() => {
     if (allowed) load();
@@ -62,9 +56,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
     setBusy(true);
     setError(null);
     try {
-      const friend = await emitCommand<AddFriendPayload, FriendDto>(socket, ClientCommand.FRIEND_ADD, {
-        username: username.trim(),
-      });
+      const friend = await backend.addFriend(username.trim());
       setFriends((prev) => [...prev.filter((f) => f.userId !== friend.userId), friend]);
       setUsername("");
     } catch (err: any) {
@@ -76,7 +68,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
 
   const handleRemove = async (userId: string) => {
     try {
-      await emitCommand<RemoveFriendPayload, { removed: boolean }>(socket, ClientCommand.FRIEND_REMOVE, { userId });
+      await backend.removeFriend(userId);
       setFriends((prev) => prev.filter((f) => f.userId !== userId));
     } catch {
       setError(t.friends.addFailed);

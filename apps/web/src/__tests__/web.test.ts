@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatTime } from "../shared/lib/format-time.js";
-import { generateClientRequestId } from "../shared/api/socket.js";
+import { generateClientRequestId } from "../shared/api/backend.js";
 import { en } from "../shared/lib/i18n/translations/en.js";
 import { ru } from "../shared/lib/i18n/translations/ru.js";
 

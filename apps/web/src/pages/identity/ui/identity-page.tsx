@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
@@ -14,7 +14,7 @@ interface IdentityPageProps {
 }
 
 export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
-  const { connectionStatus, updateDisplayName, register, login } = useSocketContext();
+  const { connectionStatus, updateDisplayName, register, login } = useSession();
   const { t } = useI18n();
 
   // Nickname option state
@@ -25,6 +25,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   // Account option state
   const [accountTab, setAccountTab] = useState<"login" | "register">("register");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -56,25 +57,25 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   // 3. Registered account handler
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password) return;
+    if (!email.trim() || !password || (accountTab === "register" && !username.trim())) return;
     setAccountError(null);
     setAccountLoading(true);
 
     try {
       if (accountTab === "register") {
-        await register(username.trim(), password);
+        await register(username.trim(), email.trim(), password);
       } else {
-        await login(username.trim(), password);
+        await login(email.trim(), password);
       }
       localStorage.setItem("omioroom_identity_chosen", "true");
       onSelect();
     } catch (err: any) {
-      if (err.message === "USERNAME_TAKEN") {
-        setAccountError("This username is already registered");
-      } else if (err.message === "INVALID_CREDENTIALS") {
-        setAccountError("Invalid username or password");
+      if (err?.code === "INVALID_PAYLOAD") {
+        setAccountError(t.onboarding.usernameTaken);
+      } else if (err?.code === "UNAUTHENTICATED") {
+        setAccountError(err.message || t.onboarding.authFailed);
       } else {
-        setAccountError(err.message || "Authentication failed");
+        setAccountError(t.onboarding.authFailed);
       }
     } finally {
       setAccountLoading(false);
@@ -190,16 +191,31 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
 
           <form onSubmit={handleAccountSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <TextField
-              label={t.onboarding.usernameLabel}
-              placeholder="alex_cinema"
-              value={username}
+              label={t.onboarding.emailLabel}
+              type="email"
+              placeholder="alex@example.com"
+              value={email}
               onChange={(e) => {
-                setUsername(e.target.value);
+                setEmail(e.target.value);
                 if (accountError) setAccountError(null);
               }}
               disabled={accountLoading}
               required
             />
+            {accountTab === "register" && (
+              <TextField
+                label={t.onboarding.usernameLabel}
+                placeholder="alex_cinema"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (accountError) setAccountError(null);
+                }}
+                disabled={accountLoading}
+                maxLength={30}
+                required
+              />
+            )}
             <TextField
               label={t.onboarding.passwordLabel}
               type="password"
@@ -219,7 +235,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               type="submit"
               variant="primary"
               loading={accountLoading}
-              disabled={!username.trim() || password.length < 6}
+              disabled={!email.trim() || (accountTab === "register" && !username.trim()) || password.length < 6}
               icon={accountTab === "register" ? <UserPlus size={15} /> : <LogIn size={15} />}
             >
               {accountTab === "register" ? t.onboarding.registerBtn : t.onboarding.loginBtn}

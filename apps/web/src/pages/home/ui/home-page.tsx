@@ -1,20 +1,14 @@
 import React, { useState } from "react";
 import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
-import { emitCommand } from "../../../shared/api/socket.js";
-import {
-  ClientCommand,
-  type CreateRoomPayload,
-  type RoomCreateResult,
-  type JoinRoomPayload,
-  type RoomSnapshotDto,
-} from "@omioroom/contracts";
+import { backend } from "../../../shared/api/backend.js";
+import type { RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./home-page.module.scss";
 
 interface HomePageProps {
@@ -28,7 +22,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onNavigateMyRooms,
   onNavigateIdentity,
 }) => {
-  const { socket, connectionStatus, user, updateDisplayName } = useSocketContext();
+  const { connectionStatus, user, updateDisplayName } = useSession();
   const { t } = useI18n();
 
   // Nickname edit state
@@ -67,20 +61,11 @@ export const HomePage: React.FC<HomePageProps> = ({
     setCreateLoading(true);
 
     try {
-      const payload: CreateRoomPayload = {
-        title: roomTitle.trim() || "Watch Room",
-        visibility,
-      };
-
-      const result = await emitCommand<CreateRoomPayload, RoomCreateResult>(
-        socket,
-        ClientCommand.ROOM_CREATE,
-        payload
-      );
+      const result = await backend.createRoom(roomTitle.trim() || "Watch Room", visibility);
 
       onRoomJoined(result.snapshot, result.ownerAccess?.privateCode ?? null);
     } catch (err: any) {
-      setCreateError(err.message || t.home.errors.genericCreateError);
+      setCreateError(err?.code === "RATE_LIMITED" ? t.invite.rateLimited : t.home.errors.genericCreateError);
     } finally {
       setCreateLoading(false);
     }
@@ -92,16 +77,7 @@ export const HomePage: React.FC<HomePageProps> = ({
     setJoinLoading(true);
 
     try {
-      const payload: JoinRoomPayload = {
-        globalId: joinCode.trim(),
-        privateCode: joinPrivateCode.trim() || undefined,
-      };
-
-      const snapshot = await emitCommand<JoinRoomPayload, RoomSnapshotDto>(
-        socket,
-        ClientCommand.ROOM_JOIN,
-        payload
-      );
+      const snapshot = await backend.joinRoom(joinCode.trim(), joinPrivateCode.trim() || undefined);
 
       onRoomJoined(snapshot, joinPrivateCode.trim() || null);
     } catch (err: any) {
@@ -114,7 +90,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       } else if (err.code === "ROOM_NOT_FOUND") {
         setJoinError(t.home.errors.roomNotFound);
       } else {
-        setJoinError(err.message || t.home.errors.genericJoinError);
+        setJoinError(err.code === "RATE_LIMITED" ? t.invite.rateLimited : t.home.errors.genericJoinError);
       }
     } finally {
       setJoinLoading(false);

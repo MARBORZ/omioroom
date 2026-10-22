@@ -104,6 +104,9 @@ export interface Translations {
     passwordLabel: string;
     loginBtn: string;
     registerBtn: string;
+    emailLabel: string;
+    usernameTaken: string;
+    authFailed: string;
     switchMode: string;
   };
   chat: {

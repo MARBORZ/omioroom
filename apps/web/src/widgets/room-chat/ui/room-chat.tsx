@@ -1,16 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Paperclip, Send, FileText, X } from "lucide-react";
-import {
-  ClientCommand,
-  ServerEvent,
-  CHAT_MAX_TEXT_LENGTH,
-  CHAT_HISTORY_LIMIT,
-  type ChatMessageDto,
-  type AttachmentType,
-} from "@omioroom/contracts";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { CHAT_MAX_TEXT_LENGTH, type ChatMessageDto, type AttachmentType } from "@omioroom/contracts";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
-import { emitCommand } from "../../../shared/api/socket.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import styles from "./room-chat.module.scss";
 
@@ -34,14 +26,14 @@ function isHttpUrl(value: string): boolean {
 }
 
 interface RoomChatProps {
-  roomId: string;
+  messages: ChatMessageDto[];
+  onSend: (text: string, attachmentUrl: string | null, attachmentType: AttachmentType | null) => Promise<void>;
 }
 
-export const RoomChat: React.FC<RoomChatProps> = ({ roomId }) => {
-  const { socket, user } = useSocketContext();
+export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
+  const { user } = useSession();
   const { t } = useI18n();
 
-  const [messages, setMessages] = useState<ChatMessageDto[]>([]);
   const [text, setText] = useState("");
   const [attachUrl, setAttachUrl] = useState("");
   const [showAttach, setShowAttach] = useState(false);
@@ -49,35 +41,6 @@ export const RoomChat: React.FC<RoomChatProps> = ({ roomId }) => {
   const [sending, setSending] = useState(false);
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  // History on entry and after every (re)connect, then live messages
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadHistory = () => {
-      emitCommand<{ roomId: string }, ChatMessageDto[]>(socket, ClientCommand.CHAT_HISTORY, { roomId })
-        .then((history) => {
-          if (!cancelled) setMessages(history);
-        })
-        .catch(() => {});
-    };
-
-    const onMessage = (msg: ChatMessageDto) => {
-      if (msg.roomId !== roomId) return;
-      setMessages((prev) =>
-        prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-CHAT_HISTORY_LIMIT)
-      );
-    };
-
-    loadHistory();
-    socket.on(ServerEvent.CHAT_MESSAGE, onMessage);
-    socket.io.on("reconnect", loadHistory);
-    return () => {
-      cancelled = true;
-      socket.off(ServerEvent.CHAT_MESSAGE, onMessage);
-      socket.io.off("reconnect", loadHistory);
-    };
-  }, [socket, roomId]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -97,12 +60,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({ roomId }) => {
     setError(null);
     setSending(true);
     try {
-      await emitCommand(socket, ClientCommand.CHAT_SEND, {
-        roomId,
-        text: trimmed,
-        attachmentUrl: url || null,
-        attachmentType: url ? detectAttachmentType(url) : null,
-      });
+      await onSend(trimmed, url || null, url ? detectAttachmentType(url) : null);
       setText("");
       setAttachUrl("");
       setShowAttach(false);

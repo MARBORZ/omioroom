@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@omioroom/contracts": "*",
+    "@supabase/supabase-js": "^2.118.0",
     "hls.js": "^1.7.3",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "socket.io-client": "^4.8.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

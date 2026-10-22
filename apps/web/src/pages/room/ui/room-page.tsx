@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { LogOut } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
 import { VideoPlayerFrame, type VideoPlayerHandle } from "../../../widgets/video-player/ui/video-player-frame.js";
@@ -9,20 +9,9 @@ import { ChangeMediaInput } from "../../../features/change-media/ui/change-media
 import { RoomChat } from "../../../widgets/room-chat/ui/room-chat.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { Button } from "../../../shared/ui/button/button.js";
-import { emitCommand, generateClientRequestId } from "../../../shared/api/socket.js";
-import {
-  ClientCommand,
-  ServerEvent,
-  PlaybackStatus,
-  type RoomSnapshotDto,
-  type RoomPlaybackStateDto,
-  type PlayerCommandPayload,
-  type MediaSourceInfo,
-  type RotatePrivateCodePayload,
-  type RevokePrivateCodePayload,
-  type SetVisibilityPayload,
-  type RoomOwnerAccessDto,
-} from "@omioroom/contracts";
+import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
+import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
+import { PlaybackStatus, type ChatMessageDto, type RoomSnapshotDto, type RoomPlaybackStateDto, type PlayerCommandPayload, type MediaSourceInfo } from "@omioroom/contracts";
 import styles from "./room-page.module.scss";
 
 interface RoomPageProps {
@@ -40,13 +29,22 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   onNavigateHome,
   onNavigateMyRooms,
 }) => {
-  const { socket, connectionStatus, timeSync } = useSocketContext();
+  const { connectionStatus: sessionStatus, timeSync, user } = useSession();
   const { t } = useI18n();
 
   const [snapshot, setSnapshot] = useState<RoomSnapshotDto>(initialSnapshot);
   const [playback, setPlayback] = useState<RoomPlaybackStateDto | null>(initialSnapshot.playback);
   const [ownerKey, setOwnerKey] = useState<string | null>(initialKey ?? null);
   const [codeRevoked, setCodeRevoked] = useState(false);
+  const [messages, setMessages] = useState<ChatMessageDto[]>([]);
+  const [channelStatus, setChannelStatus] = useState<RoomChannelStatus>("connecting");
+  const [presentIds, setPresentIds] = useState<string[] | null>(null);
+  // Latest callbacks for the long-lived channel effect (they change identity on every parent render)
+  const onLeaveRef = useRef(onLeave);
+  onLeaveRef.current = onLeave;
+  const tRef = useRef(t);
+  tRef.current = t;
+  const playbackRevisionRef = useRef(initialSnapshot.playback?.revision ?? 0);
 
   // Local player tracking state
   const [currentTime, setCurrentTime] = useState(initialSnapshot.playback?.anchorPosition || 0);
@@ -91,80 +89,78 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPlaying, currentTime, duration]);
 
-  // Subscribe to real-time events
+  // Applies a playback state only if it is newer than what we already show
+  const applyPlayback = useCallback(
+    (state: RoomPlaybackStateDto) => {
+      if (state.revision < playbackRevisionRef.current) return;
+      playbackRevisionRef.current = state.revision;
+      setPlayback(state);
+      setLastSyncText(tRef.current.room.inSyncRev(state.revision));
+    },
+    []
+  );
+
+  // Realtime: one channel per room. On every (re)subscription reload the authoritative snapshot.
   useEffect(() => {
-    const handlePlayerState = (newState: RoomPlaybackStateDto) => {
-      setPlayback(newState);
-      setLastSyncText(t.room.inSyncRev(newState.revision));
+    if (!user) return;
+    const roomId = initialSnapshot.room.id;
+    let disposed = false;
+
+    const reload = async () => {
+      try {
+        const [fresh, history] = await Promise.all([backend.getSnapshot(roomId), backend.chatHistory(roomId)]);
+        if (disposed) return;
+        setSnapshot(fresh);
+        if (fresh.playback) applyPlayback(fresh.playback);
+        setMessages(history);
+      } catch (err: any) {
+        if (!disposed && (err?.code === "ROOM_NOT_FOUND" || err?.code === "FORBIDDEN")) onLeaveRef.current();
+      }
     };
 
-    const handleParticipantJoined = (data: any) => {
-      setSnapshot((prev) => ({
-        ...prev,
-        participants: [
-          ...prev.participants.filter((p) => p.userId !== data.participant.userId),
-          data.participant,
-        ],
-      }));
-    };
+    const close = openRoomChannel(roomId, user.id, {
+      onPlayback: applyPlayback,
+      onChat: (msg) =>
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100))),
+      onRoomChanged: (row) => {
+        if (row.status === "closed") {
+          alert(tRef.current.room.closedAlert);
+          onLeaveRef.current();
+          return;
+        }
+        setSnapshot((prev) => ({ ...prev, room: { ...prev.room, visibility: row.visibility, revision: row.revision } }));
+      },
+      onMemberAdded: () => void reload(),
+      onPresence: setPresentIds,
+      onStatus: setChannelStatus,
+      onResync: () => void reload(),
+    });
 
-    const handleParticipantLeft = (data: { userId: string }) => {
-      setSnapshot((prev) => ({
-        ...prev,
-        participants: prev.participants.map((p) =>
-          p.userId === data.userId ? { ...p, isOnline: false } : p
-        ),
-      }));
-    };
-
-    const handleAccessUpdated = (data: { visibility: "public" | "private" }) => {
-      setSnapshot((prev) => ({
-        ...prev,
-        room: {
-          ...prev.room,
-          visibility: data.visibility,
-        },
-      }));
-    };
-
-    const handleRoomClosed = () => {
-      alert(t.room.closedAlert);
-      onLeave();
-    };
-
-    socket.on(ServerEvent.PLAYER_STATE, handlePlayerState);
-    socket.on(ServerEvent.ROOM_PARTICIPANT_JOINED, handleParticipantJoined);
-    socket.on(ServerEvent.ROOM_PARTICIPANT_LEFT, handleParticipantLeft);
-    socket.on(ServerEvent.ROOM_ACCESS_UPDATED, handleAccessUpdated);
-    socket.on(ServerEvent.ROOM_CLOSED, handleRoomClosed);
+    // Keeps our seat alive; the seat frees itself ~90s after the last sign of life
+    const heartbeat = setInterval(() => void backend.touchRoom(roomId).catch(() => {}), 30_000);
+    const onPageHide = () => void backend.leaveRoom(roomId).catch(() => {});
+    window.addEventListener("pagehide", onPageHide);
 
     return () => {
-      socket.off(ServerEvent.PLAYER_STATE, handlePlayerState);
-      socket.off(ServerEvent.ROOM_PARTICIPANT_JOINED, handleParticipantJoined);
-      socket.off(ServerEvent.ROOM_PARTICIPANT_LEFT, handleParticipantLeft);
-      socket.off(ServerEvent.ROOM_ACCESS_UPDATED, handleAccessUpdated);
-      socket.off(ServerEvent.ROOM_CLOSED, handleRoomClosed);
+      disposed = true;
+      clearInterval(heartbeat);
+      window.removeEventListener("pagehide", onPageHide);
+      close();
     };
-  }, [socket, onLeave]);
+  }, [user, initialSnapshot.room.id, applyPlayback]);
 
   // Command sender helper
   const sendPlayerCommand = useCallback(
     async (partialPayload: Omit<PlayerCommandPayload, "commandId" | "roomId">) => {
       isLocalCommandRef.current = true;
       try {
-        const payload: PlayerCommandPayload = {
+        const updatedState = await backend.playerCommand({
           ...partialPayload,
           commandId: generateClientRequestId(),
           roomId: snapshot.room.id,
-          expectedRevision: playback?.revision,
-        };
-
-        const updatedState = await emitCommand<PlayerCommandPayload, RoomPlaybackStateDto>(
-          socket,
-          ClientCommand.PLAYER_COMMAND,
-          payload
-        );
-        setPlayback(updatedState);
+          expectedRevision: playbackRevisionRef.current,
+        });
+        applyPlayback(updatedState);
       } catch (err) {
         console.error("Player command error:", err);
       } finally {
@@ -173,7 +169,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         }, 200);
       }
     },
-    [socket, snapshot.room.id, playback?.revision]
+    [snapshot.room.id, applyPlayback]
   );
 
   const handlePlay = () => {
@@ -216,55 +212,33 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   };
 
   const handleRotatePrivateCode = async () => {
-    const payload: RotatePrivateCodePayload = { roomId: snapshot.room.id };
-    const res = await emitCommand<RotatePrivateCodePayload, RoomOwnerAccessDto>(
-      socket,
-      ClientCommand.ROOM_ROTATE_PRIVATE_CODE,
-      payload
-    );
+    const res = await backend.rotatePrivateCode(snapshot.room.id);
     setOwnerKey(res.privateCode);
     setCodeRevoked(false);
   };
 
   const handleRevokePrivateCode = async () => {
-    const payload: RevokePrivateCodePayload = { roomId: snapshot.room.id };
-    await emitCommand<RevokePrivateCodePayload, { revoked: boolean }>(
-      socket,
-      ClientCommand.ROOM_REVOKE_PRIVATE_CODE,
-      payload
-    );
+    await backend.revokePrivateCode(snapshot.room.id);
     setOwnerKey(null);
     setCodeRevoked(true);
   };
 
   const handleToggleVisibility = async (newVis: "public" | "private") => {
-    const payload: SetVisibilityPayload = {
-      roomId: snapshot.room.id,
-      visibility: newVis,
-    };
-    const res = await emitCommand<SetVisibilityPayload, { room: any; ownerAccess: RoomOwnerAccessDto | null }>(
-      socket,
-      ClientCommand.ROOM_SET_VISIBILITY,
-      payload
-    );
-    setSnapshot((prev) => ({
-      ...prev,
-      room: {
-        ...prev.room,
-        visibility: newVis,
-      },
-    }));
+    const res = await backend.setVisibility(snapshot.room.id, newVis);
+    setSnapshot((prev) => ({ ...prev, room: { ...prev.room, visibility: newVis, revision: res.room.revision } }));
     setCodeRevoked(false);
     setOwnerKey(res.ownerAccess ? res.ownerAccess.privateCode : null);
   };
 
+  const handleSendChat = async (text: string, attachmentUrl: string | null, attachmentType: "image" | "file" | null) => {
+    await backend.sendChat({ roomId: snapshot.room.id, text, attachmentUrl, attachmentType });
+  };
+
   const handleLeave = async () => {
     try {
-      await emitCommand<{ roomId: string }, { left: boolean }>(
-        socket,
-        ClientCommand.ROOM_LEAVE,
-        { roomId: snapshot.room.id }
-      );
+      await backend.leaveRoom(snapshot.room.id);
+    } catch {
+      // The seat expires on its own
     } finally {
       onLeave();
     }
@@ -278,7 +252,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }
   };
 
-  const activeParticipantsCount = snapshot.participants.filter((p) => p.isOnline).length;
+  // Presence is live; fall back to the seat state from the database until it syncs
+  const participants = snapshot.participants.map((p) => ({
+    ...p,
+    isOnline: presentIds ? presentIds.includes(p.userId) : p.isOnline,
+  }));
+  const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
+  const connectionStatus =
+    sessionStatus !== "connected" ? sessionStatus : channelStatus === "connected" ? "connected" : channelStatus;
 
   return (
     <div className={styles.roomContainer}>
@@ -349,7 +330,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onRotateCode={handleRotatePrivateCode}
             onToggleVisibility={handleToggleVisibility}
           />
-          <RoomChat roomId={snapshot.room.id} />
+          <RoomChat messages={messages} onSend={handleSendChat} />
         </aside>
       </main>
     </div>

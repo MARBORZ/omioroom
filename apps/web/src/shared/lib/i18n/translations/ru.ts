@@ -105,6 +105,9 @@ export const ru: Translations = {
     passwordLabel: "Пароль",
     loginBtn: "Войти в аккаунт",
     registerBtn: "Создать аккаунт",
+    emailLabel: "Email",
+    usernameTaken: "Это имя уже занято",
+    authFailed: "Не удалось войти. Проверьте данные.",
     switchMode: "Сменить режим",
   },
   chat: {

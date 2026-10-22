@@ -105,6 +105,9 @@ export const en: Translations = {
     passwordLabel: "Password",
     loginBtn: "Sign In",
     registerBtn: "Create Account",
+    emailLabel: "Email",
+    usernameTaken: "This username is already taken",
+    authFailed: "Authentication failed. Check your details.",
     switchMode: "Switch Identity",
   },
   chat: {

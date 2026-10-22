@@ -1,19 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { FriendsPanel } from "../../../widgets/friends-panel/ui/friends-panel.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
-import { emitCommand } from "../../../shared/api/socket.js";
-import {
-  ClientCommand,
-  type RoomSummaryDto,
-  type RoomSnapshotDto,
-  type JoinRoomPayload,
-  type CloseRoomPayload,
-} from "@omioroom/contracts";
+import { backend } from "../../../shared/api/backend.js";
+import type { RoomSummaryDto, RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./my-rooms-page.module.scss";
 
 interface MyRoomsPageProps {
@@ -27,7 +20,6 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   onOpenRoom,
   onNavigateIdentity,
 }) => {
-  const { socket } = useSocketContext();
   const { t } = useI18n();
   const [rooms, setRooms] = useState<RoomSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,18 +28,13 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
-      const list = await emitCommand<void, RoomSummaryDto[]>(
-        socket,
-        ClientCommand.ROOM_LIST_MINE,
-        undefined as any
-      );
-      setRooms(list);
+      setRooms(await backend.listMyRooms());
     } catch (err) {
       console.error("Failed to load rooms:", err);
     } finally {
       setLoading(false);
     }
-  }, [socket]);
+  }, []);
 
   useEffect(() => {
     fetchRooms();
@@ -55,14 +42,9 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
 
   const handleOpen = async (globalId: string) => {
     try {
-      const snapshot = await emitCommand<JoinRoomPayload, RoomSnapshotDto>(
-        socket,
-        ClientCommand.ROOM_JOIN,
-        { globalId }
-      );
-      onOpenRoom(snapshot);
+      onOpenRoom(await backend.joinRoom(globalId));
     } catch (err: any) {
-      alert(`Could not open room: ${err.message}`);
+      alert(`Could not open room: ${err?.message ?? err}`);
     }
   };
 
@@ -71,14 +53,10 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
       return;
     }
     try {
-      await emitCommand<CloseRoomPayload, { closed: boolean }>(
-        socket,
-        ClientCommand.ROOM_CLOSE,
-        { roomId }
-      );
+      await backend.closeRoom(roomId);
       setRooms((prev) => prev.filter((r) => r.id !== roomId));
     } catch (err: any) {
-      alert(`Failed to close room: ${err.message}`);
+      alert(`Failed to close room: ${err?.message ?? err}`);
     }
   };
 

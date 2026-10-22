@@ -1,18 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LogIn } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-context.js";
+import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
-import { emitCommand } from "../../../shared/api/socket.js";
-import {
-  ClientCommand,
-  type JoinRoomPayload,
-  type RoomSnapshotDto,
-} from "@omioroom/contracts";
+import { backend } from "../../../shared/api/backend.js";
+import type { RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./invite-page.module.scss";
 
 interface InvitePageProps {
@@ -31,7 +27,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
   onJoined,
   onCancel,
 }) => {
-  const { socket, connectionStatus, user, updateDisplayName } = useSocketContext();
+  const { connectionStatus, user, updateDisplayName } = useSession();
   const { t } = useI18n();
 
   const [code, setCode] = useState(initialCode ?? "");
@@ -50,12 +46,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
       if (canRename && name.trim() && name.trim() !== user?.displayName) {
         await updateDisplayName(name.trim());
       }
-      const snapshot = await emitCommand<JoinRoomPayload, RoomSnapshotDto>(
-        socket,
-        ClientCommand.ROOM_JOIN,
-        { globalId, privateCode: code.trim() || undefined }
-      );
-      onJoined(snapshot);
+      onJoined(await backend.joinRoom(globalId, code.trim() || undefined));
     } catch (err: any) {
       const e = t.home.errors;
       if (err?.code === "PRIVATE_CODE_REQUIRED") {
@@ -76,7 +67,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [socket, globalId, code, name, user, canRename, updateDisplayName, onJoined, t]);
+  }, [globalId, code, name, user, canRename, updateDisplayName, onJoined, t]);
 
   useEffect(() => {
     if (!autoJoin || autoTriedRef.current || connectionStatus !== "connected" || !user) return;

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "../shared/lib/i18n/index.js";
-import { SocketProvider } from "./providers/socket-provider.js";
+import { isBackendConfigured } from "../shared/api/supabase.js";
+import { SessionProvider } from "./providers/session-provider.js";
 import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
 import { RoomPage } from "../pages/room/ui/room-page.js";
@@ -110,12 +111,23 @@ const MainApp: React.FC = () => {
   );
 };
 
+const SetupNotice: React.FC = () => (
+  <div style={{ padding: "48px", maxWidth: 720 }}>
+    <h1 style={{ fontSize: 32, marginBottom: 16 }}>OMIOROOM is not configured</h1>
+    <p style={{ color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+      Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> (see <code>apps/web/.env.example</code>) and
+      apply <code>supabase/migrations</code> to your Supabase project. Details are in the README.
+    </p>
+  </div>
+);
+
 export const App: React.FC = () => {
+  if (!isBackendConfigured) return <SetupNotice />;
   return (
     <I18nProvider>
-      <SocketProvider>
+      <SessionProvider>
         <MainApp />
-      </SocketProvider>
+      </SessionProvider>
     </I18nProvider>
   );
 };
