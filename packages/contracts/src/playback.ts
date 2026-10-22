@@ -4,8 +4,8 @@ export const SYNC_THRESHOLD_IGNORE_MS = 250;
 export const SYNC_THRESHOLD_DRIFT_RATE_MS = 750;
 /** A stall must last this long before the room is held (ignores micro-stutters). */
 export const BUFFER_STALL_DEBOUNCE_MS = 700;
-/** The server stops waiting for a stalled client after this long. */
-export const BUFFER_WAIT_TIMEOUT_MS = 5000;
+/** The room waits this long for a stalled leader (must match buffer_wait_ms() in the database). */
+export const BUFFER_WAIT_TIMEOUT_MS = 10000;
 /** Enough data buffered ahead to report "ready". */
 export const BUFFER_READY_AHEAD_SECONDS = 1.5;
 

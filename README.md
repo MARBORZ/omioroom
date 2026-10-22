@@ -18,7 +18,7 @@ Watch videos together with friends: 2 to 32 people per room. Open source, no ser
 All writes go through database functions (`create_room`, `join_room`, `player_command`, `send_chat`, ...). They check the caller,
 enforce the rules (room size limit, control modes, private codes, revisions, command dedup, rate limits) and keep the **authoritative playback state** in
 Postgres. Clients read through RLS-protected tables and Realtime (`postgres_changes`), so only room members receive updates.
-When a participant's player stalls the room waits for them (up to 5 s) and resumes together. Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
+The room follows a *leader* (whoever issued the last playback command, the owner at first): if the leader's player stalls, everyone waits for it (up to 10 s) at the leader's own position and resumes together; a follower's stall never stops anyone, they catch up on their own. Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
 
 ## Self-host in 10 minutes
 

@@ -387,7 +387,7 @@ describe("playback control modes", () => {
   });
 });
 
-describe("buffering barrier", () => {
+describe("buffering follows the leader", () => {
   async function playingRoom() {
     const owner = await t.newUser();
     const guest = await t.newUser();
@@ -395,77 +395,84 @@ describe("buffering barrier", () => {
     const r = await room(owner, "public", { p_max_participants: 4 });
     await t.as(guest).rpc("join_room", { p_global_id: r.globalId });
     await t.as(third).rpc("join_room", { p_global_id: r.globalId });
-    await play(owner, r.id, { p_position: 10 });
+    await play(owner, r.id, { p_position: 10 }); // the owner acted last: the owner leads
     return { owner, guest, third, r };
   }
-  const report = (u: string, roomId: string, on: boolean) =>
-    t.as(u).rpc("report_buffering", { p_room_id: roomId, p_is_buffering: on });
+  const report = (u: string, roomId: string, on: boolean, position?: number) =>
+    t.as(u).rpc("report_buffering", { p_room_id: roomId, p_is_buffering: on, p_position: position ?? null });
 
-  it("holds the room while someone buffers and resumes everyone together", async () => {
-    const { owner, guest, r } = await playingRoom();
-    const held = await report(guest, r.id, true);
+  it("a follower's stall never holds the room", async () => {
+    const { guest, r } = await playingRoom();
+    const res = await report(guest, r.id, true);
+    expect(res.status).toBe("playing");
+    expect(res.bufferingBy).toEqual([]);
+  });
+
+  it("the leader's stall holds the room at the leader's own position, and recovery resumes everyone together", async () => {
+    const { owner, r } = await playingRoom();
+    const held = await report(owner, r.id, true, 12.5);
     expect(held.status).toBe("buffering");
-    expect(held.bufferingBy).toEqual([guest]);
-
-    // Another stall joins the wait; resuming needs both
-    const second = await report(owner, r.id, true);
-    expect(second.bufferingBy.sort()).toEqual([guest, owner].sort());
-    const afterOne = await report(guest, r.id, false);
-    expect(afterOne.status).toBe("buffering");
-    expect(afterOne.bufferingBy).toEqual([owner]);
+    expect(held.bufferingBy).toEqual([owner]);
+    expect(held.anchorPosition).toBeCloseTo(12.5, 0); // the leader's device is the source of truth
 
     const before = Number(await t.as(owner).rpc("server_time_ms"));
     const resumed = await report(owner, r.id, false);
     expect(resumed.status).toBe("playing");
     expect(resumed.bufferingBy).toEqual([]);
-    // Resume instant lies slightly ahead of the moment of the call so clients can start together
     expect(Number(resumed.anchorServerTime)).toBeGreaterThan(before + 300);
-    expect(resumed.anchorPosition).toBeGreaterThanOrEqual(10);
+    expect(resumed.anchorPosition).toBeCloseTo(12.5, 0);
   });
 
-  it("stops waiting for a client that stays stalled for more than 5 seconds", async () => {
-    const { guest, third, r } = await playingRoom();
-    await report(guest, r.id, true);
-    // Simulate: the stall started 10 s ago
+  it("distrusts an implausible leader position", async () => {
+    const { owner, r } = await playingRoom();
+    const held = await report(owner, r.id, true, 5000);
+    expect(held.anchorPosition).toBeLessThan(30);
+  });
+
+  it("the leader is whoever acted last: when a member takes over, the owner becomes a follower", async () => {
+    const { owner, guest, r } = await playingRoom();
+    await t.as(guest).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "seek", p_position: 40 });
+    expect((await report(owner, r.id, true)).status).toBe("playing"); // owner no longer leads
+    expect((await report(guest, r.id, true)).status).toBe("buffering");
+  });
+
+  it("stops waiting for a leader stalled for more than 10 seconds", async () => {
+    const { owner, guest, r } = await playingRoom();
+    await report(owner, r.id, true);
     await t.db.query(
-      "update public.playback_state set buffering = jsonb_build_object($2::text, ((extract(epoch from clock_timestamp())*1000)::bigint - 10000)) where room_id = $1",
-      [r.id, guest]
+      "update public.playback_state set buffering = jsonb_build_object($2::text, ((extract(epoch from clock_timestamp())*1000)::bigint - 15000)) where room_id = $1",
+      [r.id, owner]
     );
-    // A different member's timer fires
-    const resolved = await t.as(third).rpc("resolve_buffering", { p_room_id: r.id });
+    const resolved = await t.as(guest).rpc("resolve_buffering", { p_room_id: r.id });
     expect(resolved.status).toBe("playing");
     expect(resolved.bufferingBy).toEqual([]);
   });
 
-  it("does not resume early while a fresh stall exists", async () => {
-    const { guest, third, r } = await playingRoom();
-    await report(guest, r.id, true);
-    const early = await t.as(third).rpc("resolve_buffering", { p_room_id: r.id });
-    expect(early.status).toBe("buffering");
+  it("does not resume early while the leader is still stalled", async () => {
+    const { owner, guest, r } = await playingRoom();
+    await report(owner, r.id, true);
+    expect((await t.as(guest).rpc("resolve_buffering", { p_room_id: r.id })).status).toBe("buffering");
   });
 
-  it("explicit pause or play clears the wait; paused rooms ignore stalls; outsiders are rejected", async () => {
-    const { owner, guest, r } = await playingRoom();
-    await report(guest, r.id, true);
+  it("explicit pause clears the wait; paused rooms ignore stalls; outsiders are rejected", async () => {
+    const { owner, r } = await playingRoom();
+    await report(owner, r.id, true);
     const paused = await t.as(owner).rpc("player_command", {
       p_room_id: r.id, p_command_id: randomUUID(), p_type: "pause", p_position: 12,
     });
     expect(paused).toMatchObject({ status: "paused", bufferingBy: [] });
-
-    const ignored = await report(guest, r.id, true);
-    expect(ignored.status).toBe("paused");
-
+    expect((await report(owner, r.id, true)).status).toBe("paused");
     const stranger = await t.newUser();
     expect(await code(report(stranger, r.id, true))).toBe("FORBIDDEN");
   });
 
-  it("viewers without playback control can still report stalls", async () => {
+  it("view-only members can report stalls (they are followers, so nothing happens)", async () => {
     const owner = await t.newUser();
     const viewer = await t.newUser();
     const r = await room(owner, "public", { p_control_mode: "owner" });
     await t.as(viewer).rpc("join_room", { p_global_id: r.globalId });
     await play(owner, r.id, { p_position: 1 });
-    expect((await report(viewer, r.id, true)).status).toBe("buffering");
+    expect((await report(viewer, r.id, true)).status).toBe("playing");
   });
 });
 

@@ -161,6 +161,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       if (!stalledRef.current) return;
       stalledRef.current = false;
       latest.current.onStallChange?.(false, adapterRef.current?.getCurrentTime() ?? 0);
+      // A follower whose player stalled fell behind a room that kept going: line up again right away
+      setTimeout(() => revertRef.current(), 300);
     };
 
     // While the room waits, report "ready" as soon as enough is buffered (or after a short fallback)
