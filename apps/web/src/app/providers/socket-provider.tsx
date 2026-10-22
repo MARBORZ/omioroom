@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   ClientCommand,
   type User,
@@ -15,14 +15,20 @@ import type { ConnectionStatusType } from "../../shared/ui/status-indicator/stat
 import { SocketContext } from "./socket-context.js";
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // createSocketClient() returns a module-level singleton, safe for StrictMode double-mount
   const socket = useMemo(() => createSocketClient(), []);
   const timeSync = useMemo(() => new TimeSyncClient(socket), [socket]);
+  const isMountedRef = useRef(false);
 
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>("connecting");
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
+    // Guard against StrictMode double-mount: only set up once
+    if (isMountedRef.current) return;
+    isMountedRef.current = true;
+
     const fetchSession = async () => {
       try {
         const info = await emitCommand<void, SessionInfoDto>(
@@ -66,12 +72,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       handleConnect();
     }
 
+    // Do NOT disconnect the singleton socket on cleanup —
+    // StrictMode unmount/remount would kill the connection mid-handshake.
     return () => {
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleConnectError);
       timeSync.stopSync();
-      socket.disconnect();
     };
   }, [socket, timeSync]);
 

@@ -28,11 +28,22 @@ function getBackendUrl(): string {
   return window.location.origin;
 }
 
+/**
+ * Module-level singleton socket instance.
+ * Prevents React StrictMode double-mount from creating duplicate connections
+ * that race and destroy each other's polling handshakes.
+ */
+let singletonSocket: Socket | null = null;
+
 export function createSocketClient(): Socket {
+  if (singletonSocket && !singletonSocket.disconnected) {
+    return singletonSocket;
+  }
+
   const token = getStoredSessionToken();
   const url = getBackendUrl();
 
-  const socket = io(url, {
+  singletonSocket = io(url, {
     auth: {
       token: token || undefined,
     },
@@ -42,9 +53,17 @@ export function createSocketClient(): Socket {
     reconnectionAttempts: 20,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    autoConnect: true,
   });
 
-  return socket;
+  return singletonSocket;
+}
+
+/**
+ * Get the existing socket instance without creating a new one.
+ */
+export function getSocketClient(): Socket | null {
+  return singletonSocket;
 }
 
 export function generateClientRequestId(): string {
