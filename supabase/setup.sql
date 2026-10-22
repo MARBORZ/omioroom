@@ -2951,3 +2951,74 @@ begin
 exception when others then
   raise notice 'could not reschedule cron job: %', sqlerrm;
 end $$;
+
+-- ===== 20261022002000_offline_drop_10_minutes.sql =====
+-- Members who stay offline are dropped from the list after 10 minutes (was 5).
+create or replace function public.drop_offline_members(p_max_idle interval default interval '10 minutes') returns integer
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_count integer := 0;
+  v_row record;
+begin
+  for v_row in
+    select m.room_id, m.user_id
+    from public.room_members m
+    join public.rooms r on r.id = m.room_id and r.status = 'active'
+    left join public.member_activity a on a.room_id = m.room_id and a.user_id = m.user_id
+    where m.role <> 'owner'
+      and coalesce(a.last_active_at, m.joined_at) < now() - p_max_idle
+  loop
+    perform public.remove_member(v_row.room_id, v_row.user_id);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end $$;
+revoke execute on function public.drop_offline_members(interval) from public, anon, authenticated;
+
+do $$
+begin
+  if to_regclass('cron.job') is not null then
+    perform cron.unschedule('omioroom-drop-offline-members');
+    perform cron.schedule(
+      'omioroom-drop-offline-members',
+      '* * * * *',
+      $job$ select public.drop_offline_members(interval '10 minutes') $job$
+    );
+  end if;
+exception when others then
+  raise notice 'could not reschedule cron job: %', sqlerrm;
+end $$;
+
+-- ===== 20261022002100_room_lifetime_7_days.sql =====
+-- A room lives for 7 days from its creation, or until the owner closes it earlier. Leaving does not end it.
+create function public.close_expired_rooms(p_ttl interval default interval '7 days') returns integer
+language plpgsql security definer set search_path = public
+as $$
+declare v_count integer;
+begin
+  with closed as (
+    update public.rooms set status = 'closed', revision = revision + 1, updated_at = now()
+    where status = 'active' and created_at < now() - p_ttl
+    returning id
+  ), cleared as (
+    delete from public.chat_messages where room_id in (select id from closed)
+  )
+  select count(*) into v_count from closed;
+  return v_count;
+end $$;
+revoke execute on function public.close_expired_rooms(interval) from public, anon, authenticated;
+
+do $$
+begin
+  if to_regclass('cron.job') is not null then
+    perform cron.unschedule('omioroom-close-inactive-rooms');
+    perform cron.schedule(
+      'omioroom-close-inactive-rooms',
+      '* * * * *',
+      $job$ select public.pause_empty_rooms(), public.close_expired_rooms(interval '7 days') $job$
+    );
+  end if;
+exception when others then
+  raise notice 'could not reschedule cron job: %', sqlerrm;
+end $$;

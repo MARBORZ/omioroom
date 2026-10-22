@@ -640,8 +640,8 @@ describe("maintenance", () => {
     // Four minutes later: still open
     await t.db.query("update public.rooms set empty_since = now() - interval '4 minutes' where id in ($1, $2)", [empty.id, recent.id]);
     expect(await tick()).toBe(0);
-    // Past five minutes: the empty room closes; the one someone came back to stays and its clock resets
-    await t.db.query("update public.rooms set empty_since = now() - interval '6 minutes' where id = $1", [empty.id]);
+    // Past ten minutes: the empty room closes; the one someone came back to stays and its clock resets
+    await t.db.query("update public.rooms set empty_since = now() - interval '11 minutes' where id = $1", [empty.id]);
     await t.db.query("update public.member_activity set last_active_at = now() where room_id = $1", [recent.id]);
     expect(await tick()).toBe(1);
 
@@ -688,7 +688,7 @@ describe("maintenance", () => {
     expect(back.isOwner).toBe(true);
   });
 
-  it("drops members who stayed offline for five minutes, never the owner", async () => {
+  it("drops members who stayed offline for ten minutes, never the owner", async () => {
     const owner = await t.newUser();
     const a = await t.newUser();
     const b = await t.newUser();
@@ -696,7 +696,7 @@ describe("maintenance", () => {
     await t.as(a).rpc("join_room", { p_global_id: r.globalId });
     await t.as(b).rpc("join_room", { p_global_id: r.globalId });
     await t.db.exec(
-      `update public.member_activity set last_active_at = now() - interval '6 minutes' where user_id in ('${a}', '${owner}')`
+      `update public.member_activity set last_active_at = now() - interval '11 minutes' where user_id in ('${a}', '${owner}')`
     );
     await t.db.exec("select public.drop_offline_members()");
     const snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
@@ -811,7 +811,7 @@ describe("maintenance", () => {
     await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour'`);
     await t.db.exec(`update public.rooms set empty_since = now() - interval '1 hour' where id = '${r.id}'`);
     await t.db.exec("select public.pause_empty_rooms()");
-    await t.db.exec("select public.close_inactive_rooms(interval '7 days')");
+    await t.db.exec("select public.close_expired_rooms()");
 
     const back = await t.as(owner).rpc("resume_room", { p_room_id: r.id });
     expect(back.room.id).toBe(r.id);
@@ -820,5 +820,17 @@ describe("maintenance", () => {
     expect(back.playback.anchorPosition).toBeGreaterThanOrEqual(100);
     const history = await t.as(owner).query("select body from public.chat_messages where room_id = $1", [r.id]);
     expect(history.map((m: any) => m.body)).toEqual(["keep me"]);
+  });
+  it("a room closes by itself 7 days after creation, not before", async () => {
+    const owner = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "bye" });
+    await t.db.exec(`update public.rooms set created_at = now() - interval '6 days' where id = '${r.id}'`);
+    await t.db.exec("select public.close_expired_rooms()");
+    expect((await t.as(owner).rpc("resume_room", { p_room_id: r.id })).room.id).toBe(r.id);
+    await t.db.exec(`update public.rooms set created_at = now() - interval '8 days' where id = '${r.id}'`);
+    await t.db.exec("select public.close_expired_rooms()");
+    expect(await code(t.as(owner).rpc("resume_room", { p_room_id: r.id }))).toBe("ROOM_CLOSED");
+    expect(await t.as(owner).query("select 1 from public.chat_messages where room_id = $1", [r.id])).toHaveLength(0);
   });
 });
