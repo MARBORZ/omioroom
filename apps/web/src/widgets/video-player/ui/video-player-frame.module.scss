@@ -115,13 +115,15 @@
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  animation: sync-fade-in 200ms var(--ease-out) both;
   pointer-events: none;
-}
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), visibility 200ms cubic-bezier(0.16, 1, 0.3, 1);
 
-@keyframes sync-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  &.syncOverlayVisible {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 .syncContent {

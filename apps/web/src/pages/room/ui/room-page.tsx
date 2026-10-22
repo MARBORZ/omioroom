@@ -162,6 +162,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   onLeaveRef.current = onLeave;
   const tRef = useRef(t);
   tRef.current = t;
+  const mountTimeRef = useRef(Date.now());
+  const playbackRef = useRef<RoomPlaybackStateDto | null>(initialSnapshot.playback);
+  playbackRef.current = playback;
   const playbackRevisionRef = useRef(initialSnapshot.playback?.revision ?? 0);
 
   // Local player tracking state
@@ -326,9 +329,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPlaying, currentTime, duration, canControl, cinema, handleToggleCinema]);
 
-  // Applies a playback state only if it is newer than what we already show
-  const applyPlayback = useCallback((state: RoomPlaybackStateDto) => {
-    if (state.revision < playbackRevisionRef.current) return;
+  // Applies a playback state: server is the single source of truth.
+  // Revisions are respected, but forced updates (from server getSnapshot) or media changes are always applied.
+  const applyPlayback = useCallback((state: RoomPlaybackStateDto, force = false) => {
+    if (!force) {
+      const isSameVideo =
+        state.media?.canonicalUrl === playbackRef.current?.media?.canonicalUrl &&
+        state.media?.type === playbackRef.current?.media?.type;
+      if (isSameVideo && state.revision < playbackRevisionRef.current) {
+        return;
+      }
+    }
     playbackRevisionRef.current = state.revision;
     setPlayback(state);
   }, []);
@@ -345,11 +356,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         const fresh = await backend.getSnapshot(roomId);
         if (disposed) return;
         setSnapshot(fresh);
-        if (fresh.playback) applyPlayback(fresh.playback);
+        if (fresh.playback) applyPlayback(fresh.playback, true);
       } catch (err: any) {
         if (!disposed && (err?.code === "ROOM_NOT_FOUND" || err?.code === "FORBIDDEN")) onLeaveRef.current();
       }
     };
+
+    // Authoritative snapshot on entry / reload
+    void reloadSnapshot();
 
     // Snapshot plus chat history: only when (re)subscribing, i.e. when events may have been missed
     const reloadAll = async () => {
@@ -447,10 +461,12 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const heartbeatTimer = setInterval(() => void runHeartbeat(), 45_000);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        void reloadSnapshot();
         void runHeartbeat();
       }
     };
     const onOnline = () => {
+      void reloadSnapshot();
       void runHeartbeat();
     };
 
@@ -675,9 +691,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const leaderPresent = lastActor !== null && (presentIds === null || presentIds.includes(lastActor));
   const leaderId = leaderPresent ? lastActor : snapshot.room.ownerUserId;
   const isLeader = user?.id === leaderId;
-  const waitingNames = (playback?.bufferingBy ?? []).map(
-    (id) => participants.find((p) => p.userId === id)?.displayName ?? "…"
-  );
+  const waitingNames = (playback?.bufferingBy ?? [])
+    .map((id) => participants.find((p) => p.userId === id)?.displayName)
+    .filter((name): name is string => Boolean(name));
 
   return (
     <div className={styles.roomContainer} data-layout="room-page">
@@ -720,9 +736,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 .then((state) => state && applyPlayback(state))
                 .catch(() => {})
             }
-            onUserAction={(action) =>
-              sendPlayerCommand({ type: action.type, position: action.position })
-            }
+            onUserAction={(action) => {
+              // During the first 3 seconds after entering or reloading, do not send player events to server
+              if (Date.now() - mountTimeRef.current < 3000) {
+                return;
+              }
+              sendPlayerCommand({ type: action.type, position: action.position });
+            }}
             onPositionUpdate={(curr, dur) => {
               setCurrentTime(curr);
               if (dur > 0) setDuration(dur);

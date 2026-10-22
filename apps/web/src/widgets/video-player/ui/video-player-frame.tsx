@@ -121,8 +121,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       isMuted,
     };
 
+    const mountedAtRef = useRef(Date.now());
+    const [isInitialSync, setIsInitialSync] = useState(true);
+
+    useEffect(() => {
+      const timer = setTimeout(() => setIsInitialSync(false), 3000);
+      return () => clearTimeout(timer);
+    }, []);
+
     const isBufferingActive = Boolean(
-      isBufferingProp || playbackState?.status === PlaybackStatus.BUFFERING
+      isInitialSync || isBufferingProp || playbackState?.status === PlaybackStatus.BUFFERING
     );
     const [showSyncOverlay, setShowSyncOverlay] = useState(false);
 
@@ -149,6 +157,11 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const seekReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastActionRef = useRef<{ type: UserPlayerAction["type"]; at: number } | null>(null);
     const handleLocalAction = (action: UserPlayerAction) => {
+      // During initial 3 seconds of mount / alignment, ignore local player events
+      if (Date.now() - mountedAtRef.current < 3000) {
+        revertRef.current();
+        return;
+      }
       // Players fire several events for one click (play + playing); report it once
       const prev = lastActionRef.current;
       if (prev && prev.type === action.type && Date.now() - prev.at < 700) return;
@@ -634,13 +647,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
       {!canControl && playbackState?.media && <div className={styles.pointerShield} aria-hidden />}
 
-      {showSyncOverlay && playbackState?.media && (
-        <div className={styles.syncOverlay} aria-live="polite">
+      {playbackState?.media && (
+        <div
+          className={`${styles.syncOverlay} ${showSyncOverlay ? styles.syncOverlayVisible : ""}`}
+          aria-live="polite"
+        >
           <div className={styles.syncContent}>
             <h3 className={styles.syncTitle}>{t.room.syncing}</h3>
             {bufferingNames && bufferingNames.length > 0 && (
               <p className={styles.syncSubtitle}>
-                {t.room.waitingForNames(bufferingNames.join(", "))}
+                {bufferingNames.join(", ")}
               </p>
             )}
           </div>
