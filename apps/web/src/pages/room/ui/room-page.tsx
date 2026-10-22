@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film, ChevronDown, X } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, X } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -82,6 +82,62 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [cinema, setCinema] = useState(false);
   const [cinemaChatOpen, setCinemaChatOpen] = useState(true);
   const [seenMessages, setSeenMessages] = useState(0);
+
+  // Draggable floating chat button in cinema mode
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    isDragging: boolean;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    hasMoved: boolean;
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    origX: 0,
+    origY: 0,
+    hasMoved: false,
+  });
+
+  const onFabPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    const currentX = fabPos?.x ?? (window.innerWidth - 68);
+    const currentY = fabPos?.y ?? (window.innerHeight - 76);
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: currentX,
+      origY: currentY,
+      hasMoved: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onFabPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current.isDragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.hypot(dx, dy) > 4) {
+      dragRef.current.hasMoved = true;
+    }
+    const nextX = Math.max(8, Math.min(window.innerWidth - 60, dragRef.current.origX + dx));
+    const nextY = Math.max(8, Math.min(window.innerHeight - 60, dragRef.current.origY + dy));
+    setFabPos({ x: nextX, y: nextY });
+  };
+
+  const onFabPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current.isDragging) return;
+    dragRef.current.isDragging = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    if (!dragRef.current.hasMoved) {
+      setCinemaChatOpen(true);
+    }
+  };
   const chatSize = useResizableWidth(
     "omioroom_chat_width",
     Math.min(420, Math.round(window.innerWidth * 0.38)),
@@ -534,25 +590,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </button>
           {/* Room Navigation Tabs (Never overflows container) */}
           <div className={styles.tabNavContainer} data-layout="room-tabs">
-            {/* Mobile / Narrow Dropdown Select */}
-            <div className={styles.tabDropdownWrapper}>
-              <select
-                className={styles.tabSelect}
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value as RoomTab)}
-                aria-label={t.common.room}
-              >
-                <option value="chat">💬 {t.room.tabChat}</option>
-                <option value="voice">🎙️ {t.room.tabVoice}</option>
-                <option value="participants">
-                  👥 {t.room.tabParticipants} ({activeParticipantsCount})
-                </option>
-                <option value="invite">🔗 {t.room.tabInvite}</option>
-                {canControl && <option value="media">🎬 {t.room.tabMedia}</option>}
-              </select>
-              <ChevronDown size={14} className={styles.tabSelectChevron} aria-hidden />
-            </div>
-
             {/* Horizontal Overflow-scroll list */}
             <nav className={styles.tabBar} role="tablist" aria-label="Room sections">
               <button
@@ -662,7 +699,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           <button
             type="button"
             className={styles.chatFab}
-            onClick={() => setCinemaChatOpen(true)}
+            style={
+              fabPos
+                ? ({ left: `${fabPos.x}px`, top: `${fabPos.y}px`, right: "auto", bottom: "auto" } as React.CSSProperties)
+                : undefined
+            }
+            onPointerDown={onFabPointerDown}
+            onPointerMove={onFabPointerMove}
+            onPointerUp={onFabPointerUp}
+            onPointerCancel={onFabPointerUp}
             aria-label={t.room.chatOpen}
             title={t.room.chatOpen}
           >

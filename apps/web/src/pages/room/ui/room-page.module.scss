@@ -65,44 +65,6 @@
   flex-shrink: 0;
 }
 
-.tabDropdownWrapper {
-  display: none;
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.tabSelect {
-  width: 100%;
-  height: 42px;
-  padding: 0 var(--space-7) 0 var(--space-3);
-  background-color: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  transition: all var(--transition-fast);
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-}
-
-.tabSelectChevron {
-  position: absolute;
-  right: var(--space-3);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-
 .tabBar {
   display: flex;
   align-items: center;
@@ -250,10 +212,6 @@
 }
 
 @media (max-width: 640px) {
-  .tabDropdownWrapper {
-    display: flex !important;
-  }
-
   .tabBar {
     padding: 3px;
     gap: 3px;
@@ -287,6 +245,7 @@
   gap: 0 !important;
   padding: 0 !important;
   height: 100dvh !important;
+  width: 100vw !important;
   overflow: hidden !important;
   background-color: #000;
 
@@ -299,14 +258,41 @@
   }
 
   .videoSection {
-    --player-max-height: calc(100dvh - 118px);
+    position: relative;
     width: 100% !important;
     height: 100dvh !important;
+    max-height: 100dvh !important;
     overflow: hidden !important;
-    justify-content: center;
-    gap: 0;
-    padding: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    padding: 0 !important;
     background-color: #000;
+  }
+
+  .videoSection > :first-child {
+    flex: 1 1 auto;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0;
+    max-height: calc(100dvh - 72px) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .videoSection > [class*="controlsContainer"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: auto !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 70%, transparent 100%) !important;
+    padding: var(--space-3) var(--space-5) !important;
+    box-sizing: border-box !important;
+    z-index: 5;
   }
 
   .sidebarSection {
@@ -367,10 +353,10 @@
   }
 
   .chatFab {
-    position: absolute;
+    position: fixed !important;
     right: var(--space-4);
     bottom: var(--space-4);
-    z-index: 8;
+    z-index: 100;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -381,8 +367,15 @@
     background-color: var(--color-accent);
     color: var(--color-accent-contrast);
     box-shadow: var(--shadow-md);
-    cursor: pointer;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
     animation: pop-in var(--motion-fast) var(--ease-spring) both;
+
+    &:active {
+      cursor: grabbing;
+      transform: scale(0.96);
+    }
   }
 
   .chatFabBadge {
