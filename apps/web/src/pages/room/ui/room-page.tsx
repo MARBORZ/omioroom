@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film, ChevronDown } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, ChevronDown, X } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -12,6 +12,10 @@ import { VoicePanel } from "../../../widgets/voice-panel/ui/voice-panel.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { ConnectionNotice } from "../../../shared/ui/connection-notice/connection-notice.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { ConfirmDialog } from "../../../shared/ui/confirm-dialog/confirm-dialog.js";
+import { ResizeHandle } from "../../../shared/ui/resize-handle/resize-handle.js";
+import { useResizableWidth } from "../../../shared/lib/use-resizable-width.js";
+import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
 import {
@@ -73,6 +77,23 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
 
+  // Cinema mode: a CSS-only "fullscreen" (works on phones, where the Fullscreen API does not): big video,
+  // chat as a resizable side panel that collapses into a round button
+  const [cinema, setCinema] = useState(false);
+  const [cinemaChatOpen, setCinemaChatOpen] = useState(true);
+  const [seenMessages, setSeenMessages] = useState(0);
+  const chatSize = useResizableWidth(
+    "omioroom_chat_width",
+    Math.min(420, Math.round(window.innerWidth * 0.38)),
+    280,
+    640
+  );
+
+  // Leaving the room by any route goes through a confirmation: the seat is freed only on a real exit
+  const [pendingExit, setPendingExit] = useState<"home" | "my-rooms" | "leave" | null>(null);
+  const pendingExitRef = useRef(pendingExit);
+  pendingExitRef.current = pendingExit;
+
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
   const videoSectionRef = useRef<HTMLDivElement>(null);
@@ -87,7 +108,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         activeEl?.tagName === "TEXTAREA" ||
         (activeEl as HTMLElement)?.isContentEditable;
 
-      if (isInput) return;
+      if (isInput || !canControl) return;
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -107,7 +128,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, currentTime, duration]);
+  }, [isPlaying, currentTime, duration, canControl]);
 
   // Applies a playback state only if it is newer than what we already show
   const applyPlayback = useCallback((state: RoomPlaybackStateDto) => {
@@ -200,6 +221,46 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     };
   }, [user, initialSnapshot.room.id, applyPlayback]);
 
+  // Browser "Back" and closing the tab ask before dropping out of the room
+  useEffect(() => {
+    if (window.history.state?.omioroom !== "room") {
+      window.history.pushState({ omioroom: "room" }, "");
+    }
+    const onPopState = () => {
+      if (pendingExitRef.current) return;
+      setPendingExit("leave");
+    };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, []);
+
+  const cancelExit = () => {
+    setPendingExit(null);
+    // The browser already stepped back: put the room entry back so "Back" keeps asking
+    if (window.history.state?.omioroom !== "room") window.history.pushState({ omioroom: "room" }, "");
+  };
+
+  const confirmExit = async () => {
+    const target = pendingExit;
+    setPendingExit(null);
+    try {
+      await backend.leaveRoom(snapshot.room.id);
+    } catch {
+      // The seat expires on its own
+    }
+    if (target === "my-rooms") onNavigateMyRooms();
+    else if (target === "home") onNavigateHome();
+    else onLeave();
+  };
+
   // Command sender helper
   const sendPlayerCommand = useCallback(
     async (partialPayload: Omit<PlayerCommandPayload, "commandId" | "roomId">) => {
@@ -249,11 +310,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }, 250);
   };
 
+  // The speed picker answers at once; the room state confirms it (or takes it back if the command fails)
+  const [pendingRate, setPendingRate] = useState<number | null>(null);
   const handleRateChange = (rate: number) => {
-    sendPlayerCommand({
-      type: "set-rate",
-      playbackRate: rate,
-    });
+    setPendingRate(rate);
+    void sendPlayerCommand({ type: "set-rate", playbackRate: rate }).finally(() => setPendingRate(null));
   };
 
   const handleMediaSelect = (media: MediaSourceInfo) => {
@@ -306,23 +367,34 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     await backend.sendChat(snapshot.room.id, text, path);
   };
 
-  const handleLeave = async () => {
-    try {
-      await backend.leaveRoom(snapshot.room.id);
-    } catch {
-      // The seat expires on its own
-    } finally {
-      onLeave();
-    }
+  const handleToggleCinema = () => {
+    setCinema((on) => {
+      if (!on) setCinemaChatOpen(window.innerWidth > 720);
+      return !on;
+    });
   };
 
-  const handleToggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      videoSectionRef.current?.requestFullscreen?.().catch(() => {});
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-    }
-  };
+  // Cinema: Escape leaves it (unless a dialog is open), the page behind does not scroll
+  useEffect(() => {
+    if (!cinema) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pendingExitRef.current) setCinema(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.documentElement.style.overflow = prevOverflow;
+    };
+  }, [cinema]);
+
+  // Unread counter for the collapsed chat button
+  const chatVisible = !cinema || cinemaChatOpen;
+  useEffect(() => {
+    if (chatVisible && (activeTab === "chat" || cinema)) setSeenMessages(messages.length);
+  }, [chatVisible, activeTab, cinema, messages.length]);
+  const unreadMessages = Math.max(0, messages.length - seenMessages);
 
   // Presence is live; fall back to the seat state from the database until it syncs
   const participants = snapshot.participants.map((p) => ({
@@ -349,14 +421,20 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       <RoomHeader
         participantCount={activeParticipantsCount}
         maxParticipants={snapshot.room.maxParticipants}
-        title={snapshot.room.title}
-        onNavigateHome={onNavigateHome}
-        onNavigateMyRooms={onNavigateMyRooms}
-        onLeave={handleLeave}
+        roomNumber={snapshot.room.globalId}
+        onNavigateHome={() => setPendingExit("home")}
+        onNavigateMyRooms={() => setPendingExit("my-rooms")}
+        onLeave={() => setPendingExit("leave")}
         onOpenParticipants={() => setActiveTab("participants")}
       />
 
-      <main className={styles.mainContent} data-layout="room-main">
+      <main
+        className={styles.mainContent}
+        data-layout="room-main"
+        data-cinema={cinema ? "true" : undefined}
+        data-chat-open={cinemaChatOpen ? "true" : "false"}
+        style={{ "--chat-width": `${chatSize.width}px` } as React.CSSProperties}
+      >
         {/* Cinematic Video Player Section */}
         <div className={styles.videoSection} ref={videoSectionRef} data-layout="room-video">
           <VideoPlayerFrame
@@ -394,7 +472,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             isPlaying={isPlaying}
             currentTime={currentTime}
             duration={duration}
-            playbackRate={playback?.playbackRate || 1.0}
+            playbackRate={pendingRate ?? (playback?.playbackRate || 1.0)}
+            rates={availableRates(playback?.media?.type)}
             isMuted={isMuted}
             disabled={!playback?.media || !canControl}
             onPlay={handlePlay}
@@ -402,7 +481,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onSeek={handleSeek}
             onRateChange={handleRateChange}
             onToggleMute={() => setIsMuted((m) => !m)}
-            onToggleFullscreen={handleToggleFullscreen}
+            onToggleCinema={handleToggleCinema}
+            cinema={cinema}
           />
 
           {(waitingNames.length > 0 || isBuffering) && (
@@ -434,6 +514,24 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           data-layout="room-sidebar"
           data-active-tab={activeTab}
         >
+          <ResizeHandle
+            label={t.room.chatResize}
+            value={chatSize.width}
+            min={chatSize.min}
+            max={chatSize.max}
+            onDragStart={chatSize.startDrag}
+            onNudge={chatSize.nudge}
+            className={styles.resizeHandle}
+          />
+          <button
+            type="button"
+            className={styles.chatCloseBtn}
+            onClick={() => setCinemaChatOpen(false)}
+            aria-label={t.room.chatClose}
+            title={t.room.chatClose}
+          >
+            <X size={16} />
+          </button>
           {/* Room Navigation Tabs (Never overflows container) */}
           <div className={styles.tabNavContainer} data-layout="room-tabs">
             {/* Mobile / Narrow Dropdown Select */}
@@ -559,7 +657,30 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             </div>
           </div>
         </aside>
+
+        {cinema && !cinemaChatOpen && (
+          <button
+            type="button"
+            className={styles.chatFab}
+            onClick={() => setCinemaChatOpen(true)}
+            aria-label={t.room.chatOpen}
+            title={t.room.chatOpen}
+          >
+            <MessageSquare size={22} />
+            {unreadMessages > 0 && <span className={styles.chatFabBadge}>{unreadMessages > 99 ? "99+" : unreadMessages}</span>}
+          </button>
+        )}
       </main>
+
+      <ConfirmDialog
+        isOpen={pendingExit !== null}
+        title={t.room.leaveTitle}
+        message={t.room.leaveMessage}
+        confirmLabel={t.room.leaveRoom}
+        cancelLabel={t.room.leaveStay}
+        onConfirm={() => void confirmExit()}
+        onCancel={cancelExit}
+      />
     </div>
   );
 };

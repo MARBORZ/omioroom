@@ -30,8 +30,6 @@ export interface Translations {
     watchingAs: string;
     nicknamePlaceholder: string;
     createTitle: string;
-    roomTitleLabel: string;
-    roomTitlePlaceholder: string;
     privateMode: string;
     publicMode: string;
     createBtn: string;
@@ -89,7 +87,6 @@ export interface Translations {
     tabInvite: string;
     tabMedia: string;
     codeCopied: string;
-    roomNameHint: string;
     waitingNote: string;
     addVideoFirst: string;
     reconnecting: string;
@@ -105,6 +102,16 @@ export interface Translations {
     pauseVideo: string;
     unmute: string;
     mute: string;
+    roomNumber: string;
+    cinemaEnter: string;
+    cinemaExit: string;
+    chatOpen: string;
+    chatClose: string;
+    chatResize: string;
+    leaveTitle: string;
+    leaveMessage: string;
+    leaveStay: string;
+    speedUnsupported: string;
   };
   myRooms: {
     title: string;

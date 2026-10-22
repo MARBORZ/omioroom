@@ -1,5 +1,5 @@
 import React from "react";
-import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize } from "lucide-react";
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import { useI18n } from "../../lib/i18n/index.js";
 import { formatTime } from "../../lib/format-time.js";
 import styles from "./playback-controls.module.scss";
@@ -16,7 +16,10 @@ interface PlaybackControlsProps {
   onSeek: (position: number) => void;
   onRateChange?: (rate: number) => void;
   onToggleMute?: () => void;
-  onToggleFullscreen?: () => void;
+  /** Speeds the current source supports; empty means it cannot change speed. */
+  rates?: number[];
+  onToggleCinema?: () => void;
+  cinema?: boolean;
 }
 
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -31,7 +34,9 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onSeek,
   onRateChange,
   onToggleMute,
-  onToggleFullscreen,
+  rates = [0.5, 0.75, 1, 1.25, 1.5, 2],
+  onToggleCinema,
+  cinema = false,
 }) => {
   const { t } = useI18n();
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -126,27 +131,27 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             <select
               value={playbackRate}
               onChange={(e) => onRateChange(parseFloat(e.target.value))}
-              disabled={disabled}
+              disabled={disabled || rates.length === 0}
               className={styles.rateSelect}
               aria-label="Playback speed"
+              title={rates.length === 0 ? t.room.speedUnsupported : undefined}
             >
-              <option value="0.5">0.5x</option>
-              <option value="0.75">0.75x</option>
-              <option value="1">1.0x</option>
-              <option value="1.25">1.25x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2.0x</option>
+              {(rates.length === 0 ? [1] : rates).map((r) => (
+                <option key={r} value={r}>{r}x</option>
+              ))}
             </select>
           )}
 
-          {onToggleFullscreen && (
+          {onToggleCinema && (
             <button
               type="button"
               className={styles.iconBtn}
-              onClick={onToggleFullscreen}
-              aria-label="Toggle fullscreen"
+              onClick={onToggleCinema}
+              aria-label={cinema ? t.room.cinemaExit : t.room.cinemaEnter}
+              title={cinema ? t.room.cinemaExit : t.room.cinemaEnter}
+              aria-pressed={cinema}
             >
-              <Maximize size={18} />
+              {cinema ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
           )}
         </div>

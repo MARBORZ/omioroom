@@ -121,7 +121,6 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
           {rooms.map((room, i) => (
             <div key={room.id} className={`${styles.roomCard} motion-rise`} style={{ "--i": i } as React.CSSProperties}>
               <div className={styles.roomHeader}>
-                <span className={styles.roomTitle}>{room.title}</span>
                 <div className={styles.metaRow}>
                   <Pill variant="accent">{t.common.room} {room.globalId}</Pill>
                   <Pill variant={room.visibility === "private" ? "accent" : "default"}>

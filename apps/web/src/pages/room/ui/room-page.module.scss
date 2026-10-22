@@ -1,6 +1,7 @@
 .roomContainer {
-  animation: rise-in var(--motion-slow) var(--ease-out) both;
+  animation: rise-in var(--motion-slow) var(--ease-out) backwards;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg);
@@ -12,7 +13,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) var(--chat-width, 420px);
   gap: var(--space-4);
   width: 100%;
   padding: var(--space-4);
@@ -44,6 +45,7 @@
 }
 
 .sidebarSection {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -203,7 +205,7 @@
   color: var(--color-text-muted);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 720px) {
   .roomContainer {
     height: auto !important;
     min-height: 100vh;
@@ -232,6 +234,10 @@
     overflow: visible !important;
   }
 
+  .resizeHandle {
+    display: none;
+  }
+
   .panelsContainer {
     height: auto !important;
     overflow: visible !important;
@@ -258,5 +264,163 @@
     font-size: 11px;
     min-height: 34px;
     gap: 4px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Cinema mode: big video, chat as a side panel (or a round button when collapsed)
+   -------------------------------------------------------------------------- */
+.chatCloseBtn {
+  display: none;
+}
+
+.chatFab {
+  display: none;
+}
+
+.mainContent[data-cinema="true"] {
+  position: fixed !important;
+  inset: 0;
+  z-index: 90;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--chat-width, 420px) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+  background-color: #000;
+
+  &[data-chat-open="false"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+
+    .sidebarSection {
+      display: none !important;
+    }
+  }
+
+  .videoSection {
+    --player-max-height: calc(100dvh - 118px);
+    width: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    background-color: #000;
+  }
+
+  .sidebarSection {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    padding: var(--space-3);
+    background-color: var(--color-bg);
+    border-left: var(--border-width) solid var(--color-border);
+    box-sizing: border-box;
+  }
+
+  .tabNavContainer {
+    display: none !important;
+  }
+
+  .panelsContainer > :not([data-panel="chat"]) {
+    display: none !important;
+  }
+
+  .panelsContainer > [data-panel="chat"] {
+    display: flex !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  .panelsContainer {
+    height: auto !important;
+    overflow: hidden !important;
+    padding-top: var(--space-6);
+  }
+
+  .resizeHandle {
+    display: flex;
+    left: -6px;
+  }
+
+  .chatCloseBtn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 7;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-height: 0;
+    border-radius: 50%;
+    border: var(--border-width) solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-text);
+      background-color: var(--color-surface-hover);
+    }
+  }
+
+  .chatFab {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--color-accent);
+    color: var(--color-accent-contrast);
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    animation: pop-in var(--motion-fast) var(--ease-spring) both;
+  }
+
+  .chatFabBadge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    border: 2px solid var(--color-accent);
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Phone: the chat floats over the right edge instead of squeezing the video */
+@media (max-width: 720px) {
+  .mainContent[data-cinema="true"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+
+    .sidebarSection {
+      position: absolute !important;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(var(--chat-width, 420px), 88vw) !important;
+      z-index: 9;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .videoSection {
+      --player-max-height: calc(100dvh - 96px);
+    }
   }
 }

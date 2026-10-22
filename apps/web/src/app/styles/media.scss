@@ -87,38 +87,7 @@
     padding-top: var(--space-2) !important;
   }
 
-  /* Room Page on Tablet */
-  [data-layout="room-page"],
-  [class*="roomContainer"] {
-    height: auto !important;
-    min-height: 100vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-
-  [data-layout="room-main"],
-  [class*="mainContent"] {
-    display: flex !important;
-    flex-direction: column !important;
-    padding: var(--space-4) !important;
-    gap: var(--space-4) !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  [data-layout="room-video"],
-  [class*="videoSection"] {
-    width: 100% !important;
-    overflow: visible !important;
-    height: auto !important;
-  }
-
-  [data-layout="room-sidebar"],
-  [class*="sidebarSection"] {
-    width: 100% !important;
-    overflow: visible !important;
-    height: auto !important;
-  }
+  /* Room page on tablets: the two-column layout with a resizable chat lives in room-page.module.scss */
 }
 
 /* --------------------------------------------------------------------------

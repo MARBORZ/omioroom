@@ -10,7 +10,7 @@ interface RoomHeaderProps {
   onNavigateHome?: () => void;
   onNavigateMyRooms?: () => void;
   onLeave?: () => void;
-  title?: string;
+  roomNumber?: string;
   onOpenParticipants?: () => void;
 }
 
@@ -19,7 +19,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   maxParticipants = 2,
   onNavigateHome,
   onLeave,
-  title,
+  roomNumber,
   onOpenParticipants,
 }) => {
   const { t } = useI18n();
@@ -33,7 +33,16 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             <span className={styles.brandDot} />
             {t.common.brand}
           </button>
-          {title && <span className={styles.roomTitle} title={title}>{title}</span>}
+          {roomNumber && (
+            <button
+              type="button"
+              className={styles.roomTitle}
+              title={t.common.copied}
+              onClick={() => void navigator.clipboard?.writeText(roomNumber).catch(() => {})}
+            >
+              {t.room.roomNumber} {roomNumber}
+            </button>
+          )}
         </div>
 
         <div className={styles.rightSection}>

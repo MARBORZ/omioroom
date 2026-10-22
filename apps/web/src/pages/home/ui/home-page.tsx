@@ -243,7 +243,6 @@ export const HomePage: React.FC<HomePageProps> = ({
             </Button>
           </div>
 
-          <p className={styles.hint}>{t.room.roomNameHint}</p>
           <details className={styles.advancedSettings}>
             <summary className={styles.advancedSummary}>
               <Settings size={13} />

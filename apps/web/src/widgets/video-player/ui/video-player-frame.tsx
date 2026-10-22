@@ -100,6 +100,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
+      isMuted,
     });
     latest.current = {
       errorText: t.room.playerError,
@@ -113,6 +114,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
+      isMuted,
     };
 
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
@@ -287,6 +289,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       adapterPlayingRef.current = false;
       appliedRateRef.current = 1;
       currentMediaTypeRef.current = media.type;
+      // A new player starts unmuted: carry over the current choice
+      if (latest.current.isMuted) adapter.setMuted(true);
 
       adapter.onStateChange((event: PlayerAdapterEvent) => {
         const cur = latest.current;
@@ -358,6 +362,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       setMediaLoading(true);
       setOverlayStatus(null);
       await adapterRef.current.loadMedia(media);
+      // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
+      appliedRateRef.current = 1;
       // The room state may have arrived long before the player existed (reload, late join):
       // line the freshly loaded player up with it now.
       revertRef.current();
@@ -580,6 +586,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           {overlayStatus}
         </div>
       )}
+
+      {!canControl && playbackState?.media && <div className={styles.pointerShield} aria-hidden />}
 
       {needsGesture && (
         <button type="button" className={styles.gestureOverlay} onClick={joinPlayback}>

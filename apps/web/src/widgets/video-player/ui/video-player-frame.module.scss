@@ -2,6 +2,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  max-height: var(--player-max-height, none);
   background-color: var(--color-video-bg);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
@@ -120,4 +121,12 @@
   font-size: var(--font-size-md);
   cursor: pointer;
   animation: fade-in var(--motion-base) var(--ease-out) both;
+}
+
+/* Participants who may not control the room cannot click into the player (a click there would pause it for them) */
+.pointerShield {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: default;
 }
