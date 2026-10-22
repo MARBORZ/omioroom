@@ -42,6 +42,7 @@ const USER_SEEK_JUMP_SECONDS = 1.5;
 const DRIFT_CHECK_INTERVAL_MS = 1000;
 const FIXED_RATE_SEEK_THRESHOLD_S = 0.5;
 const SEEK_REPORT_DEBOUNCE_MS = 350;
+const ECHO_WINDOW_MS = 700;
 const CORRECTION_COOLDOWN_MS = 3000;
 
 export interface VideoPlayerFrameProps {
@@ -54,6 +55,8 @@ export interface VideoPlayerFrameProps {
   onStallChange?: (stalled: boolean, position: number) => void;
   /** The room has waited long enough for stalled clients; ask the server to resume. */
   onWaitTimeout?: () => void;
+  /** Extra delay before asking the server to end the wait (non-leaders act only as a fallback). */
+  waitFallbackDelayMs?: number;
   onPositionUpdate: (currentTime: number, duration: number) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
@@ -70,6 +73,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       canControl = true,
       onStallChange,
       onWaitTimeout,
+      waitFallbackDelayMs = 0,
       onPositionUpdate,
       onPlayStateChange,
       onBufferingChange,
@@ -90,6 +94,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       canControl,
       onStallChange,
       onWaitTimeout,
+      waitFallbackDelayMs,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -102,6 +107,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       canControl,
       onStallChange,
       onWaitTimeout,
+      waitFallbackDelayMs,
       getEstimatedServerNow,
       onUserAction,
       onPositionUpdate,
@@ -193,15 +199,21 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       expectedRef.current = expectedRef.current.filter((e) => e.until > now);
       expectedRef.current.push({ type, target, until: now + 1500 });
     };
+    // Players often fire two events for one action (play + playing): once an expected event was swallowed,
+    // its echo within a moment is swallowed too, so it cannot be mistaken for the user pressing the button.
+    const lastConsumedRef = useRef<{ play: number; pause: number }>({ play: 0, pause: 0 });
     const consumeExpected = (type: "play" | "pause" | "seek", position?: number): boolean => {
       const now = Date.now();
       expectedRef.current = expectedRef.current.filter((e) => e.until > now);
       const i = expectedRef.current.findIndex(
         (e) => e.type === type && (type !== "seek" || Math.abs((position ?? 0) - (e.target ?? 0)) < 2.5)
       );
-      if (i < 0) return false;
-      expectedRef.current.splice(i, 1);
-      return true;
+      if (i >= 0) {
+        expectedRef.current.splice(i, 1);
+        if (type !== "seek") lastConsumedRef.current[type] = now;
+        return true;
+      }
+      return type !== "seek" && now - lastConsumedRef.current[type] < ECHO_WINDOW_MS;
     };
 
     const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
@@ -479,7 +491,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     if (holdingRevision === null) return;
     const timer = setTimeout(
       () => latest.current.onWaitTimeout?.(),
-      BUFFER_WAIT_TIMEOUT_MS + 300 + Math.random() * 400
+      BUFFER_WAIT_TIMEOUT_MS + 300 + (latest.current.waitFallbackDelayMs ?? 0) + Math.random() * 400
     );
     return () => clearTimeout(timer);
   }, [holdingRevision]);

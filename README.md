@@ -20,6 +20,23 @@ enforce the rules (room size limit, control modes, private codes, revisions, com
 Postgres. Clients read through RLS-protected tables and Realtime (`postgres_changes`), so only room members receive updates.
 The room follows a *leader* (whoever issued the last playback command, the owner at first): if the leader's player stalls, everyone waits for it (up to 10 s) at the leader's own position and resumes together; a follower's stall never stops anyone, they catch up on their own. Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
 
+## What the server receives
+
+Only key events, never a stream of positions. Each participant's player runs on their own device and the room state is
+recomputed locally from an anchor point (position + server time + speed). What reaches the database:
+
+| Event | When |
+|---|---|
+| play / pause / seek / speed / change video | a user action (scrubbing is merged into one seek; echo events of our own commands are dropped) |
+| chat message / image | when sent |
+| join / leave / settings | on the action |
+| heartbeat (keeps a seat) | every 45 s per participant |
+| clock sample | 3 quick ones at start, then once a minute |
+| stall report | only from the room's leader (followers do not send it) |
+
+Snapshot reloads after joins or settings changes are merged and spread over about 2 seconds so a large room does not hit
+the database at the same instant. Playback commands are rate limited (60 per 10 s per user).
+
 ## Self-host in 10 minutes
 
 1. **Supabase project.** Create one at supabase.com (or run it yourself).

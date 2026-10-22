@@ -6,16 +6,24 @@ export class TimeSyncClient {
   private offsetMs = 0;
   private hasSample = false;
   private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private burstTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   constructor(private readonly fetchServerTimeMs: () => Promise<number>) {}
 
-  startSync(intervalMs = 15000) {
+  /**
+   * A few quick samples right away (the offset must be good before the first play), then one a minute:
+   * clocks drift slowly, and every sample is a request the server has to answer.
+   */
+  startSync(slowIntervalMs = 60_000) {
     this.stopSync();
     void this.sample();
-    this.syncInterval = setInterval(() => void this.sample(), intervalMs);
+    this.burstTimers = [1500, 4000].map((delay) => setTimeout(() => void this.sample(), delay));
+    this.syncInterval = setInterval(() => void this.sample(), slowIntervalMs);
   }
 
   stopSync() {
+    this.burstTimers.forEach(clearTimeout);
+    this.burstTimers = [];
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;

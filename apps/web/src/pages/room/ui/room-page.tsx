@@ -108,17 +108,40 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const roomId = initialSnapshot.room.id;
     let disposed = false;
 
-    const reload = async () => {
+    // Snapshot only: who is here and what the room allows
+    const reloadSnapshot = async () => {
       try {
-        const [fresh, history] = await Promise.all([backend.getSnapshot(roomId), backend.chatHistory(roomId)]);
+        const fresh = await backend.getSnapshot(roomId);
         if (disposed) return;
         setSnapshot(fresh);
         if (fresh.playback) applyPlayback(fresh.playback);
-        setMessages(history);
-        setChatLoading(false);
       } catch (err: any) {
         if (!disposed && (err?.code === "ROOM_NOT_FOUND" || err?.code === "FORBIDDEN")) onLeaveRef.current();
       }
+    };
+
+    // Snapshot plus chat history: only when (re)subscribing, i.e. when events may have been missed
+    const reloadAll = async () => {
+      await reloadSnapshot();
+      try {
+        const history = await backend.chatHistory(roomId);
+        if (disposed) return;
+        setMessages(history);
+        setChatLoading(false);
+      } catch {
+        // The next resync retries
+      }
+    };
+
+    // Joins and setting changes reach every participant at once. Merge bursts into one request and
+    // spread the clients over a short window, so a big room does not hit the database in the same instant.
+    let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleSnapshot = () => {
+      if (snapshotTimer) clearTimeout(snapshotTimer);
+      snapshotTimer = setTimeout(() => {
+        snapshotTimer = null;
+        void reloadSnapshot();
+      }, 300 + Math.random() * 1500);
     };
 
     const close = openRoomChannel(roomId, user.id, {
@@ -142,21 +165,22 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           },
         }));
         // Permissions depend on the control mode: refresh our own flag and the member list
-        void reload();
+        scheduleSnapshot();
       },
-      onMemberChanged: () => void reload(),
+      onMemberChanged: scheduleSnapshot,
       onPresence: setPresentIds,
       onStatus: setChannelStatus,
-      onResync: () => void reload(),
+      onResync: () => void reloadAll(),
     });
 
     // Keeps our seat alive; the seat frees itself ~90s after the last sign of life
-    const heartbeat = setInterval(() => void backend.touchRoom(roomId).catch(() => {}), 30_000);
+    const heartbeat = setInterval(() => void backend.touchRoom(roomId).catch(() => {}), 45_000);
     const onPageHide = () => void backend.leaveRoom(roomId).catch(() => {});
     window.addEventListener("pagehide", onPageHide);
 
     return () => {
       disposed = true;
+      if (snapshotTimer) clearTimeout(snapshotTimer);
       clearInterval(heartbeat);
       window.removeEventListener("pagehide", onPageHide);
       close();
@@ -293,6 +317,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
   const canControl = snapshot.canControl;
+
+  // The room follows its leader: whoever acted last (the owner at first). Only the leader's stalls matter
+  // to the server, so followers do not even send them. If the leader is gone, the owner leads.
+  const lastActor = playback?.updatedByUserId ?? null;
+  const leaderPresent = lastActor !== null && (presentIds === null || presentIds.includes(lastActor));
+  const leaderId = leaderPresent ? lastActor : snapshot.room.ownerUserId;
+  const isLeader = user?.id === leaderId;
   const waitingNames = (playback?.bufferingBy ?? []).map(
     (id) => participants.find((p) => p.userId === id)?.displayName ?? "…"
   );
@@ -317,7 +348,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             playbackState={playback}
             getEstimatedServerNow={() => timeSync.getEstimatedServerNow()}
             canControl={canControl}
+            waitFallbackDelayMs={isLeader ? 0 : 4000}
             onStallChange={(stalled, position) =>
+              isLeader &&
               void backend
                 .reportBuffering(snapshot.room.id, stalled, position)
                 .then(applyPlayback)
