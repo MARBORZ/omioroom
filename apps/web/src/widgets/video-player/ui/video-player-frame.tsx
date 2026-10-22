@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { VolumeX } from "lucide-react";
 import {
   MediaType,
   PlaybackStatus,
@@ -19,6 +20,7 @@ interface VideoPlayerFrameProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBufferingChange?: (isBuffering: boolean) => void;
   isMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
@@ -28,6 +30,7 @@ export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
   onPlayStateChange,
   onBufferingChange,
   isMuted = false,
+  onToggleMute,
 }) => {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +161,18 @@ export const VideoPlayerFrame: React.FC<VideoPlayerFrameProps> = ({
         <div className={styles.overlayMessage}>
           {overlayStatus}
         </div>
+      )}
+
+      {playbackState?.status === PlaybackStatus.PLAYING && isMuted && onToggleMute && (
+        <button
+          type="button"
+          className={styles.unmuteBadge}
+          onClick={onToggleMute}
+          aria-label={t.room.unmute}
+        >
+          <VolumeX size={15} />
+          <span>{t.room.unmute}</span>
+        </button>
       )}
     </div>
   );

@@ -313,4 +313,30 @@ export class RoomService {
 
     return summaries;
   }
+
+  async cleanupInactiveRooms(maxInactiveMs = 30 * 60 * 1000): Promise<number> {
+    const activeRooms = await this.roomRepository.findActiveRooms();
+    const now = this.clock.now();
+    let cleaned = 0;
+
+    for (const room of activeRooms) {
+      const memberships = await this.membershipRepository.findMemberships(room.id);
+      const onlineCount = memberships.filter((m) => m.isOnline).length;
+      if (onlineCount === 0) {
+        const lastActive = memberships.reduce((latest, m) => {
+          const t = new Date(m.lastActiveAt).getTime();
+          return Math.max(latest, isNaN(t) ? 0 : t);
+        }, new Date(room.createdAt).getTime());
+
+        if (now - lastActive > maxInactiveMs) {
+          room.status = "closed";
+          room.updatedAt = this.clock.isoNow();
+          await this.roomRepository.save(room);
+          cleaned++;
+        }
+      }
+    }
+
+    return cleaned;
+  }
 }

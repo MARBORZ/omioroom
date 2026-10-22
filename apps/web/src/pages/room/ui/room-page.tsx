@@ -287,6 +287,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             }}
             isMuted={isMuted}
             onBufferingChange={setIsBuffering}
+            onToggleMute={() => setIsMuted((m) => !m)}
           />
 
           <PlaybackControls

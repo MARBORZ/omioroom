@@ -17,7 +17,9 @@ export interface RoomRepository {
   findById(id: string): Promise<RoomRecord | null>;
   findByGlobalId(globalId: string): Promise<RoomRecord | null>;
   findByOwnerUserId(ownerUserId: string): Promise<RoomRecord[]>;
+  findActiveRooms(): Promise<RoomRecord[]>;
   save(room: RoomRecord): Promise<void>;
+  delete(id: string): Promise<void>;
   isGlobalIdTaken(globalId: string): Promise<boolean>;
 }
 
@@ -45,12 +47,30 @@ export class InMemoryRoomRepository implements RoomRepository {
     return result;
   }
 
+  async findActiveRooms(): Promise<RoomRecord[]> {
+    const result: RoomRecord[] = [];
+    for (const room of this.rooms.values()) {
+      if (room.status === "active") {
+        result.push({ ...room });
+      }
+    }
+    return result;
+  }
+
   async save(room: RoomRecord): Promise<void> {
     this.rooms.set(room.id, { ...room });
     if (room.status === "active") {
       this.globalIdMap.set(room.globalId, room.id);
     } else {
       this.globalIdMap.delete(room.globalId);
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    const room = this.rooms.get(id);
+    if (room) {
+      this.globalIdMap.delete(room.globalId);
+      this.rooms.delete(id);
     }
   }
 

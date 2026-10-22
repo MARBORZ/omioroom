@@ -69,8 +69,14 @@ export function createSocketServer(httpServer: HttpServer, config: ServerConfig)
     registerRoomHandlers(io, socket, roomService);
   });
 
+  // Periodic cleanup of inactive empty rooms (runs every 60 seconds)
+  const cleanupTimer = setInterval(() => {
+    roomService.cleanupInactiveRooms().catch(() => {});
+  }, 60_000);
+
   return {
     io,
+    cleanupTimer,
     userService,
     sessionService,
     accessService,
