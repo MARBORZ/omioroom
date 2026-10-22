@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Copy, Check, RotateCw, Lock, Globe } from "lucide-react";
+import { Copy, Check, RotateCw, Eye, EyeOff, Link2 } from "lucide-react";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
-import { Pill } from "../../../shared/ui/pill/pill.js";
 import styles from "./invite-panel.module.scss";
 
 interface InvitePanelProps {
@@ -16,6 +15,8 @@ interface InvitePanelProps {
   onToggleVisibility?: (newVis: "public" | "private") => Promise<void>;
 }
 
+type CopyTarget = "code" | "link" | "key";
+
 export const InvitePanel: React.FC<InvitePanelProps> = ({
   globalRoomId,
   isOwner,
@@ -27,146 +28,137 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
   onToggleVisibility,
 }) => {
   const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
-  const [rotating, setRotating] = useState(false);
-  const [revoking, setRevoking] = useState(false);
-  const [toggling, setToggling] = useState(false);
+  const [copied, setCopied] = useState<CopyTarget | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [busy, setBusy] = useState<"rotate" | "revoke" | "toggle" | null>(null);
 
-  const getInviteUrl = () => {
-    const origin = window.location.origin;
-    if (visibility === "private" && privateCode) {
-      return `${origin}/#room=${globalRoomId}&code=${privateCode}`;
-    }
-    return `${origin}/#room=${globalRoomId}`;
+  const inviteUrl = () => {
+    const base = `${window.location.origin}/#room=${globalRoomId}`;
+    return visibility === "private" && privateCode ? `${base}&code=${privateCode}` : base;
   };
 
-  // A private invite is only useful with its secret, which only the owner ever sees
   const canCopyInvite = visibility === "public" || Boolean(privateCode);
 
-  const handleCopy = async () => {
-    if (!canCopyInvite) return;
+  const copy = async (target: CopyTarget, value: string) => {
     try {
-      await navigator.clipboard.writeText(getInviteUrl());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopied(target);
+      setTimeout(() => setCopied((c) => (c === target ? null : c)), 1800);
     } catch {
-      // Fallback
-      setCopied(false);
+      setCopied(null);
     }
   };
 
-  const handleRotate = async () => {
-    if (!onRotateCode) return;
-    if (!window.confirm(t.room.rotateConfirm)) {
-      return;
-    }
+  const run = async (kind: "rotate" | "revoke" | "toggle", action?: () => Promise<void>, confirmText?: string) => {
+    if (!action) return;
+    if (confirmText && !window.confirm(confirmText)) return;
     try {
-      setRotating(true);
-      await onRotateCode();
+      setBusy(kind);
+      await action();
+      if (kind !== "toggle") setRevealed(false);
     } finally {
-      setRotating(false);
+      setBusy(null);
     }
   };
 
-  const handleRevoke = async () => {
-    if (!onRevokeCode) return;
-    if (!window.confirm(t.room.revokeConfirm)) {
-      return;
-    }
-    try {
-      setRevoking(true);
-      await onRevokeCode();
-    } finally {
-      setRevoking(false);
-    }
-  };
-
-  const handleToggle = async () => {
-    if (!onToggleVisibility) return;
-    const nextVis = visibility === "public" ? "private" : "public";
-    try {
-      setToggling(true);
-      await onToggleVisibility(nextVis);
-    } finally {
-      setToggling(false);
-    }
-  };
+  const copyIcon = (target: CopyTarget) => (copied === target ? <Check size={14} /> : <Copy size={14} />);
 
   return (
-    <div className={styles.invitePanel}>
-      <div className={styles.sectionTitle}>
-        <span>{t.room.inviteTitle}</span>
-        <Pill variant={visibility === "private" ? "accent" : "default"}>
-          {visibility === "private" ? <Lock size={10} style={{ marginRight: 2 }} /> : <Globe size={10} style={{ marginRight: 2 }} />}
-          {visibility === "private" ? t.common.private : t.common.public}
-        </Pill>
+    <section className={styles.panel} aria-label={t.room.inviteTitle}>
+      <div className={styles.title}>{t.room.inviteTitle}</div>
+
+      <div className={styles.field}>
+        <span className={styles.label}>{t.room.codeLabel}</span>
+        <div className={styles.valueRow}>
+          <span className={styles.value}>{globalRoomId}</span>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => void copy("code", globalRoomId)}
+            aria-label={t.room.copyCode}
+            title={copied === "code" ? t.room.codeCopied : t.room.copyCode}
+          >
+            {copyIcon("code")}
+          </button>
+        </div>
       </div>
 
-      <div className={styles.copyRow}>
-        <Button
-          variant="primary"
-          onClick={handleCopy}
-          disabled={!canCopyInvite}
-          icon={copied ? <Check size={16} /> : <Copy size={16} />}
-          style={{ width: "100%" }}
-        >
-          {copied ? t.room.inviteCopied : t.room.copyInviteBtn}
-        </Button>
-      </div>
+      <Button
+        variant="primary"
+        onClick={() => void copy("link", inviteUrl())}
+        disabled={!canCopyInvite}
+        icon={copied === "link" ? <Check size={16} /> : <Link2 size={16} />}
+      >
+        {copied === "link" ? t.room.inviteCopied : t.room.copyInviteBtn}
+      </Button>
 
-      {isOwner && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
-          {visibility === "private" && (
-            <>
-              <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-                {privateCode
-                  ? t.room.privateKeyNotice
-                  : codeRevoked
-                  ? t.room.keyRevokedNotice
-                  : t.room.keyHiddenNotice}
-              </div>
-              <div className={styles.privateCodeBox}>
-                <span>{privateCode ?? "••••••••"}</span>
-                <div style={{ display: "flex", gap: "4px" }}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRotate}
-                    loading={rotating}
-                    icon={<RotateCw size={14} />}
-                    title={t.room.rotateKey}
-                  >
-                    {t.room.rotateKey}
-                  </Button>
-                  {!codeRevoked && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={handleRevoke}
-                      loading={revoking}
-                      title={t.room.revokeKey}
-                    >
-                      {t.room.revokeKey}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </>
+      {isOwner && visibility === "private" && (
+        <div className={styles.field}>
+          <span className={styles.label}>{t.room.privateKeyNotice}</span>
+          {privateCode ? (
+            <div className={styles.valueRow}>
+              <span className={styles.value} aria-live="polite">
+                {revealed ? privateCode : "••••••••"}
+              </span>
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={() => setRevealed((v) => !v)}
+                aria-label={revealed ? t.room.hideKey : t.room.showKey}
+                aria-pressed={revealed}
+              >
+                {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={() => void copy("key", privateCode)}
+                aria-label={t.room.copyKey}
+                title={copied === "key" ? t.room.keyCopied : t.room.copyKey}
+              >
+                {copyIcon("key")}
+              </button>
+            </div>
+          ) : (
+            <p className={styles.hint}>{codeRevoked ? t.room.keyRevokedNotice : t.room.keyHiddenNotice}</p>
           )}
 
-          <div className={styles.actionRow}>
+          <div className={styles.rowActions}>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
-              onClick={handleToggle}
-              loading={toggling}
-              style={{ width: "100%", fontSize: "12px" }}
+              loading={busy === "rotate"}
+              icon={<RotateCw size={14} />}
+              onClick={() => void run("rotate", onRotateCode, t.room.rotateConfirm)}
             >
-              {visibility === "public" ? t.room.switchToPrivate : t.room.switchToPublic}
+              {t.room.rotateKey}
             </Button>
+            {!codeRevoked && (
+              <Button
+                variant="danger"
+                size="sm"
+                loading={busy === "revoke"}
+                onClick={() => void run("revoke", onRevokeCode, t.room.revokeConfirm)}
+              >
+                {t.room.revokeKey}
+              </Button>
+            )}
           </div>
         </div>
       )}
-    </div>
+
+      {isOwner && (
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={busy === "toggle"}
+          onClick={() =>
+            void run("toggle", () => onToggleVisibility?.(visibility === "public" ? "private" : "public") ?? Promise.resolve())
+          }
+        >
+          {visibility === "public" ? t.room.switchToPrivate : t.room.switchToPublic}
+        </Button>
+      )}
+    </section>
   );
 };

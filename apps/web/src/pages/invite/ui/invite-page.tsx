@@ -4,9 +4,7 @@ import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
-import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
-import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
 import { backend } from "../../../shared/api/backend.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import styles from "./invite-page.module.scss";
@@ -80,7 +78,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
   return (
     <div className={styles.container}>
       <div className={styles.topBar}>
-        <StatusIndicator status={connectionStatus} />
+        <span />
         <LangSwitch />
       </div>
 
@@ -96,7 +94,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({
         {user && (
           <div className={styles.asRow}>
             <span>{t.invite.joiningAs}</span>
-            <Pill variant="accent">{user.displayName}</Pill>
+            <strong>{user.displayName}</strong>
           </div>
         )}
 

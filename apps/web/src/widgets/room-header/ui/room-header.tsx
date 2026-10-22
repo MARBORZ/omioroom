@@ -1,28 +1,24 @@
 import React from "react";
-import { Users, Tv } from "lucide-react";
-import { Pill } from "../../../shared/ui/pill/pill.js";
-import { StatusIndicator, type ConnectionStatusType } from "../../../shared/ui/status-indicator/status-indicator.js";
+import { Users, Tv, LogOut } from "lucide-react";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import styles from "./room-header.module.scss";
 
 interface RoomHeaderProps {
-  globalRoomId?: string;
   participantCount?: number;
   maxParticipants?: number;
-  connectionStatus: ConnectionStatusType;
   onNavigateHome?: () => void;
   onNavigateMyRooms?: () => void;
+  onLeave?: () => void;
   title?: string;
 }
 
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
-  globalRoomId,
   participantCount = 1,
   maxParticipants = 2,
-  connectionStatus,
   onNavigateHome,
   onNavigateMyRooms,
+  onLeave,
   title,
 }) => {
   const { t } = useI18n();
@@ -30,59 +26,29 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   return (
     <header className={styles.header}>
       <div className={styles.leftSection}>
-        <div
-          className={styles.brand}
-          onClick={onNavigateHome}
-          style={{ cursor: onNavigateHome ? "pointer" : "default" }}
-          role={onNavigateHome ? "button" : undefined}
-          tabIndex={onNavigateHome ? 0 : undefined}
-        >
+        <button type="button" className={styles.brand} onClick={onNavigateHome}>
           <span className={styles.brandDot} />
           {t.common.brand}
-        </div>
-
-        {globalRoomId && (
-          <Pill variant="accent">
-            {t.common.room} {globalRoomId}
-          </Pill>
-        )}
-
-        {title && (
-          <span style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-            {title}
-          </span>
-        )}
+        </button>
+        {title && <span className={styles.roomTitle}>{title}</span>}
       </div>
 
       <div className={styles.rightSection}>
+        <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
+          <Users size={14} />
+          {participantCount} / {maxParticipants}
+        </span>
         <LangSwitch />
-
-        <StatusIndicator status={connectionStatus} />
-
-        {globalRoomId && (
-          <Pill variant={participantCount >= maxParticipants ? "success" : "default"}>
-            <Users size={12} style={{ marginRight: 2 }} />
-            {participantCount} / {maxParticipants}
-          </Pill>
-        )}
-
         {onNavigateMyRooms && (
-          <button
-            type="button"
-            onClick={onNavigateMyRooms}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--color-text-muted)",
-              fontSize: "13px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
+          <button type="button" className={styles.link} onClick={onNavigateMyRooms}>
             <Tv size={14} />
             {t.common.myRooms}
+          </button>
+        )}
+        {onLeave && (
+          <button type="button" className={styles.link} onClick={onLeave}>
+            <LogOut size={14} />
+            {t.room.leaveRoom}
           </button>
         )}
       </div>

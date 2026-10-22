@@ -31,13 +31,11 @@ export const backend = {
     rpc<{ id: string; kind: User["kind"]; displayName: string }>("update_display_name", { p_name: name }),
 
   createRoom: (
-    title: string,
     visibility: RoomVisibility,
     options: { maxParticipants: number; controlMode: ControlMode },
     requestId = generateClientRequestId()
   ) =>
     rpc<RoomCreateResult>("create_room", {
-      p_title: title,
       p_visibility: visibility,
       p_request_id: requestId,
       p_max_participants: options.maxParticipants,

@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { User } from "@omioroom/contracts";
 import type { TimeSyncClient } from "../../shared/api/time-sync.js";
-import type { ConnectionStatusType } from "../../shared/ui/status-indicator/status-indicator.js";
+import type { ConnectionStatusType } from "../../shared/model/connection.js";
 
 export interface SessionContextValue {
   timeSync: TimeSyncClient;

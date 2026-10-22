@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { LogOut } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -10,7 +9,7 @@ import { RoomChat } from "../../../widgets/room-chat/ui/room-chat.js";
 import { ParticipantsPanel } from "../../../widgets/participants-panel/ui/participants-panel.js";
 import { VoicePanel } from "../../../widgets/voice-panel/ui/voice-panel.js";
 import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
-import { Button } from "../../../shared/ui/button/button.js";
+import { ConnectionNotice } from "../../../shared/ui/connection-notice/connection-notice.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
 import { PlaybackStatus, type ChatMessageDto, type RoomSnapshotDto, type RoomPlaybackStateDto, type PlayerCommandPayload, type MediaSourceInfo, type ControlMode } from "@omioroom/contracts";
@@ -39,6 +38,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [ownerKey, setOwnerKey] = useState<string | null>(initialKey ?? null);
   const [codeRevoked, setCodeRevoked] = useState(false);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
+  const [chatLoading, setChatLoading] = useState(true);
   const [channelStatus, setChannelStatus] = useState<RoomChannelStatus>("connecting");
   const [presentIds, setPresentIds] = useState<string[] | null>(null);
   // Latest callbacks for the long-lived channel effect (they change identity on every parent render)
@@ -53,7 +53,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [lastSyncText, setLastSyncText] = useState(t.status.inSync);
 
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
@@ -97,7 +96,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       if (state.revision < playbackRevisionRef.current) return;
       playbackRevisionRef.current = state.revision;
       setPlayback(state);
-      setLastSyncText(tRef.current.room.inSyncRev(state.revision));
     },
     []
   );
@@ -115,6 +113,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         setSnapshot(fresh);
         if (fresh.playback) applyPlayback(fresh.playback);
         setMessages(history);
+        setChatLoading(false);
       } catch (err: any) {
         if (!disposed && (err?.code === "ROOM_NOT_FOUND" || err?.code === "FORBIDDEN")) onLeaveRef.current();
       }
@@ -292,19 +291,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const waitingNames = (playback?.bufferingBy ?? []).map(
     (id) => participants.find((p) => p.userId === id)?.displayName ?? "…"
   );
-  const connectionStatus =
-    sessionStatus !== "connected" ? sessionStatus : channelStatus === "connected" ? "connected" : channelStatus;
 
   return (
     <div className={styles.roomContainer}>
+      {sessionStatus === "connected" && <ConnectionNotice status={channelStatus} />}
       <RoomHeader
-        globalRoomId={snapshot.room.globalId}
         participantCount={activeParticipantsCount}
         maxParticipants={snapshot.room.maxParticipants}
-        connectionStatus={connectionStatus}
         title={snapshot.room.title}
         onNavigateHome={onNavigateHome}
         onNavigateMyRooms={onNavigateMyRooms}
+        onLeave={handleLeave}
       />
 
       <main className={styles.mainContent}>
@@ -354,27 +351,21 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onToggleFullscreen={handleToggleFullscreen}
           />
 
-          {/* Real-time sync status bar */}
-          <div className={styles.syncStatusBar}>
-            <span>
-              ●{" "}
-              {waitingNames.length > 0
-                ? `${t.group.waitingFor}: ${waitingNames.join(", ")}`
-                : isBuffering
-                ? t.status.buffering
-                : lastSyncText}
-            </span>
-            <span>{t.room.offset}: {Math.round(timeSync.getClockOffset())}ms</span>
-            <Button variant="ghost" size="sm" onClick={handleLeave} icon={<LogOut size={14} />}>
-              {t.room.leaveRoom}
-            </Button>
-          </div>
+          {(waitingNames.length > 0 || isBuffering) && (
+            <div className={`${styles.waitNote} motion-fade`} role="status">
+              {waitingNames.length > 0 ? `${t.group.waitingFor}: ${waitingNames.join(", ")}` : t.status.buffering}
+            </div>
+          )}
         </div>
 
         {/* Sidebar Controls Section */}
         <aside className={styles.sidebarSection}>
           <ChangeMediaInput onMediaSelect={handleMediaSelect} disabled={!canControl} />
           {!canControl && <div className={styles.viewOnly}>{t.group.viewOnly}</div>}
+
+          <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+
+          <RoomChat messages={messages} loading={chatLoading} onSend={handleSendChat} />
 
           <ParticipantsPanel
             participants={participants}
@@ -386,8 +377,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onToggleControl={handleToggleControl}
           />
 
-          <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
-
           <InvitePanel
             globalRoomId={snapshot.room.globalId}
             isOwner={snapshot.isOwner}
@@ -398,7 +387,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onRotateCode={handleRotatePrivateCode}
             onToggleVisibility={handleToggleVisibility}
           />
-          <RoomChat messages={messages} onSend={handleSendChat} />
         </aside>
       </main>
     </div>

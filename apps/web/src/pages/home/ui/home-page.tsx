@@ -5,8 +5,7 @@ import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { ControlModeSelect } from "../../../shared/ui/control-mode-select/control-mode-select.js";
-import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
-import { Pill } from "../../../shared/ui/pill/pill.js";
+import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
 import { backend } from "../../../shared/api/backend.js";
 import {
@@ -38,7 +37,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [nameLoading, setNameLoading] = useState(false);
 
   // Create room state
-  const [roomTitle, setRoomTitle] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [maxParticipants, setMaxParticipants] = useState(String(DEFAULT_ROOM_PARTICIPANTS));
   const [controlMode, setControlMode] = useState<ControlMode>("everyone");
@@ -70,7 +68,7 @@ export const HomePage: React.FC<HomePageProps> = ({
     setCreateLoading(true);
 
     try {
-      const result = await backend.createRoom(roomTitle.trim() || "Watch Room", visibility, {
+      const result = await backend.createRoom(visibility, {
         maxParticipants: Number(maxParticipants),
         controlMode,
       });
@@ -118,7 +116,6 @@ export const HomePage: React.FC<HomePageProps> = ({
           {t.common.brand}
         </div>
         <div className={styles.topBarRight}>
-          <StatusIndicator status={connectionStatus} />
           <LangSwitch />
         </div>
       </div>
@@ -155,16 +152,11 @@ export const HomePage: React.FC<HomePageProps> = ({
         ) : (
           <>
             <div>
-              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
                 {t.home.watchingAs}
-                {user?.kind && (
-                  <Pill variant={user.kind === "registered" ? "success" : user.kind === "nickname" ? "accent" : "default"}>
-                    {user.kind.toUpperCase()}
-                  </Pill>
-                )}
               </div>
               <div style={{ fontWeight: 600, fontSize: "15px", marginTop: 2 }}>
-                {user?.displayName || t.common.loading}
+                {user ? user.displayName : <Skeleton width={120} shape="text" height={16} />}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -207,13 +199,6 @@ export const HomePage: React.FC<HomePageProps> = ({
       <div className={styles.card}>
         <div className={styles.cardTitle}>{t.home.createTitle}</div>
         <form onSubmit={handleCreateRoom} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <TextField
-            label={t.home.roomTitleLabel}
-            placeholder={t.home.roomTitlePlaceholder}
-            value={roomTitle}
-            onChange={(e) => setRoomTitle(e.target.value)}
-          />
-
           <div style={{ display: "flex", gap: 8 }}>
             <Button
               type="button"
@@ -237,6 +222,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </Button>
           </div>
 
+          <p className={styles.hint}>{t.room.roomNameHint}</p>
           <TextField
             label={t.group.createLimit}
             type="number"

@@ -90,3 +90,16 @@
     transform: scale(1.02);
   }
 }
+
+.placeholderTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}

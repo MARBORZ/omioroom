@@ -68,6 +68,17 @@ export interface Translations {
     keyRevokedNotice: string;
     rotateKey: string;
     rotateConfirm: string;
+    codeLabel: string;
+    copyCode: string;
+    showKey: string;
+    hideKey: string;
+    copyKey: string;
+    keyCopied: string;
+    codeCopied: string;
+    roomNameHint: string;
+    waitingNote: string;
+    addVideoFirst: string;
+    reconnecting: string;
     switchToPublic: string;
     switchToPrivate: string;
     leaveRoom: string;

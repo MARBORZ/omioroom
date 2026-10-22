@@ -10,6 +10,8 @@ import { RoomPage } from "../pages/room/ui/room-page.js";
 import { InvitePage } from "../pages/invite/ui/invite-page.js";
 import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
+import { applyMotionTokens } from "../shared/config/motion.js";
+import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
 import "./styles/global.scss";
 
 type Screen = "identity" | "invite" | "home" | "my-rooms" | "room";
@@ -40,7 +42,7 @@ function parseInviteHash(): InviteTarget | null {
   return { globalId, code };
 }
 
-const MainApp: React.FC = () => {
+const MainScreens: React.FC = () => {
   const [invite] = useState<InviteTarget | null>(readInviteFromHash);
   const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
   const { user, connectionStatus, ensureUser } = useSession();
@@ -128,6 +130,16 @@ const SetupNotice: React.FC = () => (
   </div>
 );
 
+const MainApp: React.FC = () => {
+  const { connectionStatus } = useSession();
+  return (
+    <>
+      <ConnectionNotice status={connectionStatus} />
+      <MainScreens />
+    </>
+  );
+};
+
 export const App: React.FC = () => {
   if (!isBackendConfigured) return <SetupNotice />;
   return (
@@ -141,6 +153,7 @@ export const App: React.FC = () => {
 
 const rootEl = document.getElementById("root");
 if (rootEl) {
+  applyMotionTokens();
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>
       <App />

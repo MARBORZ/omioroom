@@ -3,7 +3,7 @@ import { ErrorCode, createProtocolError, type User } from "@omioroom/contracts";
 import { supabase } from "../../shared/api/supabase.js";
 import { backend } from "../../shared/api/backend.js";
 import { TimeSyncClient } from "../../shared/api/time-sync.js";
-import type { ConnectionStatusType } from "../../shared/ui/status-indicator/status-indicator.js";
+import type { ConnectionStatusType } from "../../shared/model/connection.js";
 import { SessionContext } from "./session-context.js";
 
 interface ProfileRow {

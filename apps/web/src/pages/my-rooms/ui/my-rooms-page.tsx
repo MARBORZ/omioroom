@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe } from "lucide-react";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";
 import { FriendsPanel } from "../../../widgets/friends-panel/ui/friends-panel.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
@@ -86,8 +87,14 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
 
       <div className={styles.content}>
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-muted)" }}>
-          {t.common.loading}
+        <div className={styles.roomList}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={styles.roomCard}>
+              <Skeleton width="55%" shape="text" height={18} />
+              <Skeleton width="80%" shape="text" />
+              <Skeleton width="100%" height={32} />
+            </div>
+          ))}
         </div>
       ) : rooms.length === 0 ? (
         <div className={styles.emptyState}>
@@ -98,8 +105,8 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         </div>
       ) : (
         <div className={styles.roomList}>
-          {rooms.map((room) => (
-            <div key={room.id} className={styles.roomCard}>
+          {rooms.map((room, i) => (
+            <div key={room.id} className={`${styles.roomCard} motion-rise`} style={{ ["--i" as string]: i }}>
               <div className={styles.roomHeader}>
                 <span className={styles.roomTitle}>{room.title}</span>
                 <div className={styles.metaRow}>

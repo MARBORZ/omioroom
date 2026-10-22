@@ -1,4 +1,5 @@
 .container {
+  animation: rise-in var(--motion-slow) var(--ease-out) both;
   width: 100%;
   min-height: 100vh;
   padding: var(--space-5) var(--space-7);

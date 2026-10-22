@@ -4,6 +4,7 @@ import { getUserCapabilities, type FriendDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { backend } from "../../../shared/api/backend.js";
+import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import styles from "./friends-panel.module.scss";
@@ -19,6 +20,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const allowed = user ? getUserCapabilities(user.kind).canManageFriends : false;
 
@@ -27,6 +29,8 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
       setFriends(await backend.listFriends());
     } catch {
       setError(t.friends.loadFailed);
+    } finally {
+      setLoaded(true);
     }
   }, [t]);
 
@@ -91,7 +95,12 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateIdentity }
           {t.friends.add}
         </Button>
       </form>
-      {friends.length === 0 ? (
+      {!loaded ? (
+        <div className={styles.list}>
+          <Skeleton width="70%" shape="text" height={16} />
+          <Skeleton width="50%" shape="text" height={16} />
+        </div>
+      ) : friends.length === 0 ? (
         <p className={styles.hint}>{t.friends.empty}</p>
       ) : (
         <ul className={styles.list}>

@@ -73,6 +73,10 @@ export class HlsPlayerAdapter implements PlayerAdapter {
       });
     });
 
+    video.addEventListener("loadedmetadata", () => {
+      this.emit({ type: "timeupdate", currentTime: video.currentTime, duration: video.duration || 0 });
+    });
+
     video.addEventListener("ended", () => {
       this.emit({
         type: "ended",

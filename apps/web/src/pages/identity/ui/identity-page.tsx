@@ -4,9 +4,7 @@ import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
-import { Pill } from "../../../shared/ui/pill/pill.js";
 import { LangSwitch } from "../../../shared/ui/lang-switch/lang-switch.js";
-import { StatusIndicator } from "../../../shared/ui/status-indicator/status-indicator.js";
 import styles from "./identity-page.module.scss";
 
 interface IdentityPageProps {
@@ -14,7 +12,7 @@ interface IdentityPageProps {
 }
 
 export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
-  const { connectionStatus, ensureUser, updateDisplayName, register, login } = useSession();
+  const { ensureUser, updateDisplayName, register, login } = useSession();
   const { t } = useI18n();
 
   // Nickname option state
@@ -97,7 +95,6 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
           {t.common.brand}
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <StatusIndicator status={connectionStatus} />
           <LangSwitch />
         </div>
       </div>
@@ -115,7 +112,6 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               <Shield size={16} color="var(--color-accent)" />
               {t.onboarding.anonTitle}
             </div>
-            <Pill variant="default">GUEST</Pill>
           </div>
           <p className={styles.cardDesc}>{t.onboarding.anonDesc}</p>
           <Button
@@ -134,7 +130,6 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               <UserCheck size={16} color="var(--color-accent)" />
               {t.onboarding.nickTitle}
             </div>
-            <Pill variant="accent">NICKNAME</Pill>
           </div>
           <p className={styles.cardDesc}>{t.onboarding.nickDesc}</p>
           <form onSubmit={handleChooseNickname} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -169,7 +164,6 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               <KeyRound size={16} color="var(--color-accent)" />
               {t.onboarding.accountTitle}
             </div>
-            <Pill variant="success">PERSISTENT</Pill>
           </div>
           <p className={styles.cardDesc}>{t.onboarding.accountDesc}</p>
 

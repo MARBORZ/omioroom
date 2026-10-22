@@ -5,15 +5,17 @@ import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
+import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { ChatImage } from "./chat-image.js";
 import styles from "./room-chat.module.scss";
 
 interface RoomChatProps {
   messages: ChatMessageDto[];
+  loading?: boolean;
   onSend: (text: string, image: File | null) => Promise<void>;
 }
 
-export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
+export const RoomChat: React.FC<RoomChatProps> = ({ messages, loading = false, onSend }) => {
   const { user } = useSession();
   const { t } = useI18n();
 
@@ -79,9 +81,16 @@ export const RoomChat: React.FC<RoomChatProps> = ({ messages, onSend }) => {
       <div className={styles.title}>{t.chat.title}</div>
 
       <div className={styles.list} ref={listRef} role="log" aria-live="polite">
-        {messages.length === 0 && <div className={styles.empty}>{t.chat.empty}</div>}
+        {loading && (
+          <>
+            <Skeleton width="40%" shape="text" />
+            <Skeleton width="75%" shape="text" />
+            <Skeleton width="55%" shape="text" />
+          </>
+        )}
+        {!loading && messages.length === 0 && <div className={styles.empty}>{t.chat.empty}</div>}
         {messages.map((m) => (
-          <div key={m.id} className={`${styles.message} ${m.senderId === user?.id ? styles.own : ""}`}>
+          <div key={m.id} className={`${styles.message} ${m.senderId === user?.id ? styles.own : ""} motion-rise`}>
             <span className={styles.sender}>{m.senderName}</span>
             {m.text && <span className={styles.text}>{m.text}</span>}
             {m.attachmentPath && (

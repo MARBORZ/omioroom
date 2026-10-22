@@ -1,0 +1,78 @@
+/* Motion primitives. Durations and curves come from shared/config/motion.ts (CSS variables);
+   the fallbacks keep things working before JS has applied them. */
+
+:root {
+  --motion-instant: 90ms;
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 380ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --rise: 10px;
+  --stagger: 40ms;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(var(--rise)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* A screen entering */
+.motion-screen {
+  animation: rise-in var(--motion-slow) var(--ease-out) both;
+}
+
+/* Elements entering one after another: set --i on each child (see .motion-stagger > *) */
+.motion-rise {
+  animation: rise-in var(--motion-base) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+
+.motion-fade {
+  animation: fade-in var(--motion-base) var(--ease-out) both;
+}
+
+.motion-pop {
+  animation: pop-in var(--motion-base) var(--ease-spring) both;
+}
+
+/* Pressable feedback for every button and chip */
+button:not(:disabled),
+[role="button"] {
+  transition:
+    transform var(--motion-fast) var(--ease-spring),
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
+}
+
+button:not(:disabled):active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-screen,
+  .motion-rise,
+  .motion-fade,
+  .motion-pop {
+    animation: none;
+  }
+}

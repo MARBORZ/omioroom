@@ -1,4 +1,5 @@
 .homeContainer {
+  animation: rise-in var(--motion-slow) var(--ease-out) both;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -90,11 +91,8 @@
 }
 
 .cardTitle {
-  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--color-text-muted);
 }
 
@@ -113,4 +111,10 @@
     height: 1px;
     background-color: var(--color-border);
   }
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
 }

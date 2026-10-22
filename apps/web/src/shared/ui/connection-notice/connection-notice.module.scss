@@ -1,0 +1,13 @@
+.notice {
+  position: fixed;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-warning);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 13px;
+}

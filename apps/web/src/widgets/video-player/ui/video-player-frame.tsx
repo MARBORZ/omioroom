@@ -21,6 +21,7 @@ import { VkPlayerAdapter } from "../../../shared/lib/adapters/vk-adapter.js";
 import { RutubePlayerAdapter } from "../../../shared/lib/adapters/rutube-adapter.js";
 import { TwitchPlayerAdapter } from "../../../shared/lib/adapters/twitch-adapter.js";
 import { VimeoPlayerAdapter } from "../../../shared/lib/adapters/vimeo-adapter.js";
+import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import styles from "./video-player-frame.module.scss";
 
 export interface VideoPlayerHandle {
@@ -111,7 +112,12 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
 
     // A local action in the player: report it when allowed, otherwise snap back to the room state
+    const lastActionRef = useRef<{ type: UserPlayerAction["type"]; at: number } | null>(null);
     const handleLocalAction = (action: UserPlayerAction) => {
+      // Players fire several events for one click (play + playing); report it once
+      const prev = lastActionRef.current;
+      if (prev && prev.type === action.type && Date.now() - prev.at < 700) return;
+      lastActionRef.current = { type: action.type, at: Date.now() };
       const cur = latest.current;
       if (cur.canControl) {
         cur.onUserAction?.(action);
@@ -162,6 +168,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const isGuarded = () => Date.now() < guardUntilRef.current;
 
     const [overlayStatus, setOverlayStatus] = useState<string | null>(null);
+    const [mediaLoading, setMediaLoading] = useState(false);
 
     useImperativeHandle(ref, () => ({
       play: async () => {
@@ -238,6 +245,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
         if (event.type === "timeupdate") {
           cur.onPositionUpdate(event.currentTime, event.duration);
+          if (event.duration > 0) setMediaLoading(false);
 
           // A discontinuity not caused by us is a seek made in the player's own UI
           const now = Date.now();
@@ -294,6 +302,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     const mediaKey = `${media.type}:${media.canonicalUrl}`;
     if (adapterRef.current && loadedMediaKeyRef.current !== mediaKey) {
       loadedMediaKeyRef.current = mediaKey;
+      setMediaLoading(true);
+      setOverlayStatus(null);
       await adapterRef.current.loadMedia(media);
     }
   }, []);
@@ -440,10 +450,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
       {!playbackState?.media && (
         <div className={styles.placeholder}>
-          <div className={styles.retroTag}>{t.room.standby}</div>
+          <h3 className={styles.placeholderTitle}>{t.room.standby}</h3>
           <p className={styles.placeholderText}>
             {t.room.standbyDesc}
           </p>
+        </div>
+      )}
+
+      {mediaLoading && !overlayStatus && playbackState?.media && (
+        <div className={styles.loadingOverlay} aria-hidden>
+          <Skeleton width="100%" height="100%" />
         </div>
       )}
 

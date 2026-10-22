@@ -22,14 +22,22 @@ describe("Web Utilities", () => {
     expect(id1).not.toBe(id2);
   });
 
-  it("has consistent i18n dictionaries for EN and RU", () => {
+  it("has the same i18n keys in EN and RU and no empty strings", () => {
+    const keys = (obj: Record<string, unknown>, prefix = ""): string[] =>
+      Object.entries(obj).flatMap(([k, v]) =>
+        v && typeof v === "object" ? keys(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`]
+      );
+    expect(keys(ru as unknown as Record<string, unknown>).sort()).toEqual(
+      keys(en as unknown as Record<string, unknown>).sort()
+    );
+
+    const empties = (obj: Record<string, unknown>): string[] =>
+      Object.entries(obj).flatMap(([k, v]) =>
+        v && typeof v === "object" ? empties(v as Record<string, unknown>) : v === "" ? [k] : []
+      );
+    expect(empties(en as unknown as Record<string, unknown>)).toEqual([]);
+    expect(empties(ru as unknown as Record<string, unknown>)).toEqual([]);
     expect(en.common.brand).toBe("OMIOROOM");
     expect(ru.common.brand).toBe("OMIOROOM");
-
-    expect(en.home.createTitle).toBe("Create a Watch Room");
-    expect(ru.home.createTitle).toBe("Создать комнату");
-
-    expect(en.room.inSyncRev(5)).toBe("In sync (rev 5)");
-    expect(ru.room.inSyncRev(5)).toBe("В синхроне (рев. 5)");
   });
 });

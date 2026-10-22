@@ -4,6 +4,7 @@ Watch videos together with friends: 2 to 32 people per room. Open source, no ser
 
 - Anonymous, nickname, or registered accounts (Supabase Auth; the anonymous identity lives in the browser's storage).
 - Public and private rooms with a secret code only the owner sees; room id stays stable when the code is rotated/revoked.
+- Voice chat (audio-only WebRTC, up to 8 people) and image sharing in chat (png/jpeg/gif/webp/avif from the device).
 - Rooms of 2–32 participants (set by the owner); the owner also picks who controls playback (everyone / owner + selected / owner only); synchronized playback (YouTube, VK Video, RuTube, Twitch, Vimeo, HLS, MP4/WebM), built-in chat, friends for registered users.
 
 ## How it works
@@ -17,7 +18,7 @@ Watch videos together with friends: 2 to 32 people per room. Open source, no ser
 All writes go through database functions (`create_room`, `join_room`, `player_command`, `send_chat`, ...). They check the caller,
 enforce the rules (room size limit, control modes, private codes, revisions, command dedup, rate limits) and keep the **authoritative playback state** in
 Postgres. Clients read through RLS-protected tables and Realtime (`postgres_changes`), so only room members receive updates.
-Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
+When a participant's player stalls the room waits for them (up to 5 s) and resumes together. Playback correction is client-side against the database clock (`server_time_ms()`), thresholds 250 ms / 750 ms.
 
 ## Self-host in 10 minutes
 
@@ -45,6 +46,12 @@ Local Supabase (needs Docker): `supabase start` then use the printed API URL/ano
 
 `npm test` runs the contract/web tests and `supabase/tests`, which apply the real migrations to an embedded Postgres (PGlite)
 and verify permissions, private codes, seats, playback rules, chat and friends.
+
+## Voice chat
+
+Audio-only peer-to-peer WebRTC, signaled over a private Realtime channel that only room members can join. It is a mesh (everyone
+connects to everyone), so it is capped at 8 people. Behind strict NATs a TURN relay is needed: set `VITE_TURN_URL`,
+`VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL` (they end up in the browser, so use a relay with limited credentials).
 
 ## Limits
 
