@@ -36,9 +36,10 @@ export function createSocketClient(): Socket {
     auth: {
       token: token || undefined,
     },
-    transports: ["websocket", "polling"],
+    transports: ["polling", "websocket"],
+    upgrade: true,
     reconnection: true,
-    reconnectionAttempts: 15,
+    reconnectionAttempts: 20,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
   });

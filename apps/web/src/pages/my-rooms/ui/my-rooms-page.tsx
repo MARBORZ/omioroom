@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Play, Trash2, Users, Copy, Check, Lock, Globe } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Pill } from "../../../shared/ui/pill/pill.js";

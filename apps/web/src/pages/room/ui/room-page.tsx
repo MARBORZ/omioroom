@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { LogOut } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
 import { VideoPlayerFrame } from "../../../widgets/video-player/ui/video-player-frame.js";

@@ -12,6 +12,7 @@
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm run --workspaces --if-present test",
     "dev": "concurrently -n \"server,web\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:web\"",
+    "restart": "bash ./scripts/restart.sh",
     "dev:server": "npm run --workspace=@omioroom/server dev",
     "dev:web": "npm run --workspace=@omioroom/web dev"
   },

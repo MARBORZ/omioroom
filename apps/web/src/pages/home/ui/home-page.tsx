@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe } from "lucide-react";
-import { useSocketContext } from "../../../app/providers/socket-provider.js";
+import { useSocketContext } from "../../../app/providers/socket-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";

@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
-import type { Socket } from "socket.io-client";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   ClientCommand,
   type User,
@@ -13,17 +12,7 @@ import {
 } from "../../shared/api/socket.js";
 import { TimeSyncClient } from "../../shared/api/time-sync.js";
 import type { ConnectionStatusType } from "../../shared/ui/status-indicator/status-indicator.js";
-
-interface SocketContextValue {
-  socket: Socket;
-  timeSync: TimeSyncClient;
-  connectionStatus: ConnectionStatusType;
-  user: User | null;
-  session: Session | null;
-  updateDisplayName: (name: string) => Promise<User>;
-}
-
-const SocketContext = createContext<SocketContextValue | null>(null);
+import { SocketContext } from "./socket-context.js";
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const socket = useMemo(() => createSocketClient(), []);
@@ -34,18 +23,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    const handleConnect = async () => {
-      setConnectionStatus("connected");
-      timeSync.startSync();
-
+    const fetchSession = async () => {
       try {
-        const info = await emitCommand<void, SessionInfoDto>(socket, ClientCommand.SESSION_ME, undefined as any);
+        const info = await emitCommand<void, SessionInfoDto>(
+          socket,
+          ClientCommand.SESSION_ME,
+          undefined as any
+        );
         setUser(info.user);
         setSession(info.session as any);
         setStoredSessionToken(info.session.id);
+        setConnectionStatus("connected");
       } catch (err) {
         console.error("Failed to fetch session:", err);
       }
+    };
+
+    const handleConnect = () => {
+      setConnectionStatus("connected");
+      timeSync.startSync();
+      fetchSession();
     };
 
     const handleDisconnect = (reason: string) => {
@@ -64,6 +61,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
+
+    if (socket.connected) {
+      handleConnect();
+    }
 
     return () => {
       socket.off("connect", handleConnect);
@@ -99,11 +100,3 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     </SocketContext.Provider>
   );
 };
-
-export function useSocketContext(): SocketContextValue {
-  const ctx = useContext(SocketContext);
-  if (!ctx) {
-    throw new Error("useSocketContext must be used within a SocketProvider");
-  }
-  return ctx;
-}
