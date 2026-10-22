@@ -52,7 +52,8 @@ input:focus,
 input:focus-visible,
 textarea:focus,
 textarea:focus-visible {
-  outline: none;
+  outline: none !important;
+  box-shadow: none;
 }
 
 /* Custom minimal scrollbar */

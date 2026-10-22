@@ -521,13 +521,13 @@
   border-radius: 24px; /* Telegram-style pill */
   padding: 4px 6px 4px 10px;
   box-sizing: border-box;
-  transition: all var(--motion-fast) var(--ease-out);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 
   &:focus-within {
-    border-color: var(--color-accent);
+    border-color: var(--color-border-focus);
     background-color: var(--color-surface);
-    box-shadow: 0 0 0 3px rgba(255, 104, 71, 0.18), 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: none !important;
+    outline: none !important;
   }
 }
 
