@@ -783,4 +783,21 @@ describe("maintenance", () => {
     await t.db.exec("select public.purge_closed_rooms()");
     expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_NOT_FOUND");
   });
+  it("joining does not create read receipts; only reading does", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const r = await room(owner, "public");
+    const m = await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "before join" });
+    await t.as(a).rpc("join_room", { p_global_id: r.globalId });
+    let snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.participants.find((p: any) => p.userId === a).chatSeenAt).toBeNull();
+    // history from before joining does not count as unread for the newcomer
+    expect((await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).unreadCount).toBe(0);
+    const m2 = await t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "after join" });
+    expect((await t.as(a).rpc("get_room_snapshot", { p_room_id: r.id })).unreadCount).toBe(1);
+    await t.as(a).rpc("mark_chat_seen", { p_room_id: r.id, p_message_id: m2.id });
+    snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: r.id });
+    expect(snap.participants.find((p: any) => p.userId === a).chatSeenAt).not.toBeNull();
+    expect(m.id).toBeTruthy();
+  });
 });
