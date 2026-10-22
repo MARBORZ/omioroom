@@ -38,9 +38,11 @@ export function startServer() {
   const httpServer = http.createServer(app);
   const { io } = createSocketServer(httpServer, config);
 
-  const server = httpServer.listen(config.port, config.host, () => {
+  // In Node.js on macOS, listening on config.port without "0.0.0.0" binds to both IPv4 and IPv6 (::),
+  // which prevents ECONNREFUSED when Chrome resolves localhost to ::1.
+  const server = httpServer.listen(config.port, () => {
     console.log(
-      `[omioroom-server] listening on http://${config.host}:${config.port} (${config.nodeEnv})`
+      `[omioroom-server] listening on port ${config.port} (${config.nodeEnv})`
     );
   });
 
