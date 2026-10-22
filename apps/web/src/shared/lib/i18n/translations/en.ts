@@ -45,6 +45,7 @@ export const en: Translations = {
       invalidPrivateCode: "Invalid private key. Please check the invite link.",
       roomFull: "This room is full.",
       roomNotFound: "Room not found. Check the 6-digit code.",
+      roomLimit: "You already have three rooms. Close one in My rooms to create another.",
       genericCreateError: "Failed to create room",
       genericJoinError: "Failed to join room",
     },

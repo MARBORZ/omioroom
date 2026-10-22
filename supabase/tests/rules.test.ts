@@ -594,20 +594,48 @@ describe("maintenance", () => {
     expect(ids).toEqual(expect.arrayContaining([owner, registered, fresh]));
   });
 
-  it("closes idle rooms but not active ones", async () => {
+  it("closes a room that stayed empty for 5 minutes, but not an occupied or recently emptied one", async () => {
     const owner = await t.newUser();
-    const idle = await room(owner, "public");
-    const live = await room(owner, "public");
-    await t.db.query(
-      `update public.member_activity set last_active_at = now() - interval '2 hours' where room_id = $1`,
-      [idle.id]
-    );
-    await t.db.query(`update public.rooms set updated_at = now() - interval '2 hours' where id = $1`, [idle.id]);
+    const other = await t.newUser();
+    const empty = await room(owner, "public");
+    const occupied = await room(other, "public");
+    const recent = await room(other, "public");
+    const tick = async () =>
+      (await t.db.query<{ n: number }>("select public.close_inactive_rooms() as n")).rows[0]!.n;
+    const stale = (id: string) =>
+      t.db.query("update public.member_activity set last_active_at = now() - interval '10 minutes' where room_id = $1", [id]);
 
-    const closed = await t.db.query<{ n: number }>("select public.close_inactive_rooms() as n");
-    expect(closed.rows[0]?.n).toBe(1);
+    await stale(empty.id);
+    await stale(recent.id);
+
+    // First tick only starts the clock
+    expect(await tick()).toBe(0);
+    // Four minutes later: still open
+    await t.db.query("update public.rooms set empty_since = now() - interval '4 minutes' where id in ($1, $2)", [empty.id, recent.id]);
+    expect(await tick()).toBe(0);
+    // Past five minutes: the empty room closes; the one someone came back to stays and its clock resets
+    await t.db.query("update public.rooms set empty_since = now() - interval '6 minutes' where id = $1", [empty.id]);
+    await t.db.query("update public.member_activity set last_active_at = now() where room_id = $1", [recent.id]);
+    expect(await tick()).toBe(1);
+
     const mine = await t.as(owner).rpc("list_my_rooms");
-    expect(mine.map((x: any) => x.id)).toEqual([live.id]);
+    expect(mine).toHaveLength(0);
+    const others = (await t.as(other).rpc("list_my_rooms")).map((x: any) => x.id).sort();
+    expect(others).toEqual([occupied.id, recent.id].sort());
+    const clocks = await t.db.query<{ id: string; empty_since: string | null }>("select id, empty_since from public.rooms where id = $1", [recent.id]);
+    expect(clocks.rows[0]?.empty_since).toBeNull();
+  });
+
+  it("limits each owner to three active rooms; closing one frees a slot", async () => {
+    const owner = await t.newUser();
+    const rooms = [await room(owner), await room(owner), await room(owner)];
+    expect(await code(t.as(owner).rpc("create_room", { p_visibility: "public" }))).toBe("ROOM_LIMIT");
+    // Other owners are unaffected
+    const someone = await t.newUser();
+    await room(someone);
+
+    await t.as(owner).rpc("close_room", { p_room_id: rooms[0]!.id });
+    expect((await t.as(owner).rpc("create_room", { p_visibility: "public" })).snapshot.room.id).toBeTruthy();
   });
 
   it("clients cannot call internal functions", async () => {

@@ -55,6 +55,7 @@ connects to everyone), so it is capped at 8 people. Behind strict NATs a TURN re
 
 ## Limits
 
+- One owner can have at most 3 active rooms; a room that stays empty for 5 minutes is closed by a scheduled job (`pg_cron`, every minute).
 - Chat keeps the last 100 messages per room and is deleted when the room closes.
 - A seat frees ~90 s after a participant's last activity (heartbeat every 30 s).
 - Realtime presence channels are named by the room's random UUID; row data is protected by RLS.

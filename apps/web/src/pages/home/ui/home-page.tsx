@@ -75,7 +75,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       onRoomJoined(result.snapshot, result.ownerAccess?.privateCode ?? null);
     } catch (err: any) {
-      setCreateError(err?.code === "RATE_LIMITED" ? t.invite.rateLimited : t.home.errors.genericCreateError);
+      setCreateError(
+        err?.code === "ROOM_LIMIT"
+          ? t.home.errors.roomLimit
+          : err?.code === "RATE_LIMITED"
+          ? t.invite.rateLimited
+          : t.home.errors.genericCreateError
+      );
     } finally {
       setCreateLoading(false);
     }

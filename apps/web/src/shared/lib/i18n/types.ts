@@ -45,6 +45,7 @@ export interface Translations {
       invalidPrivateCode: string;
       roomFull: string;
       roomNotFound: string;
+      roomLimit: string;
       genericCreateError: string;
       genericJoinError: string;
     };
