@@ -302,13 +302,24 @@
     overflow-x: hidden !important;
   }
 
-  .mainContent {
+  .mainContent:not([data-cinema="true"]) {
     display: flex !important;
     flex-direction: column !important;
     padding: var(--space-3) !important;
     gap: var(--space-3) !important;
     height: auto !important;
     overflow: visible !important;
+
+    .sidebarSection {
+      width: 100% !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    /* On mobile phones, chat is opened via the floating circle or chat tab into fullscreen/half-screen overlay */
+    .panelsContainer > [data-panel="chat"] {
+      display: none !important;
+    }
   }
 
   .videoSection {
@@ -317,14 +328,8 @@
     height: auto !important;
   }
 
-  .sidebarSection {
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
   .resizeHandle {
-    display: none;
+    display: none !important;
   }
 
   .panelsContainer {
@@ -470,15 +475,66 @@
     padding: var(--space-3) var(--space-5) !important;
     box-sizing: border-box !important;
     z-index: 5;
+
+    /* Cinema video controls always stay readable white on the dark video backdrop regardless of app theme */
+    --color-text: #ffffff;
+    --color-text-muted: rgba(255, 255, 255, 0.75);
+
+    [class*="iconBtn"] {
+      color: #ffffff !important;
+
+      &:hover:not(:disabled) {
+        background-color: rgba(255, 255, 255, 0.16) !important;
+        color: #ffffff !important;
+      }
+    }
+
+    [class*="timeDisplay"] {
+      color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    [class*="rateSelect"] {
+      background: rgba(255, 255, 255, 0.14) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.22) !important;
+
+      option {
+        background: #17191d;
+        color: #ffffff;
+      }
+    }
+
+    [class*="sliderTrack"] {
+      background-color: rgba(255, 255, 255, 0.28) !important;
+    }
   }
 
   .sidebarSection {
     height: 100dvh !important;
+    max-height: 100dvh !important;
     overflow: hidden !important;
-    padding: var(--space-3);
-    background-color: var(--color-bg);
+    padding: var(--space-3) !important;
+    background-color: var(--color-bg) !important;
     border-left: var(--border-width) solid var(--color-border);
-    box-sizing: border-box;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    contain: layout size;
+  }
+
+  .cinemaSidebarHeader {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: var(--space-2) var(--space-3) !important;
+    margin-bottom: var(--space-2) !important;
+    flex-shrink: 0 !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    box-sizing: border-box !important;
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
   }
 
   .tabNavContainer {
@@ -489,16 +545,25 @@
     display: none !important;
   }
 
-  .panelsContainer > [data-panel="chat"] {
+  .panelsContainer {
+    flex: 1 1 auto !important;
+    height: calc(100% - 46px) !important;
+    min-height: 0 !important;
     display: flex !important;
-    height: 100% !important;
-    overflow-y: auto !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
-  .panelsContainer {
-    height: auto !important;
+  .panelsContainer > [data-panel="chat"],
+  .panelWrapper {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     overflow: hidden !important;
-    padding-top: 0 !important;
   }
 
   .resizeHandle {
@@ -510,20 +575,28 @@
     position: fixed !important;
     right: var(--space-4);
     bottom: var(--space-4);
-    z-index: 100;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    border: none;
-    background-color: var(--color-accent);
-    color: var(--color-accent-contrast);
-    box-shadow: var(--shadow-md);
+    z-index: 999 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    background-color: var(--color-accent) !important;
+    color: var(--color-accent-contrast) !important;
+    box-shadow: var(--shadow-md) !important;
     cursor: grab;
     user-select: none;
     touch-action: none;
+    flex-shrink: 0 !important;
     animation: pop-in var(--motion-fast) var(--ease-spring) both;
 
     &:active {
@@ -536,10 +609,10 @@
     position: absolute;
     top: -4px;
     right: -4px;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    border-radius: 10px;
+    min-width: 20px !important;
+    height: 20px !important;
+    padding: 0 5px !important;
+    border-radius: 10px !important;
     background-color: var(--color-bg);
     color: var(--color-text);
     border: 2px solid var(--color-accent);
@@ -548,26 +621,143 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
   }
 }
 
-/* Phone: the chat floats over the right edge instead of squeezing the video */
+/* --------------------------------------------------------------------------
+   Mobile Phone Chat: Floating circle + Fullscreen (portrait) / Half-screen (landscape)
+   -------------------------------------------------------------------------- */
+.mobileChatOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+  padding: var(--space-2);
+  gap: var(--space-2);
+  animation: mobile-chat-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  overflow: hidden;
+
+  // Portrait default: full screen
+  &[data-landscape="true"] {
+    left: auto;
+    width: 50vw;
+    border-left: var(--border-width) solid var(--color-border);
+
+    &[data-fullscreen="true"] {
+      left: 0;
+      width: 100vw;
+      border-left: none;
+    }
+  }
+}
+
+@keyframes mobile-chat-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.mobileChatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.mobileChatTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+
+  svg {
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+}
+
+.mobileChatActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mobileChatActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-hover);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+.mobileChatBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Phone in cinema mode: ensure video section fills available space */
 @media (max-width: 720px) {
   .mainContent[data-cinema="true"] {
     grid-template-columns: minmax(0, 1fr) !important;
 
     .sidebarSection {
-      position: absolute !important;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: min(var(--chat-width, 420px), 88vw) !important;
-      z-index: 9;
-      box-shadow: var(--shadow-lg);
+      display: none !important;
     }
 
     .videoSection {
-      --player-max-height: calc(100dvh - 96px);
+      --player-max-height: calc(100dvh - 84px);
     }
   }
 }

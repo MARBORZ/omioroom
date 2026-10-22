@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -177,11 +177,42 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   // chat as a resizable side panel that collapses into a round button
   const [cinema, setCinema] = useState(false);
   const [cinemaChatOpen, setCinemaChatOpen] = useState(true);
+
+  // Mobile phone responsiveness:
+  // - In portrait: floating chat circle collapses chat; clicking it opens full screen (due to lack of space).
+  // - In landscape: chat opens half-screen by default, with option to toggle fullscreen.
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 720 : false
+  );
+  const [isLandscape, setIsLandscape] = useState(() =>
+    typeof window !== "undefined"
+      ? window.innerWidth > window.innerHeight && (window.innerHeight <= 550 || window.innerWidth <= 920)
+      : false
+  );
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [mobileChatFullscreen, setMobileChatFullscreen] = useState(false);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setIsMobile(w <= 720);
+      setIsLandscape(w > h && (h <= 550 || w <= 920));
+    };
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    updateViewport();
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    };
+  }, []);
+
   // Unread messages from others (starts from the server count, then grows while the chat is out of sight)
   const [unreadMessages, setUnreadMessages] = useState(initialSnapshot.unreadCount ?? 0);
   const chatVisibleRef = useRef(false);
 
-  // Draggable floating chat button in cinema mode
+  // Draggable floating chat button in cinema mode & mobile phone mode
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingFab, setIsDraggingFab] = useState(false);
   const dragRef = useRef<{
@@ -236,7 +267,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
     if (!dragRef.current.hasMoved) {
-      setCinemaChatOpen(true);
+      if (isMobile) {
+        setMobileChatOpen(true);
+      } else {
+        setCinemaChatOpen(true);
+      }
     }
   };
   const chatSize = useResizableWidth(
@@ -669,7 +704,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }, [cinema]);
 
   // Unread counter for the collapsed chat button
-  const chatVisible = cinema ? cinemaChatOpen : activeTab === "chat";
+  const chatVisible = isMobile
+    ? mobileChatOpen
+    : (cinema ? cinemaChatOpen : activeTab === "chat");
   chatVisibleRef.current = chatVisible;
   useEffect(() => {
     if (chatVisible) setUnreadMessages(0);
@@ -855,9 +892,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={activeTab === "chat"}
-                    className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
-                    onClick={() => setActiveTab("chat")}
+                    aria-selected={isMobile ? mobileChatOpen : activeTab === "chat"}
+                    className={`${styles.tabBtn} ${(isMobile ? mobileChatOpen : activeTab === "chat") ? styles.activeTab : ""}`}
+                    onClick={() => {
+                      if (isMobile) {
+                        setMobileChatOpen(true);
+                      } else {
+                        setActiveTab("chat");
+                      }
+                    }}
                   >
                     <MessageSquare size={14} />
                     <span>{t.room.tabChat}</span>
@@ -938,15 +981,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
             </div>
 
-            <div data-panel="chat" className={styles.panelWrapper}>
-              <RoomChat
-                messages={messages}
-                loading={chatLoading}
-                onSend={handleSendChat}
-                participants={participants}
-                roomId={snapshot.room.id}
-              />
-            </div>
+            {!isMobile && (
+              <div data-panel="chat" className={styles.panelWrapper}>
+                <RoomChat
+                  messages={messages}
+                  loading={chatLoading}
+                  onSend={handleSendChat}
+                  participants={participants}
+                  roomId={snapshot.room.id}
+                />
+              </div>
+            )}
 
             <div data-panel="participants" className={styles.panelWrapper}>
               <ParticipantsPanel
@@ -985,7 +1030,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </div>
         </aside>
 
-        {cinema && !cinemaChatOpen && (
+        {((isMobile && !mobileChatOpen) || (cinema && !cinemaChatOpen && !isMobile)) && (
           <button
             type="button"
             className={`${styles.chatFab} ${unreadMessages > 0 ? styles.chatFabHasUnread : ""}`}
@@ -999,12 +1044,69 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onPointerMove={onFabPointerMove}
             onPointerUp={onFabPointerUp}
             onPointerCancel={onFabPointerUp}
+            onClick={() => {
+              if (dragRef.current.hasMoved) return;
+              if (isMobile) {
+                setMobileChatOpen(true);
+              } else {
+                setCinemaChatOpen(true);
+              }
+            }}
             aria-label={t.room.chatOpen}
             title={t.room.chatOpen}
           >
             <MessageSquare size={22} />
             {unreadMessages > 0 && <span key={unreadMessages} className={styles.chatFabBadge}>{unreadLabel}</span>}
           </button>
+        )}
+
+        {isMobile && mobileChatOpen && (
+          <div
+            className={styles.mobileChatOverlay}
+            data-landscape={isLandscape ? "true" : "false"}
+            data-fullscreen={mobileChatFullscreen ? "true" : "false"}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.chat.title}
+          >
+            <div className={styles.mobileChatHeader}>
+              <div className={styles.mobileChatTitle}>
+                <MessageSquare size={16} />
+                <span>{t.chat.title}</span>
+              </div>
+              <div className={styles.mobileChatActions}>
+                {isLandscape && (
+                  <button
+                    type="button"
+                    className={styles.mobileChatActionBtn}
+                    onClick={() => setMobileChatFullscreen((prev) => !prev)}
+                    title={mobileChatFullscreen ? t.room.cinemaExit : t.room.cinemaEnter}
+                    aria-label={mobileChatFullscreen ? t.room.cinemaExit : t.room.cinemaEnter}
+                  >
+                    {mobileChatFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.mobileChatActionBtn}
+                  onClick={() => setMobileChatOpen(false)}
+                  title={t.room.chatClose}
+                  aria-label={t.room.chatClose}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className={styles.mobileChatBody}>
+              <RoomChat
+                messages={messages}
+                loading={chatLoading}
+                onSend={handleSendChat}
+                participants={participants}
+                roomId={snapshot.room.id}
+              />
+            </div>
+          </div>
         )}
       </main>
 

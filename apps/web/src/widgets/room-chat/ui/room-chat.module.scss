@@ -6,8 +6,9 @@
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   width: 100%;
-  flex: 1;
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
   box-sizing: border-box;
   overflow: hidden;
   transition: border-color var(--transition-fast);
@@ -105,11 +106,16 @@
 
   .replyActionBtn {
     order: -1;
+    margin-right: 2px;
   }
 }
 
 .otherRow {
   justify-content: flex-start;
+
+  .replyActionBtn {
+    margin-left: 2px;
+  }
 }
 
 .senderName {
@@ -124,7 +130,9 @@
 .bubble {
   position: relative;
   display: block;
-  max-width: 82%;
+  max-width: calc(100% - 38px);
+  min-width: 0;
+  flex-shrink: 1;
   padding: 6px 10px 5px 12px;
   font-size: 14px;
   line-height: 1.36;
@@ -318,15 +326,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  max-width: 26px !important;
+  min-height: 26px !important;
+  max-height: 26px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text-muted);
   cursor: pointer;
   transition: all var(--motion-fast) var(--ease-out);
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  align-self: flex-end;
+  margin-bottom: 2px;
 
   &:hover {
     color: var(--color-text);
@@ -353,14 +371,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text-muted);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   cursor: pointer;
+  flex-shrink: 0 !important;
   transition: all var(--motion-fast) var(--ease-spring);
   animation: pop-in var(--motion-fast) var(--ease-spring) both;
 
@@ -440,14 +466,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
   transition: all var(--motion-fast);
 
   &:hover {
@@ -583,16 +616,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  aspect-ratio: 1 / 1 !important;
   margin-bottom: 2px;
   align-self: flex-end;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  border-radius: 50%;
+  border-radius: 50% !important;
   cursor: pointer;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
   transition: all var(--motion-fast) var(--ease-out);
 
   &:hover {
@@ -610,17 +650,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  aspect-ratio: 1 / 1 !important;
   margin-bottom: 2px;
   align-self: flex-end;
   border: none;
-  border-radius: 50%;
+  border-radius: 50% !important;
   background-color: transparent;
   color: var(--color-text-muted);
   opacity: 0.45;
   cursor: default;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
   transition: all var(--motion-fast) var(--ease-spring);
 
   &.sendBtnActive {
@@ -835,7 +882,7 @@
 
 @media (max-width: 640px) {
   .bubble {
-    max-width: 88%;
+    max-width: calc(100% - 38px);
     font-size: 13.5px;
     padding: 7px 11px 5px;
   }

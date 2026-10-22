@@ -231,8 +231,8 @@
     height: auto !important;
   }
 
-  [data-layout="room-sidebar"],
-  [class*="sidebarSection"] {
+  [data-layout="room-sidebar"]:not([data-cinema="true"]),
+  [class*="sidebarSection"]:not([data-cinema="true"]) {
     display: flex !important;
     flex-direction: column !important;
     gap: var(--space-3) !important;

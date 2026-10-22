@@ -244,4 +244,33 @@ describe("Web Utilities", () => {
     expect(destroyFn).toHaveBeenCalled();
     expect(container.innerHTML).toBe("");
   });
+
+  it("verifies round component protection against collapsing into ovals, cinema light theme, and mobile chat styles", () => {
+    const fs = require("node:fs");
+    const path = require("node:path");
+
+    const chatScss = fs.readFileSync(
+      path.resolve(__dirname, "../widgets/room-chat/ui/room-chat.module.scss"),
+      "utf-8"
+    );
+    const roomScss = fs.readFileSync(
+      path.resolve(__dirname, "../pages/room/ui/room-page.module.scss"),
+      "utf-8"
+    );
+
+    // 1. Reply button has locked dimensions and aspect-ratio 1 / 1 to prevent collapsing into oval
+    expect(chatScss).toContain(".replyActionBtn");
+    expect(chatScss).toContain("aspect-ratio: 1 / 1 !important;");
+    expect(chatScss).toContain("border-radius: 50% !important;");
+    expect(chatScss).toContain("max-width: calc(100% - 38px);");
+
+    // 2. Cinema mode video controls have white overrides for high contrast in light theme
+    expect(roomScss).toContain("--color-text: #ffffff;");
+    expect(roomScss).toContain("color: #ffffff !important;");
+
+    // 3. Mobile chat overlay has 50vw in landscape and 100vw in fullscreen
+    expect(roomScss).toContain(".mobileChatOverlay");
+    expect(roomScss).toContain("width: 50vw;");
+    expect(roomScss).toContain("width: 100vw;");
+  });
 });
