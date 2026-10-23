@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "./password.js";
 
 export const UserKind = {
   ANONYMOUS: "anonymous",
@@ -48,7 +49,7 @@ export type UpdateDisplayNamePayload = z.infer<typeof updateDisplayNamePayloadSc
 
 export const registerUserPayloadSchema = z.object({
   username: displayNameSchema,
-  password: z.string().min(6, "Password must be at least 6 characters").max(64),
+  password: passwordSchema,
 });
 
 export type RegisterUserPayload = z.infer<typeof registerUserPayloadSchema>;

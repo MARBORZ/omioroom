@@ -8,3 +8,4 @@ export * from "./room.js";
 export * from "./events.js";
 export * from "./chat.js";
 export * from "./friend.js";
+export * from "./password.js";

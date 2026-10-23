@@ -916,4 +916,27 @@ describe("maintenance", () => {
     expect((await t.db.query<any>(`select public.room_limit_for('${owner}') as n`)).rows[0].n).toBe(3);
     expect((await t.db.query<any>(`select public.room_limit_for('${other}') as n`)).rows[0].n).toBe(1);
   });
+  it("refuses hidden characters and odd punctuation in names, chat text and video links, but keeps normal text", async () => {
+    const owner = await t.newUser();
+    const guest = await t.newUser({ anonymous: true });
+    const r = await room(owner, "public");
+    const rename = (n: string) => code(t.as(guest).rpc("update_display_name", { p_name: n }));
+    expect(await rename("Анна-Мария_2")).toBe("OK");
+    expect(await rename("Bob'; DROP TABLE rooms;--")).toBe("INVALID_PAYLOAD");
+    expect(await rename("<script>x</script>")).toBe("INVALID_PAYLOAD");
+    expect(await rename("Eve\u202eevil")).toBe("INVALID_PAYLOAD");
+    expect(await rename("Zero\u200bWidth")).toBe("INVALID_PAYLOAD");
+
+    // Chat keeps quotes and symbols (they are plain text), but not hidden control characters
+    expect(await code(t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "it's 'fine'; \"ok\" <3 ; --" }))).toBe("OK");
+    expect(await code(t.as(owner).rpc("send_chat", { p_room_id: r.id, p_text: "spoof\u202etxt" }))).toBe("INVALID_PAYLOAD");
+    const history = await t.as(owner).query("select body from public.chat_messages where room_id = $1", [r.id]);
+    expect(history).toHaveLength(1);
+
+    const media = (url: string) =>
+      code(t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: { type: "html5", sourceId: "x", canonicalUrl: url } }));
+    expect(await media("https://example.com/a b.mp4")).toBe("MEDIA_UNSUPPORTED");
+    expect(await media("https://example.com/" + "a".repeat(2100))).toBe("MEDIA_UNSUPPORTED");
+    expect(await media("https://example.com/ok.mp4")).toBe("OK");
+  });
 });
