@@ -40,10 +40,17 @@ export interface UserPlayerAction {
 const REMOTE_APPLY_GUARD_MS = 800;
 const USER_SEEK_JUMP_SECONDS = 1.5;
 const DRIFT_CHECK_INTERVAL_MS = 1000;
-const FIXED_RATE_SEEK_THRESHOLD_S = 0.5;
+const FIXED_RATE_SEEK_THRESHOLD_S = 1.0;
+/** Nudging stops again once the difference is this small (hysteresis, so the speed does not flap). */
+const NUDGE_RELEASE_S = 0.2;
+const NUDGE_FACTOR = 0.03;
 const SEEK_REPORT_DEBOUNCE_MS = 350;
 const ECHO_WINDOW_MS = 700;
-const CORRECTION_COOLDOWN_MS = 3000;
+const CORRECTION_COOLDOWN_MS = 5000;
+/** The "syncing" cover appears only after this long (short hiccups stay invisible), and stays at least a moment. */
+const SYNC_OVERLAY_DELAY_LOCAL_MS = 1000;
+const SYNC_OVERLAY_DELAY_ROOM_MS = 500;
+const SYNC_OVERLAY_MIN_VISIBLE_MS = 600;
 
 export interface VideoPlayerFrameProps {
   playbackState: RoomPlaybackStateDto | null;
@@ -133,23 +140,36 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       isInitialSync || isBufferingProp || playbackState?.status === PlaybackStatus.BUFFERING
     );
     const [showSyncOverlay, setShowSyncOverlay] = useState(false);
+    const overlayShownAtRef = useRef(0);
+    const roomHolding = playbackState?.status === PlaybackStatus.BUFFERING;
 
     useEffect(() => {
       let timer: ReturnType<typeof setTimeout> | null = null;
       if (isBufferingActive) {
-        timer = setTimeout(() => setShowSyncOverlay(true), 300);
+        // A short hiccup of the local player stays invisible; a hold of the whole room shows sooner
+        timer = setTimeout(
+          () => {
+            overlayShownAtRef.current = Date.now();
+            setShowSyncOverlay(true);
+          },
+          roomHolding ? SYNC_OVERLAY_DELAY_ROOM_MS : SYNC_OVERLAY_DELAY_LOCAL_MS
+        );
       } else {
-        setShowSyncOverlay(false);
+        // Once shown it stays a moment, so it never flickers
+        const remaining = SYNC_OVERLAY_MIN_VISIBLE_MS - (Date.now() - overlayShownAtRef.current);
+        if (remaining > 0) timer = setTimeout(() => setShowSyncOverlay(false), remaining);
+        else setShowSyncOverlay(false);
       }
       return () => {
         if (timer) clearTimeout(timer);
       };
-    }, [isBufferingActive]);
+    }, [isBufferingActive, roomHolding]);
 
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
     const guardUntilRef = useRef(0);
     const adapterPlayingRef = useRef(false);
     const soundSyncedRef = useRef(false);
+    const nudgingRef = useRef(false);
     const appliedRateRef = useRef(0);
     const lastSampleRef = useRef<{ time: number; wall: number } | null>(null);
 
@@ -404,7 +424,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         adapterPlayingRef.current = false;
         cur.onPlayStateChange?.(false);
       } else if (event.type === "buffering") {
-        cur.onBufferingChange?.(true);
+        // Hiccups caused by our own corrections (a seek, a speed nudge) are not real buffering
+        if (!isGuarded() && Date.now() - lastCorrectionRef.current > 1500) cur.onBufferingChange?.(true);
         if (!isGuarded() && !stalledRef.current && !stallTimerRef.current && server?.status === PlaybackStatus.PLAYING) {
           stallTimerRef.current = setTimeout(() => {
             stallTimerRef.current = null;
@@ -604,12 +625,16 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       }
 
       if (!canNudge) return;
-      const desiredRate =
-        abs > SYNC_THRESHOLD_IGNORE_MS / 1000
-          ? state.playbackRate * (drift < 0 ? 1.05 : 0.95)
-          : state.playbackRate;
-      if (appliedRateRef.current !== desiredRate) {
+      // A slight speed change brings a drifting player back; it starts above the ignore limit and stops
+      // well below it, so the speed does not flap every second
+      if (abs > SYNC_THRESHOLD_IGNORE_MS / 1000) nudgingRef.current = true;
+      else if (abs < NUDGE_RELEASE_S) nudgingRef.current = false;
+      const desiredRate = nudgingRef.current
+        ? state.playbackRate * (drift < 0 ? 1 + NUDGE_FACTOR : 1 - NUDGE_FACTOR)
+        : state.playbackRate;
+      if (Math.abs(appliedRateRef.current - desiredRate) > 0.001) {
         appliedRateRef.current = desiredRate;
+        lastCorrectionRef.current = Date.now();
         adapter.setPlaybackRate(desiredRate).catch(() => {});
       }
     }, DRIFT_CHECK_INTERVAL_MS);

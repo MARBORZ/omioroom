@@ -1,9 +1,11 @@
 import { z } from "zod";
 
-export const SYNC_THRESHOLD_IGNORE_MS = 250;
-export const SYNC_THRESHOLD_DRIFT_RATE_MS = 750;
+/** A difference below this is normal and never corrected. */
+export const SYNC_THRESHOLD_IGNORE_MS = 500;
+/** Above this, the player is moved to the room position; between the two it is only nudged with a slight speed change. */
+export const SYNC_THRESHOLD_DRIFT_RATE_MS = 1000;
 /** A stall must last this long before the room is held (ignores micro-stutters). */
-export const BUFFER_STALL_DEBOUNCE_MS = 700;
+export const BUFFER_STALL_DEBOUNCE_MS = 1200;
 /** The room waits this long for a stalled leader (must match buffer_wait_ms() in the database). */
 export const BUFFER_WAIT_TIMEOUT_MS = 10000;
 /** Enough data buffered ahead to report "ready". */
