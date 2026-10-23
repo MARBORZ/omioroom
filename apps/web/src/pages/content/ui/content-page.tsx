@@ -135,24 +135,13 @@ export const ContentPage: React.FC<{ page: ContentPageDef }> = ({ page }) => {
       </main>
 
       <footer className={styles.cpFoot}>
-        <div className={styles.cpFootCols}>
-          <div>
-            <h2 className={styles.cpFootTitle}>{ru ? "Источники видео" : "Video sources"}</h2>
-            {group("source").map(link)}
-          </div>
-          <div>
-            <h2 className={styles.cpFootTitle}>{ru ? "О сервисе" : "About"}</h2>
-            {[...group("guide"), ...group("faq")].map(link)}
-          </div>
-          <div>
-            <h2 className={styles.cpFootTitle}>{ru ? "Документы" : "Legal"}</h2>
-            {group("legal").map(link)}
-            <a className={styles.cpLink} href={`mailto:${CONTACT_EMAIL}`}>
-              {CONTACT_EMAIL}
-            </a>
-          </div>
-        </div>
-        <p className={styles.cpCopy}>© OMIOROOM</p>
+        <nav className={styles.cpFootRow} aria-label={ru ? "Ссылки" : "Links"}>
+          {[...group("guide"), ...group("faq"), ...group("source"), ...group("legal")].map(link)}
+          <a className={styles.cpLink} href={`mailto:${CONTACT_EMAIL}`}>
+            {CONTACT_EMAIL}
+          </a>
+          <span className={styles.cpCopy}>© OMIOROOM</span>
+        </nav>
       </footer>
     </div>
   );
