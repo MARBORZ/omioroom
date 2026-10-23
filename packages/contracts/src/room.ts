@@ -78,6 +78,21 @@ export const roomSnapshotDtoSchema = z.object({
   playback: roomPlaybackStateDtoSchema.nullable(),
 });
 
+/** One open room in the home-page feed. Never carries names or chat. */
+export const feedRoomDtoSchema = z.object({
+  globalId: globalRoomIdSchema,
+  participantCount: z.number().int().min(1),
+  maxParticipants: maxParticipantsSchema,
+  status: z.string(),
+  mediaType: z.string(),
+  mediaSourceId: z.string(),
+  /** Title from the platform, when it could be read. */
+  mediaTitle: z.string().nullable(),
+  updatedAt: z.string(),
+});
+
+export type FeedRoomDto = z.infer<typeof feedRoomDtoSchema>;
+
 export type RoomSnapshotDto = z.infer<typeof roomSnapshotDtoSchema>;
 
 export const createRoomPayloadSchema = z.object({

@@ -1044,4 +1044,65 @@ describe("maintenance", () => {
     expect(await set(priv, yt("bbbbbbbbbbb"))).toBe("OK");
     expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: priv.id })).playback.media).not.toBeNull();
   });
+  it("the feed lists open rooms that are in use with a video on, never private ones, and honours bans and reports", async () => {
+    const owner = await t.newUser();
+    const other = await t.newUser();
+    const viewer = await t.newUser();
+    const yt = (id: string) => ({ type: "youtube", sourceId: id, canonicalUrl: `https://www.youtube.com/watch?v=${id}` });
+    const setVideo = (u: string, roomId: string, id: string) =>
+      t.as(u).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: yt(id) });
+    const open = await room(owner, "public");
+    const empty = await room(other, "public");
+    const priv = await room(viewer, "private");
+    await setVideo(owner, open.id, "aaaaaaaaaaa");
+    await setVideo(viewer, priv.id, "bbbbbbbbbbb");
+    await t.db.exec("insert into public.media_verdicts (media_key, title, verdict) values ('youtube:aaaaaaaaaaa', 'Cute cats', 'ok')");
+
+    let feed = await t.as(viewer).rpc("list_public_rooms");
+    expect(feed.map((r: any) => r.globalId)).toEqual([open.globalId]);
+    expect(feed[0].mediaTitle).toBe("Cute cats");
+    expect(feed[0].participantCount).toBe(1);
+    expect(JSON.stringify(feed)).not.toMatch(/ownerUserId|displayName|userId/);
+    // no video: not listed; nobody inside: not listed
+    expect(feed.map((r: any) => r.globalId)).not.toContain(empty.globalId);
+    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour' where room_id = '${open.id}'`);
+    expect(await t.as(viewer).rpc("list_public_rooms")).toEqual([]);
+    await t.db.exec(`update public.member_activity set last_active_at = now() where room_id = '${open.id}'`);
+
+    // someone banned by the owner does not see the owner's rooms
+    await t.as(owner).rpc("ban_member", { p_room_id: open.id, p_user_id: viewer });
+    expect(await t.as(viewer).rpc("list_public_rooms")).toEqual([]);
+    await t.as(owner).rpc("unban_user", { p_user_id: viewer });
+
+    // three different reporters take the room off the feed for a day
+    const reporters = [await t.newUser(), await t.newUser(), await t.newUser()];
+    for (const r of reporters) await t.as(r).rpc("join_room", { p_global_id: open.globalId });
+    expect((await t.as(viewer).rpc("list_public_rooms")).length).toBe(1);
+    expect(await code(t.as(viewer).rpc("report_room", { p_room_id: open.id, p_reason: "not a member" }))).not.toBe("OK");
+    for (const r of reporters) {
+      expect(await code(t.as(r).rpc("report_room", { p_room_id: open.id, p_reason: "inappropriate video" }))).toBe("OK");
+    }
+    feed = await t.as(viewer).rpc("list_public_rooms");
+    expect(feed).toEqual([]);
+    expect(await code(t.as(reporters[0]!).rpc("report_room", { p_room_id: open.id, p_reason: "x" }))).toBe("INVALID_PAYLOAD");
+  });
+
+  it("links in the chat of open rooms are for the owner and controllers only", async () => {
+    const owner = await t.newUser();
+    const guest = await t.newUser();
+    const open = await room(owner, "public", { p_control_mode: "owner" });
+    const priv = await room(owner, "private", { p_control_mode: "owner" });
+    await t.as(guest).rpc("join_room", { p_global_id: open.globalId });
+    const say = (u: string, roomId: string, text: string) => code(t.as(u).rpc("send_chat", { p_room_id: roomId, p_text: text }));
+
+    expect(await say(guest, open.id, "check https://example.com/x")).toBe("LINKS_NOT_ALLOWED");
+    expect(await say(guest, open.id, "go to www.example.org")).toBe("LINKS_NOT_ALLOWED");
+    expect(await say(guest, open.id, "visit spam.xyz now")).toBe("LINKS_NOT_ALLOWED");
+    expect(await say(guest, open.id, "good movie, see you at 9.30 p.m.")).toBe("OK");
+    expect(await say(owner, open.id, "rules: https://example.com/rules")).toBe("OK");
+    // private rooms are not filtered
+    const key = (await t.as(owner).rpc("rotate_private_code", { p_room_id: priv.id })).privateCode;
+    await t.as(guest).rpc("join_room", { p_global_id: priv.globalId, p_private_code: key });
+    expect(await say(guest, priv.id, "https://example.com/private-link")).toBe("OK");
+  });
 });

@@ -6,7 +6,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 interface Found {
   verdict: "ok" | "blocked" | "unknown";
   reason: string | null;
+  /** Everything worth checking against the blocked terms: title, author, description. */
   text: string;
+  /** Just the title, for showing in the feed. */
+  title?: string;
 }
 
 const UA = "Mozilla/5.0 (compatible; OMIOROOM-moderation/1.0; +https://www.omioroom.live)";
@@ -30,12 +33,12 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
     );
     // 401 / 403: age-restricted, private or not embeddable
     if (status === 401 || status === 403) return { verdict: "blocked", reason: "restricted", text: "" };
-    if (body) return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(body.author_name)}` };
+    if (body) return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(body.author_name)}`, title: str(body.title) };
     return { verdict: "unknown", reason: null, text: "" };
   }
   if (type === "vimeo") {
     const { body } = await getJson(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent("https://vimeo.com/" + sourceId)}`);
-    if (body) return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(body.author_name)} ${str(body.description)}` };
+    if (body) return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(body.author_name)} ${str(body.description)}`, title: str(body.title) };
     return { verdict: "unknown", reason: null, text: "" };
   }
   if (type === "rutube") {
@@ -44,7 +47,7 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
     if (body) {
       if (body.is_adult === true) return { verdict: "blocked", reason: "adult", text: str(body.title) };
       const author = (body.author as Record<string, unknown> | undefined)?.name;
-      return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(author)} ${str(body.description)}` };
+      return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(author)} ${str(body.description)}`, title: str(body.title) };
     }
     return { verdict: "unknown", reason: null, text: "" };
   }
@@ -55,7 +58,7 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
       const html = res.ok ? await res.text() : "";
       const title = html.match(/<meta property="og:title" content="([^"]*)"/i)?.[1] ?? "";
       const description = html.match(/<meta property="og:description" content="([^"]*)"/i)?.[1] ?? "";
-      if (title) return { verdict: "ok", reason: null, text: `${title} ${description}` };
+      if (title) return { verdict: "ok", reason: null, text: `${title} ${description}`, title };
     } catch {
       // fall through
     }
@@ -92,6 +95,7 @@ Deno.serve(async (req) => {
     p_title: found.text.trim(),
     p_verdict: found.verdict,
     p_reason: found.reason,
+    p_display_title: found.title ?? null,
   });
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   return new Response(JSON.stringify({ verdict: found.verdict, reason: found.reason, removed: data }), {
