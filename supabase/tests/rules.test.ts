@@ -939,4 +939,33 @@ describe("maintenance", () => {
     expect(await media("https://example.com/" + "a".repeat(2100))).toBe("MEDIA_UNSUPPORTED");
     expect(await media("https://example.com/ok.mp4")).toBe("OK");
   });
+  it("the blacklist works across all the owner's rooms and is managed from settings", async () => {
+    const owner = await t.newUser();
+    const other = await t.newUser();
+    const guest = await t.newUser();
+    const r1 = await room(owner, "public");
+    const r2 = await room(owner, "public");
+    const foreign = await room(other, "public");
+    await t.as(guest).rpc("join_room", { p_global_id: r1.globalId });
+    await t.as(guest).rpc("join_room", { p_global_id: r2.globalId });
+
+    await t.as(owner).rpc("ban_member", { p_room_id: r1.id, p_user_id: guest });
+    // removed from every room of this owner and refused in all of them
+    expect(await code(t.as(guest).rpc("join_room", { p_global_id: r1.globalId }))).toBe("BANNED");
+    expect(await code(t.as(guest).rpc("join_room", { p_global_id: r2.globalId }))).toBe("BANNED");
+    expect(await code(t.as(guest).rpc("resume_room", { p_room_id: r2.id }))).toBe("BANNED");
+    // other owners' rooms are not affected
+    expect(await code(t.as(guest).rpc("join_room", { p_global_id: foreign.globalId }))).toBe("OK");
+
+    // the list is visible from the owner's settings and in every room's snapshot
+    const list = await t.as(owner).rpc("list_banned_users");
+    expect(list.map((u: any) => u.userId)).toEqual([guest]);
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: r2.id })).bannedUsers).toHaveLength(1);
+    expect(await t.as(guest).rpc("list_banned_users")).toEqual([]);
+
+    // lifting the ban from settings restores access everywhere
+    await t.as(owner).rpc("unban_user", { p_user_id: guest });
+    expect(await t.as(owner).rpc("list_banned_users")).toEqual([]);
+    expect(await code(t.as(guest).rpc("join_room", { p_global_id: r2.globalId }))).toBe("OK");
+  });
 });

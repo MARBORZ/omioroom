@@ -66,6 +66,9 @@ export const backend = {
   /** Owner or a controller mutes (or unmutes) an ordinary participant: no chat, silenced microphone. */
   setMemberMuted: (roomId: string, userId: string, muted: boolean) =>
     rpc<null>("set_member_muted", { p_room_id: roomId, p_user_id: userId, p_muted: muted }),
+  /** The owner's blacklist: bans apply to all of their rooms. */
+  listBannedUsers: () => rpc<Array<{ userId: string; displayName: string }>>("list_banned_users"),
+  unbanUser: (userId: string) => rpc<null>("unban_user", { p_user_id: userId }),
   unbanMember: (roomId: string, userId: string) => rpc<null>("unban_member", { p_room_id: roomId, p_user_id: userId }),
   /** Marks chat as read up to this message; call debounced, only for the newest visible message. */
   markChatSeen: (roomId: string, messageId: string) =>
