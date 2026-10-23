@@ -407,7 +407,7 @@
   flex-direction: column;
   gap: 6px;
   margin-top: auto;
-  padding: 6px var(--space-3) var(--space-3);
+  padding: 6px var(--space-3) max(var(--space-3), env(safe-area-inset-bottom, 8px));
   border-top: var(--border-width) solid var(--color-border);
   background-color: var(--color-surface);
   position: relative;
@@ -732,6 +732,7 @@
   border-radius: 16px !important;
   overflow: hidden;
   position: relative;
+  max-width: min(85vw, 360px) !important;
 
   .imageButton {
     border: none !important;
@@ -740,6 +741,7 @@
     display: block;
     overflow: hidden;
     background: transparent;
+    max-width: 100%;
   }
 
   .image {
@@ -747,7 +749,9 @@
     border-radius: 16px !important;
     max-height: 280px;
     max-width: 100%;
-    object-fit: cover;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
 
   .imagePlaceholder {
@@ -760,6 +764,7 @@
   padding: 0 0 6px 0 !important;
   overflow: hidden !important;
   border-radius: 16px !important;
+  max-width: min(85vw, 360px) !important;
 
   .imageButton {
     border: none !important;
@@ -776,8 +781,10 @@
     display: block !important;
     border-radius: 16px 16px 0 0 !important;
     max-height: 280px;
-    width: 100% !important;
-    object-fit: cover !important;
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
   }
 
   .text {
@@ -836,8 +843,8 @@
 }
 
 .bottomAnchor {
-  height: 28px;
-  min-height: 28px;
+  height: 6px;
+  min-height: 6px;
   width: 100%;
   flex-shrink: 0;
   pointer-events: none;
@@ -859,7 +866,9 @@
   display: block;
   max-width: 100%;
   max-height: 240px;
-  object-fit: cover;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   border-radius: var(--radius-sm);
 }
 
@@ -874,38 +883,70 @@
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-overlay);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: max(var(--space-3), env(safe-area-inset-top, 16px))
+           max(var(--space-3), env(safe-area-inset-right, 16px))
+           max(var(--space-3), env(safe-area-inset-bottom, 16px))
+           max(var(--space-3), env(safe-area-inset-left, 16px));
+  box-sizing: border-box;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   cursor: zoom-out;
+}
 
-  img {
-    max-width: 92vw;
-    max-height: 92vh;
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-lg);
-  }
+.lightboxContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+}
+
+.lightboxImg {
+  display: block;
+  max-width: 95vw;
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .close {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
+  position: fixed;
+  top: max(var(--space-4), env(safe-area-inset-top, 16px));
+  right: max(var(--space-4), env(safe-area-inset-right, 16px));
+  z-index: 10000;
   background: var(--color-surface-raised);
   color: var(--color-text);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: all var(--transition-fast);
 
   &:hover {
     background-color: var(--color-surface-hover);
+    transform: scale(1.08);
+  }
+
+  &:active {
+    transform: scale(0.92);
   }
 }
 

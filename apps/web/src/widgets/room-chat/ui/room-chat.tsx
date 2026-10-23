@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
@@ -682,14 +683,36 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         </div>
       </form>
 
-      {zoomUrl && (
-        <div className={styles.lightbox} onClick={() => setZoomUrl(null)} role="dialog" aria-modal="true">
-          <button type="button" className={styles.close} aria-label={t.chat.close}>
-            <X size={20} />
-          </button>
-          <img src={zoomUrl} alt="" referrerPolicy="no-referrer" />
-        </div>
-      )}
+      {zoomUrl &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={styles.lightbox}
+            onClick={() => setZoomUrl(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.chat.openImage}
+          >
+            <button
+              type="button"
+              className={styles.close}
+              aria-label={t.chat.close}
+              onClick={() => setZoomUrl(null)}
+            >
+              <X size={20} />
+            </button>
+            <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
+              <img
+                src={zoomUrl}
+                alt=""
+                className={styles.lightboxImg}
+                referrerPolicy="no-referrer"
+                onClick={() => setZoomUrl(null)}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </section>
   );
 };

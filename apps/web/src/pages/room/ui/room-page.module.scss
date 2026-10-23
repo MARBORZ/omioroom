@@ -215,25 +215,8 @@
   }
 }
 
-.tabIndicator {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 0;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface-raised);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  pointer-events: none;
-  z-index: 1;
-  transition:
-    transform var(--motion-base) var(--ease-spring),
-    width var(--motion-base) var(--ease-spring);
-  will-change: transform, width;
-}
-
 .tabBtn {
   position: relative;
-  z-index: 2;
   flex: 0 0 auto;
   min-height: 35px;
   display: inline-flex;
@@ -247,23 +230,29 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 6px 12px;
   white-space: nowrap;
-  transition: color 150ms var(--ease-out);
+  transition: all 150ms var(--ease-out);
 
   svg {
     flex-shrink: 0;
+    transition: color 150ms var(--ease-out);
   }
 
   &:hover {
     color: var(--color-text);
+    background-color: var(--color-surface-hover);
   }
 
   &.activeTab {
-    background-color: transparent !important;
-    color: var(--color-accent);
+    background-color: var(--color-surface-raised) !important;
+    color: var(--color-accent) !important;
     font-weight: 600;
-    box-shadow: none !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+
+    svg {
+      color: var(--color-accent) !important;
+    }
   }
 }
 
@@ -769,7 +758,6 @@
 .mobileChatBody {
   flex: 1 1 auto;
   min-height: 0;
-  height: calc(100% - 48px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

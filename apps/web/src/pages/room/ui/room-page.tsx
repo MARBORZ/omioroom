@@ -123,40 +123,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     setTimeout(checkTabScroll, 150);
   }, [activeTab, checkTabScroll]);
 
-  // Tab indicator pill sliding
-  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null);
 
-  const updateTabIndicator = useCallback(() => {
-    const el = tabBarRef.current;
-    if (!el) return;
-    const activeEl = el.querySelector<HTMLElement>(`.${styles.activeTab}`);
-    if (activeEl) {
-      setIndicatorStyle({
-        left: activeEl.offsetLeft,
-        width: activeEl.offsetWidth,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    updateTabIndicator();
-  }, [activeTab, updateTabIndicator]);
-
-  useEffect(() => {
-    const el = tabBarRef.current;
-    if (!el) return;
-    const onResize = () => updateTabIndicator();
-    window.addEventListener("resize", onResize);
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => updateTabIndicator());
-      ro.observe(el);
-    }
-    return () => {
-      window.removeEventListener("resize", onResize);
-      ro?.disconnect();
-    };
-  }, [updateTabIndicator, canControl]);
 
   // Latest callbacks for the long-lived channel effect (they change identity on every parent render)
   const onLeaveRef = useRef(onLeave);
@@ -960,16 +927,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   onScroll={checkTabScroll}
                   onWheel={handleTabBarWheel}
                 >
-                  {indicatorStyle && (
-                    <span
-                      className={styles.tabIndicator}
-                      style={{
-                        transform: `translateX(${indicatorStyle.left}px)`,
-                        width: `${indicatorStyle.width}px`,
-                      }}
-                      aria-hidden="true"
-                    />
-                  )}
                   <button
                     type="button"
                     role="tab"
@@ -1134,7 +1091,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </div>
         </aside>
 
-        {((isMobile && !mobileChatOpen) || (cinema && !cinemaChatOpen && !isMobile)) && (
+        {cinema && !cinemaChatOpen && (
           <button
             type="button"
             className={`${styles.chatFab} ${unreadMessages > 0 ? styles.chatFabHasUnread : ""}`}
