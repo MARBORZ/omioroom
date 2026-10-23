@@ -42,17 +42,17 @@ function resolveReducedMotion(mode: ReducedMotionMode): boolean {
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    if (typeof window === "undefined") return "system";
+    if (typeof localStorage === "undefined") return "system";
     return (localStorage.getItem(STORAGE_KEY_THEME) as ThemeMode) || "system";
   });
 
   const [density, setDensityState] = useState<DensityMode>(() => {
-    if (typeof window === "undefined") return "default";
+    if (typeof localStorage === "undefined") return "default";
     return (localStorage.getItem(STORAGE_KEY_DENSITY) as DensityMode) || "default";
   });
 
   const [reducedMotion, setReducedMotionState] = useState<ReducedMotionMode>(() => {
-    if (typeof window === "undefined") return "system";
+    if (typeof localStorage === "undefined") return "system";
     return (localStorage.getItem(STORAGE_KEY_MOTION) as ReducedMotionMode) || "system";
   });
 

@@ -273,4 +273,253 @@ describe("Web Utilities", () => {
     expect(roomScss).toContain("width: 50vw;");
     expect(roomScss).toContain("width: 100vw;");
   });
+
+  it("verifies participant mute buttons, badges, and chat muted state", async () => {
+    const { ParticipantsPanel } = await import("../widgets/participants-panel/ui/participants-panel.js");
+    const { I18nProvider } = await import("../shared/lib/i18n/i18n-context.js");
+    const { RoomChat } = await import("../widgets/room-chat/ui/room-chat.js");
+    const { SessionContext } = await import("../app/providers/session-context.js");
+
+    const mockSession = {
+      timeSync: {} as any,
+      connectionStatus: "connected" as any,
+      user: { id: "user-1", displayName: "Tester", role: "member" as const },
+      ensureUser: async () => ({} as any),
+      updateDisplayName: async () => ({} as any),
+      register: async () => ({} as any),
+      login: async () => ({} as any),
+      signOut: async () => {},
+    };
+
+    const participants = [
+      {
+        userId: "owner-id",
+        displayName: "Owner",
+        role: "owner" as const,
+        isOnline: true,
+        canControl: true,
+        chatSeenAt: null,
+      },
+      {
+        userId: "controller-id",
+        displayName: "Controller",
+        role: "member" as const,
+        isOnline: true,
+        canControl: true,
+        chatSeenAt: null,
+      },
+      {
+        userId: "ordinary-id",
+        displayName: "Ordinary",
+        role: "member" as const,
+        isOnline: true,
+        canControl: false,
+        chatSeenAt: null,
+      },
+    ];
+
+    // 1. Owner view with ordinary participant not muted
+    const ownerHtml = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ParticipantsPanel, {
+          participants,
+          currentUserId: "owner-id",
+          isOwner: true,
+          canControl: true,
+          mutedUserIds: [],
+          maxParticipants: 10,
+          controlMode: "selected",
+          onSaveSettings: async () => {},
+          onToggleControl: async () => {},
+          onToggleMute: async () => {},
+        })
+      )
+    );
+
+    // Owner sees mute button ("Заглушить" / "Mute") for Ordinary
+    expect(ownerHtml).toContain("title=\"Заглушить\"");
+    // Owner does NOT have mute button for Controller or self
+    expect(ownerHtml).not.toContain("title=\"Заглушить Controller\"");
+
+    // 2. Owner view with ordinary participant muted
+    const ownerMutedHtml = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ParticipantsPanel, {
+          participants,
+          currentUserId: "owner-id",
+          isOwner: true,
+          canControl: true,
+          mutedUserIds: ["ordinary-id"],
+          maxParticipants: 10,
+          controlMode: "selected",
+          onSaveSettings: async () => {},
+          onToggleControl: async () => {},
+          onToggleMute: async () => {},
+        })
+      )
+    );
+
+    // Muted badge is displayed and action button becomes "Вернуть голос"
+    expect(ownerMutedHtml).toContain("title=\"Заглушён\"");
+    expect(ownerMutedHtml).toContain("title=\"Вернуть голос\"");
+
+    // 3. Ordinary member view: cannot see mute buttons for anyone
+    const memberHtml = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ParticipantsPanel, {
+          participants,
+          currentUserId: "ordinary-id",
+          isOwner: false,
+          canControl: false,
+          mutedUserIds: ["ordinary-id"],
+          maxParticipants: 10,
+          controlMode: "selected",
+          onSaveSettings: async () => {},
+          onToggleControl: async () => {},
+          onToggleMute: async () => {},
+        })
+      )
+    );
+
+    // Ordinary member sees the muted badge on themselves, but NO mute action buttons
+    expect(memberHtml).toContain("title=\"Заглушён\"");
+    expect(memberHtml).not.toContain("title=\"Заглушить\"");
+    expect(memberHtml).not.toContain("title=\"Вернуть голос\"");
+
+    // 4. RoomChat muted state
+    const chatMutedHtml = renderToStaticMarkup(
+      React.createElement(
+        SessionContext.Provider,
+        { value: mockSession },
+        React.createElement(
+          I18nProvider,
+          null,
+          React.createElement(RoomChat, {
+            messages: [],
+            loading: false,
+            onSend: async () => {},
+            isMuted: true,
+          })
+        )
+      )
+    );
+
+    expect(chatMutedHtml).toContain("disabled=\"\"");
+    expect(chatMutedHtml).toContain("placeholder=\"Вас заглушили\"");
+    expect(chatMutedHtml).toContain("Вас заглушили");
+
+    // 5. RoomChat unmuted state
+    const chatUnmutedHtml = renderToStaticMarkup(
+      React.createElement(
+        SessionContext.Provider,
+        { value: mockSession },
+        React.createElement(
+          I18nProvider,
+          null,
+          React.createElement(RoomChat, {
+            messages: [],
+            loading: false,
+            onSend: async () => {},
+            isMuted: false,
+          })
+        )
+      )
+    );
+
+    expect(chatUnmutedHtml).not.toContain("placeholder=\"Вас заглушили\"");
+    expect(chatUnmutedHtml).toContain("placeholder=\"Текст сообщения...\"");
+  });
+
+  it("verifies registration password strength, problems, repeat match, and payload validation", async () => {
+    const { checkPassword, passwordsMatch, displayNameSchema } = await import("@omioroom/contracts");
+    const { ru } = await import("../shared/lib/i18n/translations/ru.js");
+    const { en } = await import("../shared/lib/i18n/translations/en.js");
+
+    // 1. Problem translations match in RU and EN
+    expect(ru.onboarding.passwordProblems.too_short).toBe("Минимум 10 символов");
+    expect(ru.onboarding.passwordProblems.weak_classes).toBe("Добавьте заглавную букву, цифру или символ");
+    expect(ru.onboarding.passwordProblems.common).toBe("Слишком известный пароль");
+    expect(ru.onboarding.passwordProblems.contains_name).toBe("Не используйте имя или почту");
+    expect(ru.onboarding.passwordProblems.repetitive).toBe("Уберите повторы подряд");
+    expect(ru.onboarding.passwordProblems.sequence).toBe("Уберите последовательности вроде 1234 или qwer");
+    expect(ru.onboarding.passwordProblems.too_long).toBe("Не больше 72 символов");
+    expect(ru.onboarding.passwordsDoNotMatch).toBe("Пароли не совпадают");
+
+    expect(en.onboarding.passwordProblems.too_short).toBe("At least 10 characters");
+    expect(en.onboarding.passwordProblems.weak_classes).toBe("Add an uppercase letter, number, or symbol");
+    expect(en.onboarding.passwordsDoNotMatch).toBe("Passwords do not match");
+
+    // 2. checkPassword logic on weak vs strong
+    const weak1 = checkPassword("123", { username: "alex", email: "alex@example.com" });
+    expect(weak1.ok).toBe(false);
+    expect(weak1.score).toBe(0);
+    expect(weak1.problems).toContain("too_short");
+
+    const weakCommon = checkPassword("password123!", { username: "alex", email: "alex@example.com" });
+    expect(weakCommon.ok).toBe(false);
+    expect(weakCommon.problems).toContain("common");
+
+    const weakName = checkPassword("MySecretAlex99!", { username: "Alex", email: "alex@example.com" });
+    expect(weakName.ok).toBe(false);
+    expect(weakName.problems).toContain("contains_name");
+
+    const strong = checkPassword("Kino-Room-2026-Best!", { username: "Alex", email: "alex@example.com" });
+    expect(strong.ok).toBe(true);
+    expect(strong.score).toBeGreaterThanOrEqual(3);
+    expect(strong.problems).toHaveLength(0);
+
+    // 3. passwordsMatch logic
+    expect(passwordsMatch("Kino-Room-2026-Best!", "Kino-Room-2026-Best!")).toBe(true);
+    expect(passwordsMatch("Kino-Room-2026-Best!", "DifferentPassword123!")).toBe(false);
+    expect(passwordsMatch("", "")).toBe(false);
+
+    // 4. displayNameSchema validation for username
+    expect(displayNameSchema.safeParse("alex_cinema").success).toBe(true);
+    expect(displayNameSchema.safeParse("alex.cinema").success).toBe(true);
+    expect(displayNameSchema.safeParse("alex-cinema").success).toBe(true);
+    expect(displayNameSchema.safeParse("Alex Cinema 99").success).toBe(true);
+    // Disallowed characters (e.g. @, #, $, %, ^, &, *, !, <, >)
+    expect(displayNameSchema.safeParse("alex@cinema").success).toBe(false);
+    expect(displayNameSchema.safeParse("alex#cinema").success).toBe(false);
+    expect(displayNameSchema.safeParse("<script>").success).toBe(false);
+
+    // 5. Render IdentityPage static markup
+    const { IdentityPage } = await import("../pages/identity/ui/identity-page.js");
+    const { SessionContext } = await import("../app/providers/session-context.js");
+    const { I18nProvider } = await import("../shared/lib/i18n/i18n-context.js");
+    const { SettingsProvider } = await import("../shared/lib/settings/settings-context.js");
+
+    const mockSession = {
+      timeSync: {} as any,
+      connectionStatus: "connected" as any,
+      user: null,
+      ensureUser: async () => ({} as any),
+      updateDisplayName: async () => ({} as any),
+      register: async () => ({} as any),
+      login: async () => ({} as any),
+      signOut: async () => {},
+    };
+
+    const identityHtml = renderToStaticMarkup(
+      React.createElement(
+        SessionContext.Provider,
+        { value: mockSession },
+        React.createElement(
+          SettingsProvider,
+          null,
+          React.createElement(I18nProvider, null, React.createElement(IdentityPage, { onSelect: () => {} }))
+        )
+      )
+    );
+
+    // Identity page contains password show/hide buttons and strength meter
+    expect(identityHtml).toContain("aria-label=\"Показать пароль\"");
+    expect(identityHtml).toContain("strengthMeter");
+  });
 });

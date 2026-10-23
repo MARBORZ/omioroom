@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Crown, Settings, Ban, UserX } from "lucide-react";
+import { Crown, Settings, Ban, UserX, MicOff } from "lucide-react";
 import {
   MIN_ROOM_PARTICIPANTS,
   MAX_ROOM_PARTICIPANTS,
@@ -21,11 +21,14 @@ interface ParticipantsPanelProps {
   participants: ParticipantDto[];
   currentUserId: string | undefined;
   isOwner: boolean;
+  canControl?: boolean;
+  mutedUserIds?: string[];
   maxParticipants: number;
   controlMode: ControlMode;
   bannedUsers?: BannedUserDto[];
   onSaveSettings: (maxParticipants: number, controlMode: ControlMode) => Promise<void>;
   onToggleControl: (userId: string, canControl: boolean) => Promise<void>;
+  onToggleMute?: (userId: string, muted: boolean) => Promise<void>;
   onKickMember?: (userId: string) => Promise<void>;
   onBanMember?: (userId: string) => Promise<void>;
   onUnbanMember?: (userId: string) => Promise<void>;
@@ -35,11 +38,14 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
   participants,
   currentUserId,
   isOwner,
+  canControl = false,
+  mutedUserIds = [],
   maxParticipants,
   controlMode,
   bannedUsers = [],
   onSaveSettings,
   onToggleControl,
+  onToggleMute,
   onKickMember,
   onBanMember,
   onUnbanMember,
@@ -100,74 +106,98 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
       </div>
 
       <ul className={styles.list}>
-        {participants.map((p, i) => (
-          <li
-            key={p.userId}
-            className={`${styles.item} ${!p.isOnline ? styles.offlineItem : ""} motion-rise`}
-            style={{ "--i": Math.min(i, 7) } as React.CSSProperties}
-          >
-            <span className={styles.who}>
-              <span
-                className={`${styles.dot} ${p.isOnline ? styles.online : ""}`}
-                role="img"
-                aria-label={p.isOnline ? t.group.online : t.group.offline}
-              />
-              <span className={styles.name}>
-                {p.displayName}
-                {p.userId === currentUserId ? ` (${t.group.you})` : ""}
+        {participants.map((p, i) => {
+          const isCurrentUser = p.userId === currentUserId;
+          const isOrdinary = p.role !== "owner" && !p.canControl && !isCurrentUser;
+          const canManage = isOwner || Boolean(canControl);
+          const isMuted = Boolean(mutedUserIds.includes(p.userId));
+
+          return (
+            <li
+              key={p.userId}
+              className={`${styles.item} ${!p.isOnline ? styles.offlineItem : ""} motion-rise`}
+              style={{ "--i": Math.min(i, 7) } as React.CSSProperties}
+            >
+              <span className={styles.who}>
+                <span
+                  className={`${styles.dot} ${p.isOnline ? styles.online : ""}`}
+                  role="img"
+                  aria-label={p.isOnline ? t.group.online : t.group.offline}
+                />
+                <span className={styles.name}>
+                  {p.displayName}
+                  {isCurrentUser ? ` (${t.group.you})` : ""}
+                </span>
+                {p.role === "owner" && <Crown size={12} aria-label={t.group.owner} />}
+                {isMuted && (
+                  <span className={styles.mutedBadge} title={t.group.mutedBadge} aria-label={t.group.mutedBadge}>
+                    <MicOff size={12} />
+                  </span>
+                )}
               </span>
-              {p.role === "owner" && <Crown size={12} aria-label={t.group.owner} />}
-            </span>
 
-            <div className={styles.actions}>
-              {isOwner && controlMode === "selected" && p.role === "member" && (
-                <label className={styles.control}>
-                  <input
-                    type="checkbox"
-                    checked={p.canControl}
-                    onChange={(e) => void onToggleControl(p.userId, e.target.checked)}
-                  />
-                  {t.group.canControl}
-                </label>
-              )}
+              <div className={styles.actions}>
+                {isOwner && controlMode === "selected" && p.role === "member" && (
+                  <label className={styles.control}>
+                    <input
+                      type="checkbox"
+                      checked={p.canControl}
+                      onChange={(e) => void onToggleControl(p.userId, e.target.checked)}
+                    />
+                    {t.group.canControl}
+                  </label>
+                )}
 
-              {isOwner && p.userId !== currentUserId && p.role !== "owner" && (
-                <>
+                {canManage && isOrdinary && (
                   <button
                     type="button"
-                    className={styles.actionBtn}
-                    onClick={() =>
-                      setConfirmAction({
-                        type: "kick",
-                        userId: p.userId,
-                        displayName: p.displayName,
-                      })
-                    }
-                    title={t.group.kick}
-                    aria-label={t.group.kick}
+                    className={`${styles.actionBtn} ${isMuted ? styles.mutedActiveBtn : ""}`}
+                    onClick={() => void onToggleMute?.(p.userId, !isMuted)}
+                    title={isMuted ? t.group.unmuteMember : t.group.muteMember}
+                    aria-label={isMuted ? t.group.unmuteMember : t.group.muteMember}
                   >
-                    <UserX size={12} />
+                    <MicOff size={12} />
                   </button>
-                  <button
-                    type="button"
-                    className={`${styles.actionBtn} ${styles.dangerBtn}`}
-                    onClick={() =>
-                      setConfirmAction({
-                        type: "ban",
-                        userId: p.userId,
-                        displayName: p.displayName,
-                      })
-                    }
-                    title={t.group.ban}
-                    aria-label={t.group.ban}
-                  >
-                    <Ban size={12} />
-                  </button>
-                </>
-              )}
-            </div>
-          </li>
-        ))}
+                )}
+
+                {isOwner && !isCurrentUser && p.role !== "owner" && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() =>
+                        setConfirmAction({
+                          type: "kick",
+                          userId: p.userId,
+                          displayName: p.displayName,
+                        })
+                      }
+                      title={t.group.kick}
+                      aria-label={t.group.kick}
+                    >
+                      <UserX size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.dangerBtn}`}
+                      onClick={() =>
+                        setConfirmAction({
+                          type: "ban",
+                          userId: p.userId,
+                          displayName: p.displayName,
+                        })
+                      }
+                      title={t.group.ban}
+                      aria-label={t.group.ban}
+                    >
+                      <Ban size={12} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       {isOwner && bannedUsers.length > 0 && (

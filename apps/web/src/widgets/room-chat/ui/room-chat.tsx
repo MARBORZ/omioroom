@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck } from "lucide-react";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { showToast } from "../../../shared/ui/toast/toast.js";
 import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { backend } from "../../../shared/api/backend.js";
@@ -15,6 +16,7 @@ interface RoomChatProps {
   onSend: (text: string, image: File | null) => Promise<void>;
   participants?: ParticipantDto[];
   roomId?: string;
+  isMuted?: boolean;
 }
 
 interface ReplyState {
@@ -67,6 +69,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   onSend,
   participants,
   roomId,
+  isMuted = false,
 }) => {
   const { user } = useSession();
   const { t } = useI18n();
@@ -208,6 +211,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 
   const attachFile = useCallback(
     (file: File) => {
+      if (isMuted) return;
       if (!isAllowedChatImage(file)) {
         setError(t.chat.imageType);
         return;
@@ -216,16 +220,18 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       setImage(file);
       textareaRef.current?.focus();
     },
-    [t.chat.imageType]
+    [t.chat.imageType, isMuted]
   );
 
   const pickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isMuted) return;
     const file = e.target.files?.[0];
     e.target.value = "";
     if (file) attachFile(file);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
+    if (isMuted) return;
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -243,6 +249,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    if (isMuted) return;
     if (e.dataTransfer?.types?.includes("Files")) {
       e.preventDefault();
       setIsDragging(true);
@@ -257,6 +264,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (isMuted) return;
     const file = e.dataTransfer?.files?.[0];
     if (file && file.type.startsWith("image/")) {
       attachFile(file);
@@ -297,6 +305,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   }, [text, scrollToBottom]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isMuted) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (text.trim() || image) {
@@ -310,6 +319,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isMuted) return;
     const trimmed = text.trim();
     if (!trimmed && !image) return;
 
@@ -330,7 +340,15 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       isNearBottomRef.current = true;
       scrollToBottom(true);
     } catch (err: any) {
-      if (err instanceof ChatImageError) {
+      const isMutedError =
+        err?.code === "MUTED" ||
+        err?.message === "MUTED" ||
+        (typeof err?.message === "string" && err.message.includes("MUTED"));
+
+      if (isMutedError) {
+        showToast(t.chat.mutedNotice, { id: "chat-muted-notice" });
+        setError(t.chat.mutedNotice);
+      } else if (err instanceof ChatImageError) {
         setError(err.reason === "size" ? t.chat.imageTooLarge : t.chat.imageType);
       } else if (err?.code === "RATE_LIMITED") {
         setError(t.chat.rateLimited);
@@ -586,14 +604,24 @@ export const RoomChat: React.FC<RoomChatProps> = ({
           </div>
         )}
 
+        {isMuted && (
+          <div className={styles.mutedBanner} role="status">
+            <MicOff size={13} />
+            <span>{t.chat.youAreMuted}</span>
+          </div>
+        )}
+
         {/* Telegram-style expanding pill input container */}
-        <div className={styles.inputContainer}>
+        <div className={`${styles.inputContainer} ${isMuted ? styles.inputContainerMuted : ""}`}>
           <button
             type="button"
             className={styles.attachBtn}
-            onClick={() => fileRef.current?.click()}
-            title={t.chat.attach}
-            aria-label={t.chat.attach}
+            onClick={() => {
+              if (!isMuted) fileRef.current?.click();
+            }}
+            disabled={isMuted}
+            title={isMuted ? t.chat.youAreMuted : t.chat.attach}
+            aria-label={isMuted ? t.chat.youAreMuted : t.chat.attach}
           >
             <ImagePlus size={18} />
           </button>
@@ -603,6 +631,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             type="file"
             accept={CHAT_IMAGE_MIME_TYPES.join(",")}
             onChange={pickImage}
+            disabled={isMuted}
             hidden
           />
 
@@ -614,16 +643,17 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             maxLength={CHAT_MAX_TEXT_LENGTH}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t.chat.placeholder}
-            aria-label={t.chat.placeholder}
+            placeholder={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
+            aria-label={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
+            disabled={isMuted || sending}
           />
 
           <button
             type="submit"
-            className={`${styles.sendBtn} ${text.trim() || image ? styles.sendBtnActive : ""}`}
-            disabled={(!text.trim() && !image) || sending}
-            title={t.chat.send}
-            aria-label={t.chat.send}
+            className={`${styles.sendBtn} ${!isMuted && (text.trim() || image) ? styles.sendBtnActive : ""}`}
+            disabled={isMuted || (!text.trim() && !image) || sending}
+            title={isMuted ? t.chat.youAreMuted : t.chat.send}
+            aria-label={isMuted ? t.chat.youAreMuted : t.chat.send}
           >
             <SendHorizontal size={17} />
           </button>

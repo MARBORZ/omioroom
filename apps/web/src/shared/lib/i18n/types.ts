@@ -153,6 +153,21 @@ export interface Translations {
     tabRegister: string;
     usernameLabel: string;
     passwordLabel: string;
+    repeatPasswordLabel: string;
+    showPassword: string;
+    hidePassword: string;
+    passwordsDoNotMatch: string;
+    passwordProblems: {
+      too_short: string;
+      weak_classes: string;
+      common: string;
+      contains_name: string;
+      repetitive: string;
+      sequence: string;
+      too_long: string;
+    };
+    usernameInvalid: string;
+    invalidPayload: string;
     loginBtn: string;
     registerBtn: string;
     emailLabel: string;
@@ -181,6 +196,8 @@ export interface Translations {
     reply: string;
     replyTo: string;
     cancelReply: string;
+    youAreMuted: string;
+    mutedNotice: string;
   };
   friends: {
     title: string;
@@ -225,6 +242,9 @@ export interface Translations {
     ban: string;
     unban: string;
     bannedTitle: string;
+    muteMember: string;
+    unmuteMember: string;
+    mutedBadge: string;
     kickConfirm: (name: string) => string;
     banConfirm: (name: string) => string;
   };
@@ -243,6 +263,8 @@ export interface Translations {
     failed: string;
     desc: string;
     tip: string;
+    forcedMuted: string;
+    mutedByOwner: string;
     activePeers: (count: number) => string;
     noPeers: string;
   };

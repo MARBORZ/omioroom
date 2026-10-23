@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus, Settings } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus, Settings, Eye, EyeOff } from "lucide-react";
+import { checkPassword, passwordsMatch, displayNameSchema } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -33,8 +34,51 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+
+  // Validate username using displayNameSchema from contracts
+  const usernameParsed = useMemo(() => {
+    if (!username.trim()) return null;
+    return displayNameSchema.safeParse(username.trim());
+  }, [username]);
+
+  const usernameError = useMemo(() => {
+    if (!username) return undefined;
+    if (usernameParsed && !usernameParsed.success) {
+      return t.onboarding.usernameInvalid;
+    }
+    return undefined;
+  }, [username, usernameParsed, t.onboarding.usernameInvalid]);
+
+  const isUsernameValid = Boolean(usernameParsed?.success);
+
+  // Validate email format
+  const isEmailValid = useMemo(() => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }, [email]);
+
+  // Live checkPassword (pass username and email from form)
+  const passwordCheck = useMemo(
+    () => checkPassword(password, { username: username.trim(), email: email.trim() }),
+    [password, username, email]
+  );
+
+  // Live passwordsMatch
+  const isPasswordMatching = useMemo(
+    () => passwordsMatch(password, repeatPassword),
+    [password, repeatPassword]
+  );
+
+  const repeatMismatch = repeatPassword.length > 0 && !isPasswordMatching;
+
+  const isRegister = accountTab === "register";
+  const canSubmit = isRegister
+    ? !accountLoading && isUsernameValid && isEmailValid && passwordCheck.ok && isPasswordMatching
+    : !accountLoading && isEmailValid && password.length > 0;
 
   // 1. Anonymous handler
   const handleChooseAnonymous = async () => {
@@ -68,7 +112,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   // 3. Registered account handler
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password || (accountTab === "register" && !username.trim())) return;
+    if (!canSubmit) return;
     setAccountError(null);
     setAccountLoading(true);
 
@@ -81,8 +125,18 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
       localStorage.setItem("omioroom_identity_chosen", "true");
       onSelect();
     } catch (err: any) {
-      if (err?.code === "INVALID_PAYLOAD") {
+      const isUsernameTaken =
+        err?.message?.includes("Username is already taken") ||
+        err?.message?.includes("already taken") ||
+        err?.code === "USERNAME_TAKEN";
+
+      if (isUsernameTaken) {
         setAccountError(t.onboarding.usernameTaken);
+      } else if (
+        err?.code === "INVALID_PAYLOAD" ||
+        (typeof err?.message === "string" && err.message.includes("INVALID_PAYLOAD"))
+      ) {
+        setAccountError(t.onboarding.invalidPayload);
       } else if (err?.message === "CONFIRM_EMAIL") {
         setAccountError(t.onboarding.confirmEmail);
       } else if (err?.code === "UNAUTHENTICATED") {
@@ -232,6 +286,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               onClick={() => {
                 setAccountTab("register");
                 setAccountError(null);
+                setRepeatPassword("");
               }}
             >
               {t.onboarding.tabRegister}
@@ -242,6 +297,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               onClick={() => {
                 setAccountTab("login");
                 setAccountError(null);
+                setRepeatPassword("");
               }}
             >
               {t.onboarding.tabLogin}
@@ -270,23 +326,93 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
                   setUsername(e.target.value);
                   if (accountError) setAccountError(null);
                 }}
+                error={usernameError}
                 disabled={accountLoading}
                 maxLength={30}
                 required
               />
             )}
-            <TextField
-              label={t.onboarding.passwordLabel}
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (accountError) setAccountError(null);
-              }}
-              disabled={accountLoading}
-              required
-            />
+            <div className={styles.passwordWrapper}>
+              <TextField
+                label={t.onboarding.passwordLabel}
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (accountError) setAccountError(null);
+                }}
+                disabled={accountLoading}
+                endAdornment={
+                  <button
+                    type="button"
+                    className={styles.eyeBtn}
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t.onboarding.hidePassword : t.onboarding.showPassword}
+                    title={showPassword ? t.onboarding.hidePassword : t.onboarding.showPassword}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                }
+                required
+              />
+
+              {accountTab === "register" && (
+                <>
+                  <div className={styles.strengthMeter} aria-hidden="true">
+                    {[1, 2, 3, 4].map((segIndex) => (
+                      <div
+                        key={segIndex}
+                        className={`${styles.strengthSegment} ${
+                          password && passwordCheck.score >= segIndex
+                            ? styles[`strengthScore${passwordCheck.score}`]
+                            : ""
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {password.length > 0 && passwordCheck.problems.length > 0 && (
+                    <ul className={styles.problemList} aria-label="Password requirements">
+                      {passwordCheck.problems.map((prob) => (
+                        <li key={prob} className={styles.problemItem}>
+                          {t.onboarding.passwordProblems[prob]}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+
+            {accountTab === "register" && (
+              <TextField
+                label={t.onboarding.repeatPasswordLabel}
+                type={showRepeatPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={repeatPassword}
+                onChange={(e) => {
+                  setRepeatPassword(e.target.value);
+                  if (accountError) setAccountError(null);
+                }}
+                disabled={accountLoading}
+                error={repeatMismatch ? t.onboarding.passwordsDoNotMatch : undefined}
+                endAdornment={
+                  <button
+                    type="button"
+                    className={styles.eyeBtn}
+                    onClick={() => setShowRepeatPassword((v) => !v)}
+                    aria-label={showRepeatPassword ? t.onboarding.hidePassword : t.onboarding.showPassword}
+                    title={showRepeatPassword ? t.onboarding.hidePassword : t.onboarding.showPassword}
+                    tabIndex={-1}
+                  >
+                    {showRepeatPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                }
+                required
+              />
+            )}
 
             {accountError && <div className={styles.errorMessage}>{accountError}</div>}
 
@@ -294,7 +420,7 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
               type="submit"
               variant="primary"
               loading={accountLoading}
-              disabled={!email.trim() || (accountTab === "register" && !username.trim()) || password.length < 6}
+              disabled={!canSubmit}
               icon={accountTab === "register" ? <UserPlus size={15} /> : <LogIn size={15} />}
             >
               {accountTab === "register" ? t.onboarding.registerBtn : t.onboarding.loginBtn}

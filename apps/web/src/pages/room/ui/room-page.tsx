@@ -682,6 +682,28 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }
   };
 
+  const handleToggleMuteMember = async (targetUserId: string, muted: boolean) => {
+    const prevMuted = snapshot.mutedUserIds ?? [];
+    const nextMuted = muted
+      ? Array.from(new Set([...prevMuted, targetUserId]))
+      : prevMuted.filter((id) => id !== targetUserId);
+
+    setSnapshot((prev) => ({
+      ...prev,
+      mutedUserIds: nextMuted,
+    }));
+
+    try {
+      await backend.setMemberMuted(snapshot.room.id, targetUserId, muted);
+    } catch {
+      setSnapshot((prev) => ({
+        ...prev,
+        mutedUserIds: prevMuted,
+      }));
+      showToast(tRef.current.room.commandFailed, { id: "mute-member-error" });
+    }
+  };
+
   const handleSendChat = async (text: string, image: File | null) => {
     const path = image ? await backend.uploadChatImage(snapshot.room.id, image) : null;
     await backend.sendChat(snapshot.room.id, text, path);
@@ -719,6 +741,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     isOnline: presentIds ? presentIds.includes(p.userId) : p.isOnline,
   }));
   const activeParticipantsCount = participants.filter((p) => p.isOnline).length;
+  const isCurrentUserMuted = Boolean(user?.id && snapshot.mutedUserIds?.includes(user.id));
 
   useEffect(() => {
     if (!canControl && activeTab === "media") setActiveTab("chat");
@@ -978,7 +1001,12 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             )}
 
             <div data-panel="voice" className={styles.panelWrapper}>
-              <VoicePanel roomId={snapshot.room.id} userId={user?.id} participants={participants} />
+              <VoicePanel
+                roomId={snapshot.room.id}
+                userId={user?.id}
+                participants={participants}
+                mutedUserIds={snapshot.mutedUserIds}
+              />
             </div>
 
             {!isMobile && (
@@ -989,6 +1017,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   onSend={handleSendChat}
                   participants={participants}
                   roomId={snapshot.room.id}
+                  isMuted={isCurrentUserMuted}
                 />
               </div>
             )}
@@ -998,11 +1027,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 participants={participants}
                 currentUserId={user?.id}
                 isOwner={snapshot.isOwner}
+                canControl={snapshot.canControl}
+                mutedUserIds={snapshot.mutedUserIds}
                 maxParticipants={snapshot.room.maxParticipants}
                 controlMode={snapshot.room.controlMode}
                 bannedUsers={snapshot.bannedUsers}
                 onSaveSettings={handleSaveSettings}
                 onToggleControl={handleToggleControl}
+                onToggleMute={handleToggleMuteMember}
                 onKickMember={async (uid) => {
                   await backend.kickMember(snapshot.room.id, uid);
                 }}
@@ -1104,6 +1136,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 onSend={handleSendChat}
                 participants={participants}
                 roomId={snapshot.room.id}
+                isMuted={isCurrentUserMuted}
               />
             </div>
           </div>

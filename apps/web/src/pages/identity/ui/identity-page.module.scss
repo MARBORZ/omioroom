@@ -162,6 +162,96 @@
   gap: var(--space-3);
 }
 
+.passwordWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.eyeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--color-border-focus);
+  }
+}
+
+.strengthMeter {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.strengthSegment {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  box-sizing: border-box;
+  transition: background-color var(--transition-fast);
+
+  &.strengthScore1 {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+  &.strengthScore2 {
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
+  }
+  &.strengthScore3 {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  &.strengthScore4 {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+  }
+}
+
+.problemList {
+  list-style: none;
+  margin: 4px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.problemItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+
+  &::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+}
+
 .errorMessage {
   font-size: var(--font-size-xs);
   color: var(--color-danger);

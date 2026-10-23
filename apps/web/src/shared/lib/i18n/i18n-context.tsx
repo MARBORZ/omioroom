@@ -15,16 +15,18 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 function getInitialLanguage(): Lang {
-  const saved = localStorage.getItem(LANG_STORAGE_KEY);
-  if (saved === "en" || saved === "ru") {
-    return saved;
+  if (typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem(LANG_STORAGE_KEY);
+    if (saved === "en" || saved === "ru") {
+      return saved;
+    }
   }
   if (typeof navigator !== "undefined" && navigator.language) {
     if (navigator.language.toLowerCase().startsWith("ru")) {
       return "ru";
     }
   }
-  return "en";
+  return "ru";
 }
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,7 +34,9 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setLang = (newLang: Lang) => {
     setLangState(newLang);
-    localStorage.setItem(LANG_STORAGE_KEY, newLang);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(LANG_STORAGE_KEY, newLang);
+    }
   };
 
   const toggleLang = () => {
@@ -42,7 +46,9 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const t = useMemo(() => (lang === "ru" ? ru : en), [lang]);
 
   useEffect(() => {
-    document.documentElement.lang = lang;
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = lang;
+    }
   }, [lang]);
 
   return (

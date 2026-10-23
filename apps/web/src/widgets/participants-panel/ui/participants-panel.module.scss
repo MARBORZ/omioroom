@@ -52,6 +52,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .actionBtn {
@@ -77,6 +78,25 @@
     color: var(--color-danger);
     border-color: var(--color-danger);
   }
+
+  &.mutedActiveBtn {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    background: var(--color-surface-hover);
+
+    &:hover {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+    }
+  }
+}
+
+.mutedBadge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-danger);
+  flex-shrink: 0;
+  margin-left: 2px;
 }
 
 .bannedSection {

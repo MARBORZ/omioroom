@@ -10,6 +10,7 @@ interface VoicePanelProps {
   roomId: string;
   userId: string | undefined;
   participants: ParticipantDto[];
+  mutedUserIds?: string[];
 }
 
 const RemoteAudio: React.FC<{ stream: MediaStream }> = ({ stream }) => {
@@ -22,9 +23,14 @@ const RemoteAudio: React.FC<{ stream: MediaStream }> = ({ stream }) => {
   return <audio ref={ref} autoPlay playsInline />;
 };
 
-export const VoicePanel: React.FC<VoicePanelProps> = ({ roomId, userId, participants }) => {
+export const VoicePanel: React.FC<VoicePanelProps> = ({
+  roomId,
+  userId,
+  participants,
+  mutedUserIds = [],
+}) => {
   const { t } = useI18n();
-  const voice = useVoiceChat(roomId, userId);
+  const voice = useVoiceChat(roomId, userId, mutedUserIds);
   const nameOf = (id: string) => participants.find((p) => p.userId === id)?.displayName ?? "…";
 
   const errorText =
@@ -86,6 +92,7 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ roomId, userId, particip
               const self = p.userId === userId;
               const speaking = self ? voice.selfSpeaking && !voice.muted : p.speaking && !p.muted;
               const isMuted = self ? voice.muted : p.muted;
+              const isForcedMuted = mutedUserIds.includes(p.userId);
               const name = nameOf(p.userId);
               return (
                 <li
@@ -105,7 +112,9 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ roomId, userId, particip
                       {self ? ` (${t.group.you})` : ""}
                     </span>
                     <span className={styles.peerStatus}>
-                      {isMuted ? (
+                      {isForcedMuted ? (
+                        <span className={styles.statusMuted}>{t.voice.mutedByOwner}</span>
+                      ) : isMuted ? (
                         <span className={styles.statusMuted}>{t.voice.muted}</span>
                       ) : speaking ? (
                         <span className={styles.statusSpeaking}>{t.voice.speaking}</span>
@@ -114,31 +123,46 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ roomId, userId, particip
                       )}
                     </span>
                   </div>
-                  {isMuted && <MicOff size={14} className={styles.statusMuted} aria-label={t.voice.muted} />}
+                  {(isMuted || isForcedMuted) && (
+                    <MicOff
+                      size={14}
+                      className={styles.statusMuted}
+                      aria-label={isForcedMuted ? t.voice.mutedByOwner : t.voice.muted}
+                    />
+                  )}
                 </li>
               );
             })}
           </ul>
 
           <div className={styles.activeActions}>
-            <Button
-              variant={voice.muted ? "primary" : "secondary"}
-              size="sm"
-              icon={voice.muted ? <MicOff size={15} /> : <Mic size={15} />}
-              onClick={voice.toggleMute}
-              className={styles.muteBtn}
-            >
-              {voice.muted ? t.voice.unmute : t.voice.mute}
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<PhoneOff size={15} />}
-              onClick={voice.leave}
-              className={styles.leaveBtn}
-            >
-              {t.voice.leave}
-            </Button>
+            <div className={styles.actionButtonsRow}>
+              <Button
+                variant={voice.muted ? "primary" : "secondary"}
+                size="sm"
+                icon={voice.muted ? <MicOff size={15} /> : <Mic size={15} />}
+                onClick={voice.toggleMute}
+                disabled={voice.forcedMuted}
+                title={voice.forcedMuted ? t.voice.forcedMuted : undefined}
+                className={styles.muteBtn}
+              >
+                {voice.muted ? t.voice.unmute : t.voice.mute}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<PhoneOff size={15} />}
+                onClick={voice.leave}
+                className={styles.leaveBtn}
+              >
+                {t.voice.leave}
+              </Button>
+            </div>
+            {voice.forcedMuted && (
+              <div className={styles.forcedMutedNotice} role="status">
+                {t.voice.forcedMuted}
+              </div>
+            )}
           </div>
         </div>
       )}
