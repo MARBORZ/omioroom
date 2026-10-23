@@ -1,6 +1,6 @@
 # OMIOROOM
 
-Watch videos together with friends: 2 to 32 people per room. Open source, no servers to run: **React on Vercel + Supabase** (Auth, Postgres, Realtime).
+Watch videos together with friends: 2 to 32 people per room. No servers to run: **React on Vercel + Supabase** (Auth, Postgres, Realtime).
 
 - Anonymous, nickname, or registered accounts (Supabase Auth; the anonymous identity lives in the browser's storage).
 - Public and private rooms with a secret code only the owner sees; room id stays stable when the code is rotated/revoked.
@@ -72,7 +72,7 @@ connects to everyone), so it is capped at 8 people. Behind strict NATs a TURN re
 
 ## Limits
 
-- Each owner has a limit on active rooms (currently 1, set in `room_limit_per_user()`); a room that stays empty for 5 minutes is closed by a scheduled job (`pg_cron`, every minute).
+- Each owner has a limit on active rooms (1 by default; raised per account in the `user_room_limits` table); a room that nobody has entered for 7 days closes by itself (scheduled job in `pg_cron`), or the owner closes it earlier.
 - Chat keeps the last 100 messages per room and is deleted when the room closes.
 - A seat frees ~90 s after a participant's last activity (heartbeat every 30 s).
 - Realtime presence channels are named by the room's random UUID; row data is protected by RLS.

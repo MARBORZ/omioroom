@@ -908,4 +908,12 @@ describe("maintenance", () => {
     await t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: a, p_muted: false });
     expect((await t.as(a).rpc("send_chat", { p_room_id: r.id, p_text: "hi again" })).text ?? "ok").toBeTruthy();
   });
+  it("the room limit is one by default and can be raised for a chosen account", async () => {
+    const owner = await t.newUser();
+    const other = await t.newUser();
+    expect((await t.db.query<any>(`select public.room_limit_for('${owner}') as n`)).rows[0].n).toBe(1);
+    await t.db.exec(`insert into public.user_room_limits (user_id, max_rooms) values ('${owner}', 3)`);
+    expect((await t.db.query<any>(`select public.room_limit_for('${owner}') as n`)).rows[0].n).toBe(3);
+    expect((await t.db.query<any>(`select public.room_limit_for('${other}') as n`)).rows[0].n).toBe(1);
+  });
 });
