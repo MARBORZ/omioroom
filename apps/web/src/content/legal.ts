@@ -51,26 +51,33 @@ export const LEGAL_PAGES: ContentPageDef[] = [
             ],
           },
           {
-            heading: "6. Срок жизни комнат и данных",
+            heading: "6. Открытые комнаты",
+            paragraphs: [
+              "В открытую комнату может войти любой, кто знает её номер. Всё, что вы пишете и показываете в ней, видят все её участники, в том числе незнакомые люди: имя, сообщения, изображения, видео и ваше присутствие. Не публикуйте в открытых комнатах личные данные (адреса, телефоны, документы, пароли) и не делитесь тем, что должно остаться между друзьями. Для закрытого общения используйте закрытую комнату.",
+              "Владелец открытой комнаты отвечает за то, что в ней происходит, и должен убирать нарушителей. Если в открытой комнате нарушаются эти правила, напишите нам на " + CONTACT_EMAIL + " с номером комнаты, и мы примем меры, вплоть до закрытия комнаты.",
+            ],
+          },
+          {
+            heading: "7. Срок жизни комнат и данных",
             paragraphs: [
               "Комната удаляется вместе с чатом, если в ней никого не было 7 дней, или раньше по решению владельца. Подробности о данных описаны в Политике обработки данных.",
             ],
           },
           {
-            heading: "7. Доступность и ответственность",
+            heading: "8. Доступность и ответственность",
             paragraphs: [
               "Сервис предоставляется «как есть». Мы стараемся поддерживать его работу, но не гарантируем бесперебойность и точность синхронизации: она зависит от вашего соединения, устройства и стороннего источника видео.",
               "Насколько это допускает закон, мы не отвечаем за косвенные убытки, потерю данных, недоступность сторонних источников и действия других участников.",
             ],
           },
           {
-            heading: "8. Изменения правил",
+            heading: "9. Изменения правил",
             paragraphs: [
               "Мы можем обновлять эти правила. Новая редакция вступает в силу с момента публикации на этой странице; дата последнего изменения указана вверху. Продолжая пользоваться сервисом, вы принимаете новую редакцию.",
             ],
           },
           {
-            heading: "9. Связь",
+            heading: "10. Связь",
             paragraphs: ["Вопросы, жалобы и обращения: " + CONTACT_EMAIL + "."],
           },
         ],
@@ -119,26 +126,33 @@ export const LEGAL_PAGES: ContentPageDef[] = [
             ],
           },
           {
-            heading: "6. Lifetime of rooms and data",
+            heading: "6. Open rooms",
+            paragraphs: [
+              "Anyone who knows the number of an open room can enter it. Everything you write and show in it is visible to all its participants, including strangers: your name, messages, images, videos and presence. Do not post personal data (addresses, phone numbers, documents, passwords) in open rooms and do not share what should stay between friends. For private conversation use a private room.",
+              "The owner of an open room is responsible for what happens in it and should remove offenders. If these terms are broken in an open room, write to us at " + CONTACT_EMAIL + " with the room number and we will take action, up to closing the room.",
+            ],
+          },
+          {
+            heading: "7. Lifetime of rooms and data",
             paragraphs: [
               "A room is deleted with its chat if nobody has been inside for 7 days, or earlier by the owner's decision. Details about data are in the Data Processing Policy.",
             ],
           },
           {
-            heading: "7. Availability and liability",
+            heading: "8. Availability and liability",
             paragraphs: [
               "The service is provided “as is”. We try to keep it running but do not guarantee uninterrupted operation or the precision of synchronization: it depends on your connection, device and the third-party video source.",
               "To the extent permitted by law, we are not liable for indirect losses, loss of data, unavailability of third-party sources or the actions of other participants.",
             ],
           },
           {
-            heading: "8. Changes to the terms",
+            heading: "9. Changes to the terms",
             paragraphs: [
               "We may update these terms. The new version takes effect when published on this page; the date of the last change is shown at the top. By continuing to use the service you accept the new version.",
             ],
           },
           {
-            heading: "9. Contact",
+            heading: "10. Contact",
             paragraphs: ["Questions, complaints and requests: " + CONTACT_EMAIL + "."],
           },
         ],
@@ -196,6 +210,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
               "Мы не продаём данные и не используем их для рекламы. Для работы сервиса мы используем провайдеров, которые обрабатывают данные по нашему поручению: хостинг сайта (Vercel), базу данных, вход, хранилище и обмен сообщениями (Supabase). Их серверы могут находиться в разных странах.",
               "Видео воспроизводят плееры сторонних площадок (YouTube, VK Видео, RuTube, Vimeo) или ваша ссылка. Эти площадки могут собирать данные по своим правилам, когда ролик загружается у вас в браузере.",
               "Для установления голосовой связи используется публичный STUN-сервер Google. Участники комнаты видят то, что вы публикуете в ней: имя, сообщения, изображения, ваше присутствие.",
+              "Открытая комната доступна любому, кто знает её номер, поэтому её содержимое (имена, сообщения, изображения) видят и незнакомые люди. В голосовом чате участники видят сетевые адреса друг друга: в открытых комнатах включайте голос, только если доверяете собеседникам. В закрытой комнате данные видят только те, кто вошёл по ключу.",
             ],
           },
           {
@@ -270,6 +285,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
               "We do not sell data or use it for advertising. To run the service we use providers who process data on our behalf: site hosting (Vercel), database, sign-in, storage and messaging (Supabase). Their servers may be located in different countries.",
               "Videos are played by third-party players (YouTube, VK Video, RuTube, Vimeo) or by your link. Those platforms may collect data under their own rules when a video loads in your browser.",
               "A public Google STUN server is used to set up voice connections. Room participants see what you publish in it: your name, messages, images and presence.",
+              "An open room is available to anyone who knows its number, so its content (names, messages, images) is also seen by strangers. In voice chat, participants can see each other's network addresses: in open rooms, switch voice on only if you trust the others. In a private room, only people who entered with the key see the data.",
             ],
           },
           {
