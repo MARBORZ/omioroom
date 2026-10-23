@@ -4,14 +4,16 @@ import { useSettings } from "../../../shared/lib/settings/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
+import { BlacklistPanel } from "../../../widgets/blacklist-panel/index.js";
 import styles from "./settings-modal.module.scss";
 
 export interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isOwner?: boolean;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, isOwner = false }) => {
   const { theme, density, reducedMotion, setTheme, setDensity, setReducedMotion } = useSettings();
   const { lang, setLang, t } = useI18n();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -187,6 +189,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </button>
             </div>
           </div>
+
+          {/* Owner Blacklist */}
+          {isOwner && (
+            <div className={styles.section}>
+              <BlacklistPanel embedded />
+            </div>
+          )}
         </div>
 
         <div className={styles.footer}>

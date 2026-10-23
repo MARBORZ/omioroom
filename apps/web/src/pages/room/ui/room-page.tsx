@@ -762,6 +762,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       <RoomHeader
         participantCount={activeParticipantsCount}
         maxParticipants={snapshot.room.maxParticipants}
+        isOwner={snapshot.isOwner}
         roomNumber={snapshot.room.globalId}
         onNavigateHome={() => setPendingExit("home")}
         onNavigateMyRooms={() => setPendingExit("my-rooms")}
@@ -1043,7 +1044,16 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   await backend.banMember(snapshot.room.id, uid);
                 }}
                 onUnbanMember={async (uid) => {
-                  await backend.unbanMember(snapshot.room.id, uid);
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    bannedUsers: (prev.bannedUsers ?? []).filter((b) => b.userId !== uid),
+                  }));
+                  try {
+                    await backend.unbanUser(uid);
+                  } catch (err) {
+                    setSnapshot(await backend.getSnapshot(snapshot.room.id));
+                    throw err;
+                  }
                 }}
               />
             </div>

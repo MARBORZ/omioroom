@@ -533,4 +533,53 @@ describe("Web Utilities", () => {
     expect(identityHtml).toContain("aria-label=\"Показать пароль\"");
     expect(identityHtml).toContain("strengthMeter");
   });
+
+  it("verifies blacklist panel and room participants banned user labels", async () => {
+    const { ParticipantsPanel } = await import("../widgets/participants-panel/ui/participants-panel.js");
+    const { BlacklistPanel } = await import("../widgets/blacklist-panel/ui/blacklist-panel.js");
+    const { SettingsModal } = await import("../widgets/settings-modal/ui/settings-modal.js");
+    const { SettingsProvider } = await import("../shared/lib/settings/settings-context.js");
+    const { I18nProvider } = await import("../shared/lib/i18n/i18n-context.js");
+
+    // 1. ParticipantsPanel with bannedUsers shows "Заблокирован во всех ваших комнатах"
+    const panelWithBanned = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ParticipantsPanel, {
+          participants: [],
+          currentUserId: "owner-id",
+          isOwner: true,
+          canControl: true,
+          mutedUserIds: [],
+          bannedUsers: [{ userId: "banned-1", displayName: "BadActor" }],
+          maxParticipants: 10,
+          controlMode: "selected",
+          onSaveSettings: async () => {},
+        })
+      )
+    );
+    expect(panelWithBanned).toContain("BadActor");
+    expect(panelWithBanned).toContain("Заблокирован во всех ваших комнатах");
+    expect(panelWithBanned).toContain("Разблокировать");
+
+    // 2. SettingsModal owner vs non-owner
+    const nonOwnerSettings = renderToStaticMarkup(
+      React.createElement(
+        SettingsProvider,
+        null,
+        React.createElement(I18nProvider, null, React.createElement(SettingsModal, { isOpen: true, onClose: () => {}, isOwner: false }))
+      )
+    );
+    expect(nonOwnerSettings).not.toContain("Чёрный список");
+
+    const ownerSettings = renderToStaticMarkup(
+      React.createElement(
+        SettingsProvider,
+        null,
+        React.createElement(I18nProvider, null, React.createElement(SettingsModal, { isOpen: true, onClose: () => {}, isOwner: true }))
+      )
+    );
+    expect(ownerSettings).toContain("Чёрный список");
+  });
 });

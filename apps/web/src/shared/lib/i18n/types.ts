@@ -242,11 +242,22 @@ export interface Translations {
     ban: string;
     unban: string;
     bannedTitle: string;
+    bannedAllRooms: string;
+    banHint: string;
     muteMember: string;
     unmuteMember: string;
     mutedBadge: string;
     kickConfirm: (name: string) => string;
     banConfirm: (name: string) => string;
+  };
+  blacklist: {
+    title: string;
+    empty: string;
+    unban: string;
+    unbanConfirm: (name: string) => string;
+    unbanHint: string;
+    allRoomsNotice: string;
+    loadFailed: string;
   };
   voice: {
     title: string;

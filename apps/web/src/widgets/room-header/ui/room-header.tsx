@@ -8,6 +8,7 @@ import styles from "./room-header.module.scss";
 interface RoomHeaderProps {
   participantCount?: number;
   maxParticipants?: number;
+  isOwner?: boolean;
   onNavigateHome?: () => void;
   onNavigateMyRooms?: () => void;
   onLeave?: () => void;
@@ -18,6 +19,7 @@ interface RoomHeaderProps {
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
   participantCount = 1,
   maxParticipants = 2,
+  isOwner = false,
   onNavigateHome,
   onLeave,
   roomNumber,
@@ -109,7 +111,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           )}
         </div>
       </header>
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} isOwner={isOwner} />
     </>
   );
 };

@@ -129,10 +129,26 @@
   justify-content: space-between;
   gap: var(--space-2);
   font-size: var(--font-size-sm);
+  padding: 4px 0;
+}
+
+.bannedInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
 }
 
 .bannedName {
   color: var(--color-text-muted);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.bannedSubtitle {
+  font-size: 11px;
+  color: var(--color-text-faint);
+  line-height: 1.2;
 }
 
 .unbanBtn {

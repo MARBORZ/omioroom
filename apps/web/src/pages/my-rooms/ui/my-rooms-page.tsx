@@ -7,6 +7,7 @@ import { Pill } from "../../../shared/ui/pill/pill.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
 import { FriendsPanel } from "../../../widgets/friends-panel/ui/friends-panel.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
+import { BlacklistPanel } from "../../../widgets/blacklist-panel/index.js";
 import { formatRoomExpiration } from "../../../shared/lib/format-expiration.js";
 import { backend } from "../../../shared/api/backend.js";
 import type { RoomSummaryDto, RoomSnapshotDto } from "@omioroom/contracts";
@@ -100,10 +101,11 @@ export const MyRoomsPage: React.FC<MyRoomsPageProps> = ({
         </div>
       </div>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} isOwner={true} />
 
       <aside className={styles.sidebar} data-layout="my-rooms-sidebar">
         <FriendsPanel onNavigateIdentity={onNavigateIdentity} />
+        <BlacklistPanel />
       </aside>
 
       <div className={styles.content} data-layout="my-rooms-content">

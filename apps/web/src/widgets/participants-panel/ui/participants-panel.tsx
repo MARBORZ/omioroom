@@ -208,7 +208,10 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
           <ul className={styles.bannedList}>
             {bannedUsers.map((b) => (
               <li key={b.userId} className={styles.bannedItem}>
-                <span className={styles.bannedName}>{b.displayName}</span>
+                <div className={styles.bannedInfo}>
+                  <span className={styles.bannedName}>{b.displayName}</span>
+                  <span className={styles.bannedSubtitle}>{t.group.bannedAllRooms}</span>
+                </div>
                 <button
                   type="button"
                   className={styles.unbanBtn}
@@ -258,7 +261,7 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
               ? t.group.kickConfirm(confirmAction.displayName)
               : t.group.banConfirm(confirmAction.displayName)
           }
-          message=""
+          message={confirmAction.type === "ban" ? t.group.banHint : ""}
           confirmLabel={confirmAction.type === "kick" ? t.group.kick : t.group.ban}
           cancelLabel={t.common.close}
           onConfirm={handleConfirmAction}
