@@ -15,6 +15,8 @@ import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
 import { BootSplash } from "./boot-splash.js";
 import { DocumentMeta } from "./document-meta.js";
+import { ContentPage } from "../pages/content/ui/content-page.js";
+import { findContentPage } from "../content/index.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
 import { ToastContainer, showToast } from "../shared/ui/toast/toast.js";
 import {
@@ -247,6 +249,17 @@ const MainApp: React.FC = () => {
 };
 
 export const App: React.FC = () => {
+  // Informational pages (/faq, /rules...) have their own addresses and need no account or connection
+  const contentPage = findContentPage(window.location.pathname);
+  if (contentPage) {
+    return (
+      <SettingsProvider>
+        <I18nProvider>
+          <ContentPage page={contentPage} />
+        </I18nProvider>
+      </SettingsProvider>
+    );
+  }
   return (
     <SettingsProvider>
       <I18nProvider>
