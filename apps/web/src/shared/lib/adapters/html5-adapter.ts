@@ -32,11 +32,19 @@ export class Html5PlayerAdapter implements PlayerAdapter {
   }
 
   private bindEvents(video: HTMLVideoElement) {
-    video.addEventListener("loadedmetadata", () => {
+    const onLoaded = () => {
       if (this.currentRate !== 1 && video.playbackRate !== this.currentRate) {
         video.playbackRate = this.currentRate;
       }
-    });
+      this.emit({
+        type: "timeupdate",
+        currentTime: video.currentTime,
+        duration: video.duration || 0,
+      });
+    };
+
+    video.addEventListener("loadedmetadata", onLoaded);
+    video.addEventListener("canplay", onLoaded);
 
     video.addEventListener("play", () => {
       if (this.currentRate !== 1 && video.playbackRate !== this.currentRate) {

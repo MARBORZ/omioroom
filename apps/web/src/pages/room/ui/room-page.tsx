@@ -407,9 +407,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         const history = await backend.chatHistory(roomId);
         if (disposed) return;
         setMessages(history);
-        setChatLoading(false);
       } catch {
         // The next resync retries
+      } finally {
+        if (!disposed) setChatLoading(false);
       }
     };
 

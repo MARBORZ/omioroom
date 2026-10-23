@@ -1,3 +1,12 @@
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .skeleton {
   display: block;
   width: var(--skeleton-width, 100%);
@@ -18,6 +27,8 @@
 }
 
 .text {
+  display: inline-block;
+  vertical-align: middle;
   border-radius: 4px;
 }
 
@@ -35,3 +46,4 @@
 [data-reduced-motion="reduce"] .skeleton {
   animation: none !important;
 }
+

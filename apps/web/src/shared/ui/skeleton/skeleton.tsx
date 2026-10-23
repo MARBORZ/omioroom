@@ -21,13 +21,15 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   className,
   children,
 }) => {
-  if (!loading && children !== undefined) {
-    return <>{children}</>;
+  if (!loading) {
+    return children !== undefined ? <>{children}</> : null;
   }
 
-  const computedHeight = height ?? (shape === "text" ? 14 : undefined);
+  const computedWidth = shape === "circle" ? (width ?? height ?? 40) : width;
+  const computedHeight =
+    height ?? (shape === "text" ? 14 : shape === "circle" ? computedWidth : undefined);
   const customVars: React.CSSProperties = {
-    "--skeleton-width": typeof width === "number" ? `${width}px` : width,
+    "--skeleton-width": typeof computedWidth === "number" ? `${computedWidth}px` : computedWidth,
     ...(computedHeight !== undefined
       ? { "--skeleton-height": typeof computedHeight === "number" ? `${computedHeight}px` : computedHeight }
       : {}),

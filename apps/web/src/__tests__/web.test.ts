@@ -119,6 +119,17 @@ describe("Web Utilities", () => {
     );
     expect(htmlDone).toContain("Loaded content");
     expect(htmlDone).not.toContain('aria-hidden="true"');
+
+    const htmlDoneWithoutChildren = renderToStaticMarkup(
+      React.createElement(Skeleton, { loading: false })
+    );
+    expect(htmlDoneWithoutChildren).toBe("");
+
+    const htmlCircle = renderToStaticMarkup(
+      React.createElement(Skeleton, { shape: "circle", width: 32 })
+    );
+    expect(htmlCircle).toContain("--skeleton-width:32px");
+    expect(htmlCircle).toContain("--skeleton-height:32px");
   });
 
   it("Loader handles loading prop correctly", () => {

@@ -297,6 +297,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
     const mediaKey = `${media.type}:${media.canonicalUrl}`;
     if (adapterRef.current && loadedMediaKeyRef.current === mediaKey) {
+      setMediaLoading(false);
       return;
     }
 
@@ -359,7 +360,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
 
       if (event.type === "timeupdate") {
         cur.onPositionUpdate(event.currentTime, event.duration);
-        if (event.duration > 0 || event.currentTime > 0) setMediaLoading(false);
+        setMediaLoading(false);
 
         // A discontinuity not caused by us is a seek made in the player's own UI
         const now = Date.now();
@@ -393,7 +394,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
           handleLocalAction({ type: "play", position: event.currentTime });
         }
       } else if (event.type === "pause") {
-        if (event.duration > 0 || event.currentTime > 0) setMediaLoading(false);
+        setMediaLoading(false);
         adapterPlayingRef.current = false;
         cur.onPlayStateChange?.(false);
         if (!consumeExpected("pause") && server?.media && server.status === PlaybackStatus.PLAYING) {
@@ -429,9 +430,7 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
     adapter.setMuted(latest.current.isMuted);
     // Loading a source resets the element to normal speed: forget what we applied so the room's speed is set again
     appliedRateRef.current = 0;
-    if (adapter.getDuration() > 0) {
-      setMediaLoading(false);
-    }
+    setMediaLoading(false);
     // The room state may have arrived long before the player existed (reload, late join):
     // line the freshly loaded player up with it now.
     revertRef.current();
