@@ -120,6 +120,13 @@
     min-height: 44px;
   }
 
+  /* Prevent iOS Safari auto-zoom on field focus */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
   /* Top bar compact */
   [data-layout="top-bar"],
   [class*="topBar"],
@@ -206,8 +213,8 @@
   }
 
   /* Room Page on Mobile (when not in cinema mode) */
-  [data-layout="room-page"]:not(:has([data-cinema="true"])),
-  [class*="roomContainer"]:not(:has([data-cinema="true"])) {
+  [data-layout="room-page"]:not([data-cinema="true"]),
+  [class*="roomContainer"]:not([data-cinema="true"]) {
     height: auto !important;
     min-height: 100vh !important;
     overflow-y: auto !important;
@@ -225,14 +232,15 @@
     width: 100% !important;
   }
 
-  [data-layout="room-video"]:not(:has(~ [data-cinema="true"])) {
+  [data-layout="room-main"]:not([data-cinema="true"]) [data-layout="room-video"],
+  [class*="mainContent"]:not([data-cinema="true"]) [class*="videoSection"] {
     width: 100% !important;
     overflow: visible !important;
     height: auto !important;
   }
 
-  [data-layout="room-sidebar"]:not([data-cinema="true"]),
-  [class*="sidebarSection"]:not([data-cinema="true"]) {
+  [data-layout="room-main"]:not([data-cinema="true"]) [data-layout="room-sidebar"],
+  [class*="mainContent"]:not([data-cinema="true"]) [class*="sidebarSection"] {
     display: flex !important;
     flex-direction: column !important;
     gap: var(--space-3) !important;

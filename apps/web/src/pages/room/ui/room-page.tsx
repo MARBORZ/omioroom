@@ -754,7 +754,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     .filter((name): name is string => Boolean(name));
 
   return (
-    <div className={styles.roomContainer} data-layout="room-page">
+    <div
+      className={styles.roomContainer}
+      data-layout="room-page"
+      data-cinema={cinema ? "true" : undefined}
+    >
       {sessionStatus === "connected" && <ConnectionNotice status={channelStatus} />}
       <RoomHeader
         participantCount={activeParticipantsCount}

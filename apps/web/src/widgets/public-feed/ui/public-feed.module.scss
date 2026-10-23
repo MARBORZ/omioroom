@@ -225,7 +225,10 @@
     gap: var(--space-3);
     padding-bottom: var(--space-2);
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
+    width: 100%;
+    max-width: 100%;
 
     &::-webkit-scrollbar {
       display: none;
@@ -235,6 +238,7 @@
   .feedCard,
   .skeletonCard {
     flex: 0 0 240px;
+    max-width: 80vw;
     scroll-snap-align: start;
   }
 }

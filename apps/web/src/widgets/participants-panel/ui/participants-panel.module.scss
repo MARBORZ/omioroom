@@ -240,3 +240,22 @@
   color: var(--color-danger);
   font-size: var(--font-size-xs);
 }
+
+@media (max-width: 720px) {
+  .panel {
+    min-height: 280px;
+    height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .actionBtn {
+    padding: 4px 8px;
+    min-height: 28px;
+  }
+
+  .unbanBtn {
+    padding: 4px 10px;
+    min-height: 28px;
+  }
+}

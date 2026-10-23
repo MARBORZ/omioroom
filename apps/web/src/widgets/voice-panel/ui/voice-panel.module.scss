@@ -243,3 +243,10 @@
   font-size: var(--font-size-xs);
   padding-top: 4px;
 }
+
+@media (max-width: 720px) {
+  .panel {
+    min-height: 280px;
+    height: auto;
+  }
+}
