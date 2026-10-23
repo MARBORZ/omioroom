@@ -33,6 +33,9 @@ export const ContentPage: React.FC<{ page: ContentPageDef }> = ({ page }) => {
     setTag('meta[name="twitter:title"]', "content", text.title);
     setTag('meta[name="twitter:description"]', "content", text.description);
 
+    // The prerendered page already carries its structured data; replace it instead of duplicating
+    document.head.querySelectorAll('script[type="application/ld+json"]:not([data-page])').forEach((el) => el.remove());
+
     // Structured data for questions and answers
     const ld = document.createElement("script");
     ld.type = "application/ld+json";
