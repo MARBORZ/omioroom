@@ -416,3 +416,6 @@ enabled = true
 # Called by the scheduled job only, which sends its own secret header
 [functions.cleanup-chat-images]
 verify_jwt = false
+
+[functions.moderate-media]
+verify_jwt = false

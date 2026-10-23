@@ -55,6 +55,8 @@ export const roomPlaybackStateDtoSchema = z.object({
   updatedByUserId: z.string().uuid().nullable(),
   /** Participants whose player is stalled; the room waits for them (up to 5 s). */
   bufferingBy: z.array(z.string().uuid()).default([]),
+  /** Set when automatic moderation removed the video (reason code, for example "title"); cleared by the next video. */
+  mediaBlocked: z.string().nullable().optional(),
 });
 
 export type RoomPlaybackStateDto = z.infer<typeof roomPlaybackStateDtoSchema>;

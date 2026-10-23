@@ -1000,4 +1000,50 @@ describe("maintenance", () => {
     expect(snap.playback.media).toBeNull();
     await t.db.exec("create or replace function public.open_rooms_platforms_only() returns boolean language sql immutable as $$ select false $$");
   });
+  it("automatic moderation removes a video with a blocked title from an open room and cools down repeat offenders", async () => {
+    const owner = await t.newUser();
+    const open = await room(owner, "public");
+    const priv = await room(owner, "private");
+    const yt = (id: string) => ({ type: "youtube", sourceId: id, canonicalUrl: `https://www.youtube.com/watch?v=${id}` });
+    const set = (r: { id: string }, media: object) =>
+      code(t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
+    const found = async (text: string) => (await t.db.query<any>("select public.find_blocked_term($1) as term", [text])).rows[0].term;
+
+    // title matching: whole words for short terms, substrings for long ones
+    expect(await found("Sex Education: season 1")).toBe("sex");
+    expect(await found("Visit Essex County")).toBeNull();
+    expect(await found("Gorecki: Symphony no. 3")).toBeNull();
+    expect(await found("NSFW compilation")).toBe("nsfw");
+    expect(await found("Лучшее порно")).toBe("порно");
+    expect(await found("Cats and dogs, 4K")).toBeNull();
+
+    expect(await set(open, yt("aaaaaaaaaaa"))).toBe("OK");
+    const verdict = (media: { sourceId: string }, title: string, v = "ok") =>
+      t.db.query<any>("select public.record_media_verdict($1, $2, $3, $4, null) as removed", [open.id, `youtube:${media.sourceId}`, title, v]);
+    // a harmless title leaves the video alone
+    expect((await verdict(yt("aaaaaaaaaaa"), "Cute cats")).rows[0].removed).toBe(false);
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback.media).not.toBeNull();
+
+    // a blocked title removes it and says why
+    expect(await set(open, yt("bbbbbbbbbbb"))).toBe("OK");
+    expect((await verdict(yt("bbbbbbbbbbb"), "Best XXX clips")).rows[0].removed).toBe(true);
+    let state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
+    expect(state.media).toBeNull();
+    expect(state.mediaBlocked).toBe("title");
+
+    // the same video is refused straight away next time, and a new video clears the note
+    expect(await set(open, yt("bbbbbbbbbbb"))).toBe("OK");
+    state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
+    expect(state.media).toBeNull();
+    expect(await set(open, yt("ccccccccccc"))).toBe("OK");
+    state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
+    expect(state.mediaBlocked).toBeNull();
+
+    // three removals in 24 hours: no more changes in open rooms for this person
+    await verdict(yt("ccccccccccc"), "nude", "blocked");
+    expect(await set(open, yt("ddddddddddd"))).toBe("MEDIA_COOLDOWN");
+    // private rooms are not moderated and not affected
+    expect(await set(priv, yt("bbbbbbbbbbb"))).toBe("OK");
+    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: priv.id })).playback.media).not.toBeNull();
+  });
 });

@@ -38,6 +38,7 @@ interface PlaybackRow {
   revision: number;
   updated_by: string | null;
   buffering?: Record<string, number> | null;
+  media_blocked?: string | null;
 }
 
 export function mapPlaybackRow(row: PlaybackRow): RoomPlaybackStateDto {
@@ -51,6 +52,7 @@ export function mapPlaybackRow(row: PlaybackRow): RoomPlaybackStateDto {
     revision: row.revision,
     updatedByUserId: row.updated_by,
     bufferingBy: Object.keys(row.buffering ?? {}),
+    mediaBlocked: row.media_blocked ?? null,
   };
 }
 
