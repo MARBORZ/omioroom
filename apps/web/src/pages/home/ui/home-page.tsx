@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck, Settings } from "lucide-react";
+import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck, Settings, LogOut } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -29,7 +29,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onNavigateMyRooms,
   onNavigateIdentity,
 }) => {
-  const { connectionStatus, user, updateDisplayName } = useSession();
+  const { connectionStatus, user, updateDisplayName, signOut } = useSession();
   const { t } = useI18n();
 
   // Nickname edit state
@@ -199,6 +199,14 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onClick={onNavigateIdentity}
               >
                 {t.onboarding.switchMode}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<LogOut size={13} />}
+                onClick={signOut}
+              >
+                {t.common.signOut}
               </Button>
               <Button
                 variant="secondary"

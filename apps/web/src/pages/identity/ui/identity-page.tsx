@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus, Settings, Eye, EyeOff } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { UserCheck, Shield, KeyRound, Sparkles, LogIn, UserPlus, Settings, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { checkPassword, passwordsMatch, displayNameSchema } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -11,15 +11,28 @@ import styles from "./identity-page.module.scss";
 
 type IdentityMode = "anon" | "nick" | "account";
 
-interface IdentityPageProps {
+export interface IdentityPageProps {
   onSelect: () => void;
+  onBack?: () => void;
 }
 
-export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
+export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect, onBack }) => {
   const { ensureUser, updateDisplayName, register, login } = useSession();
   const { t } = useI18n();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Close / go back on Escape if opened from within the app
+  useEffect(() => {
+    if (!onBack) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onBack();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onBack]);
 
   // On phones and tablets the three options are states of one card, chosen with a switcher
   const [mode, setMode] = useState<IdentityMode>("anon");
@@ -152,8 +165,21 @@ export const IdentityPage: React.FC<IdentityPageProps> = ({ onSelect }) => {
   return (
     <div className={styles.container} data-layout="identity-page">
       <div className={styles.topBar} data-layout="top-bar">
-        <div className={styles.brand}>
-          <Logo size="sm" showText={true} />
+        <div className={styles.topBarLeft}>
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              icon={<ArrowLeft size={16} />}
+              className={styles.backBtn}
+            >
+              {t.common.back}
+            </Button>
+          )}
+          <div className={styles.brand}>
+            <Logo size="sm" showText={true} />
+          </div>
         </div>
         <div className={styles.topBarRight} data-layout="top-bar-right">
           <button

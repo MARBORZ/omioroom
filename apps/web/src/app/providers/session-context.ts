@@ -6,6 +6,7 @@ import type { ConnectionStatusType } from "../../shared/model/connection.js";
 export interface SessionContextValue {
   timeSync: TimeSyncClient;
   connectionStatus: ConnectionStatusType;
+  sessionReady: boolean;
   user: User | null;
   /** Returns the current user, creating the anonymous identity on first need (never on page load). */
   ensureUser: () => Promise<User>;

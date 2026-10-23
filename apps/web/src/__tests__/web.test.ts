@@ -294,6 +294,7 @@ describe("Web Utilities", () => {
     const mockSession = {
       timeSync: {} as any,
       connectionStatus: "connected" as any,
+      sessionReady: true,
       user: { id: "user-1", displayName: "Tester", role: "member" as const },
       ensureUser: async () => ({} as any),
       updateDisplayName: async () => ({} as any),
@@ -509,6 +510,7 @@ describe("Web Utilities", () => {
     const mockSession = {
       timeSync: {} as any,
       connectionStatus: "connected" as any,
+      sessionReady: true,
       user: null,
       ensureUser: async () => ({} as any),
       updateDisplayName: async () => ({} as any),
@@ -532,6 +534,22 @@ describe("Web Utilities", () => {
     // Identity page contains password show/hide buttons and strength meter
     expect(identityHtml).toContain("aria-label=\"Показать пароль\"");
     expect(identityHtml).toContain("strengthMeter");
+    // First visit: no session -> NO "Назад" button
+    expect(identityHtml).not.toContain("Назад");
+
+    // Returning visit / from within app with onBack: HAS "Назад" button
+    const identityWithBackHtml = renderToStaticMarkup(
+      React.createElement(
+        SessionContext.Provider,
+        { value: mockSession },
+        React.createElement(
+          SettingsProvider,
+          null,
+          React.createElement(I18nProvider, null, React.createElement(IdentityPage, { onSelect: () => {}, onBack: () => {} }))
+        )
+      )
+    );
+    expect(identityWithBackHtml).toContain("Назад");
   });
 
   it("verifies blacklist panel and room participants banned user labels", async () => {

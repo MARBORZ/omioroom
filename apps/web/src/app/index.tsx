@@ -60,19 +60,67 @@ function parseInviteHash(): InviteTarget | null {
 
 const MainScreens: React.FC = () => {
   const [invite] = useState<InviteTarget | null>(readInviteFromHash);
-  const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
-  const { user, connectionStatus, ensureUser } = useSession();
+  const { user, connectionStatus, sessionReady, ensureUser } = useSession();
   const { t } = useI18n();
+
+  const previousScreenRef = useRef<"home" | "my-rooms" | null>(null);
 
   // Identity was chosen before but the stored session is gone: recreate it quietly
   useEffect(() => {
+    const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
     if (identityChosen && !user && connectionStatus === "connected") void ensureUser().catch(() => {});
-  }, [identityChosen, user, connectionStatus, ensureUser]);
+  }, [user, connectionStatus, ensureUser]);
 
+  // Source of truth is the session: if user session exists -> "home", else -> "identity"
   const [screen, setScreen] = useState<Screen>(() => {
     if (invite) return "invite";
-    return identityChosen ? "home" : "identity";
+    return user ? "home" : "identity";
   });
+
+  // When session bootstrap finishes: if a valid session exists and the identity screen was not explicitly opened,
+  // ensure the screen is "home" (or "invite").
+  // When session is terminated (signOut / unauthenticated), ensure screen returns to "identity".
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (user && screen === "identity" && previousScreenRef.current === null && !invite) {
+      setScreen("home");
+    } else if (!user && screen !== "identity" && screen !== "invite") {
+      previousScreenRef.current = null;
+      setScreen("identity");
+    }
+  }, [sessionReady, user, screen, invite]);
+
+  // Handle browser back button (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (screen === "identity" && previousScreenRef.current) {
+        const target = previousScreenRef.current;
+        previousScreenRef.current = null;
+        setScreen(target);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [screen]);
+
+  const handleNavigateIdentity = useCallback((fromScreen: "home" | "my-rooms") => {
+    previousScreenRef.current = fromScreen;
+    window.history.pushState({ screen: "identity", from: fromScreen }, "");
+    setScreen("identity");
+  }, []);
+
+  const handleBackFromIdentity = useCallback(() => {
+    if (window.history.state?.screen === "identity") {
+      window.history.back();
+    } else if (previousScreenRef.current) {
+      const target = previousScreenRef.current;
+      previousScreenRef.current = null;
+      setScreen(target);
+    } else {
+      setScreen("home");
+    }
+  }, []);
+
   const [activeRoomSnapshot, setActiveRoomSnapshot] = useState<RoomSnapshotDto | null>(null);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
 
@@ -196,7 +244,7 @@ const MainScreens: React.FC = () => {
       <InvitePage
         globalId={invite.globalId}
         initialCode={invite.code}
-        autoJoin={identityChosen}
+        autoJoin={Boolean(user)}
         onJoined={(snapshot) => handleRoomJoined(snapshot)}
         onCancel={handleLeaveRoom}
       />
@@ -204,7 +252,15 @@ const MainScreens: React.FC = () => {
   }
 
   if (screen === "identity") {
-    return <IdentityPage onSelect={() => setScreen("home")} />;
+    return (
+      <IdentityPage
+        onSelect={() => {
+          previousScreenRef.current = null;
+          setScreen("home");
+        }}
+        onBack={user ? handleBackFromIdentity : undefined}
+      />
+    );
   }
 
   if (screen === "my-rooms") {
@@ -212,7 +268,7 @@ const MainScreens: React.FC = () => {
       <MyRoomsPage
         onBack={() => setScreen("home")}
         onOpenRoom={(snapshot) => handleRoomJoined(snapshot)}
-        onNavigateIdentity={() => setScreen("identity")}
+        onNavigateIdentity={() => handleNavigateIdentity("my-rooms")}
       />
     );
   }
@@ -221,7 +277,7 @@ const MainScreens: React.FC = () => {
     <HomePage
       onRoomJoined={handleRoomJoined}
       onNavigateMyRooms={() => setScreen("my-rooms")}
-      onNavigateIdentity={() => setScreen("identity")}
+      onNavigateIdentity={() => handleNavigateIdentity("home")}
     />
   );
 };
@@ -237,10 +293,10 @@ const SetupNotice: React.FC = () => (
 );
 
 const MainApp: React.FC = () => {
-  const { connectionStatus } = useSession();
+  const { connectionStatus, sessionReady } = useSession();
   return (
     <>
-      <BootSplash ready={connectionStatus !== "connecting"} />
+      <BootSplash ready={sessionReady} />
       <ConnectionNotice status={connectionStatus} />
       <MainScreens />
       <ToastContainer />

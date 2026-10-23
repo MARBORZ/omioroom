@@ -51,6 +51,7 @@ function authError(message: string): never {
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const timeSync = useMemo(() => new TimeSyncClient(backend.serverTimeMs), []);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>("connecting");
+  const [sessionReady, setSessionReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const bootedRef = useRef(false);
 
@@ -63,37 +64,53 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const boot = async () => {
       try {
-        // Restore the identity stored in this browser. A visitor who has not chosen anything yet
-        // gets no account: anonymous users are created only on demand (see ensureUser).
         const { data } = await supabase.auth.getSession();
+        const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
         if (data.session?.user) {
           try {
             await refreshProfile(data.session.user.id);
           } catch (profileErr) {
             console.warn("Saved session profile missing or user deleted, resetting session:", profileErr);
-            // Saved session belongs to a deleted account: sign out and create an anonymous account afresh
             await supabase.auth.signOut().catch(() => {});
+            if (identityChosen) {
+              const res = await supabase.auth.signInAnonymously();
+              if (res.data?.user) {
+                await refreshProfile(res.data.user.id);
+              }
+            }
+          }
+        } else if (identityChosen) {
+          // Token expired or not refreshed, but person previously chose an identity: quietly recreate anonymous session
+          try {
             const res = await supabase.auth.signInAnonymously();
             if (res.data?.user) {
               await refreshProfile(res.data.user.id);
             }
+          } catch (anonErr) {
+            console.error("Quiet session recreation failed:", anonErr);
           }
         }
         setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
       } catch (err) {
         console.error("Session bootstrap failed, attempting anonymous fallback:", err);
-        try {
-          await supabase.auth.signOut().catch(() => {});
-          const res = await supabase.auth.signInAnonymously();
-          if (res.data?.user) {
-            await refreshProfile(res.data.user.id);
-            setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
-            return;
+        const identityChosen = localStorage.getItem("omioroom_identity_chosen") === "true";
+        if (identityChosen) {
+          try {
+            await supabase.auth.signOut().catch(() => {});
+            const res = await supabase.auth.signInAnonymously();
+            if (res.data?.user) {
+              await refreshProfile(res.data.user.id);
+              setConnectionStatus(navigator.onLine ? "connected" : "reconnecting");
+              setSessionReady(true);
+              return;
+            }
+          } catch (anonErr) {
+            console.error("Anonymous fallback failed:", anonErr);
           }
-        } catch (anonErr) {
-          console.error("Anonymous fallback failed:", anonErr);
         }
         setConnectionStatus("disconnected");
+      } finally {
+        setSessionReady(true);
       }
     };
 
@@ -214,13 +231,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 
   const signOut = useCallback(async () => {
+    localStorage.removeItem("omioroom_identity_chosen");
     await supabase.auth.signOut();
     setUser(null);
   }, []);
 
   return (
     <SessionContext.Provider
-      value={{ timeSync, connectionStatus, user, ensureUser, updateDisplayName, register, login, signOut }}
+      value={{ timeSync, connectionStatus, sessionReady, user, ensureUser, updateDisplayName, register, login, signOut }}
     >
       {children}
     </SessionContext.Provider>

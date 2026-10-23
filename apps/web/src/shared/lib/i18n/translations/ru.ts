@@ -15,6 +15,7 @@ export const ru: Translations = {
     public: "Открытая",
     private: "Закрытая",
     settings: "Настройки",
+    signOut: "Выйти",
   },
   status: {
     connected: "Подключено",
@@ -180,7 +181,7 @@ export const ru: Translations = {
     modeAnon: "Без аккаунта",
     modeName: "Имя",
     modeAccount: "Аккаунт",
-    switchMode: "Сменить режим",
+    switchMode: "Сменить личность",
   },
   chat: {
     title: "Чат комнаты",

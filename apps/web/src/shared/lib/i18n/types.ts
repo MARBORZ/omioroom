@@ -15,6 +15,7 @@ export interface Translations {
     public: string;
     private: string;
     settings: string;
+    signOut: string;
   };
   status: {
     connected: string;

@@ -15,6 +15,7 @@ export const en: Translations = {
     public: "Public",
     private: "Private",
     settings: "Settings",
+    signOut: "Sign out",
   },
   status: {
     connected: "Connected",
