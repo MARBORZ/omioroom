@@ -1,15 +1,60 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OMIOROOM — watch together</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>OMIOROOM — смотрите видео вместе с друзьями</title>
+    <meta
+      name="description"
+      content="OMIOROOM: смотрите YouTube, VK Видео, RuTube, Vimeo и прямые видео вместе с друзьями. Синхронный плеер, чат с картинками и голосовой чат. Комнаты на 2–32 человека, без установки."
+    />
+    <meta name="keywords" content="смотреть вместе, совместный просмотр, синхронный плеер, watch together, watch party, комната для просмотра, видео с друзьями" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="OMIOROOM" />
+    <link rel="canonical" href="https://www.omioroom.live/" />
+    <meta name="theme-color" content="#101010" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="application-name" content="OMIOROOM" />
+    <meta name="apple-mobile-web-app-title" content="OMIOROOM" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
-    <meta name="description" content="Смотрите видео вместе с друзьями. Синхронный плеер, чат, голос." />
-    <meta property="og:title" content="OMIOROOM — watch together" />
-    <meta property="og:description" content="Смотрите видео вместе с друзьями. Синхронный плеер, чат, голос." />
-    <meta property="og:image" content="/og-image.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OMIOROOM" />
+    <meta property="og:url" content="https://www.omioroom.live/" />
+    <meta property="og:title" content="OMIOROOM — смотрите видео вместе с друзьями" />
+    <meta property="og:description" content="Синхронный плеер, чат и голос. YouTube, VK Видео, RuTube, Vimeo и прямые видео. Комнаты на 2–32 человека, без установки." />
+    <meta property="og:image" content="https://www.omioroom.live/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="OMIOROOM: два кольца и надпись «Смотрите видео вместе с друзьями»" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="OMIOROOM — смотрите видео вместе с друзьями" />
+    <meta name="twitter:description" content="Синхронный плеер, чат и голос. Комнаты на 2–32 человека, без установки." />
+    <meta name="twitter:image" content="https://www.omioroom.live/og-image.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "OMIOROOM",
+        "url": "https://www.omioroom.live/",
+        "description": "Сервис совместного просмотра видео: синхронный плеер, чат и голосовой чат в одной комнате.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web",
+        "inLanguage": ["ru", "en"],
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "RUB" }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -36,7 +81,13 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="font-family: system-ui, sans-serif; color: #f4f0e8; background: #101010; min-height: 100vh; padding: 48px 24px;">
+        <h1>OMIOROOM — смотрите видео вместе с друзьями</h1>
+        <p>Синхронный плеер, чат с картинками и голосовой чат. YouTube, VK Видео, RuTube, Vimeo и прямые видео. Комнаты на 2–32 человека, без установки.</p>
+      </main>
+    </div>
+    <noscript>Для работы OMIOROOM нужен JavaScript. OMIOROOM needs JavaScript to run.</noscript>
     <script type="module" src="/src/app/index.tsx"></script>
   </body>
 </html>

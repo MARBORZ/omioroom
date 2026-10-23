@@ -14,6 +14,7 @@ import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
 import { BootSplash } from "./boot-splash.js";
+import { DocumentMeta } from "./document-meta.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
 import { ToastContainer, showToast } from "../shared/ui/toast/toast.js";
 import {
@@ -249,6 +250,7 @@ export const App: React.FC = () => {
   return (
     <SettingsProvider>
       <I18nProvider>
+        <DocumentMeta />
         {!isBackendConfigured ? (
           <>
             <BootSplash />

@@ -4,17 +4,10 @@
   
   <!-- Subtle room viewport outline -->
   <rect x="80" y="60" width="1040" height="510" rx="24" stroke="#222226" stroke-width="2" fill="#141417" />
-  
-  <defs>
-    <clipPath id="og-left-disc">
-      <circle cx="22" cy="32" r="14" />
-    </clipPath>
-  </defs>
 
   <!-- Centered Logo Brand Mark -->
   <g transform="translate(520, 150) scale(2.4)">
     <circle cx="22" cy="32" r="14" stroke="#F4F0E8" stroke-width="6" fill="none" />
-    <circle cx="42" cy="32" r="14" fill="#FF6847" clip-path="url(#og-left-disc)" />
     <circle cx="42" cy="32" r="14" stroke="#FF6847" stroke-width="6" fill="none" />
   </g>
 

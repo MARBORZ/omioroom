@@ -1,11 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
   <rect width="64" height="64" rx="14" fill="#101010" />
-  <defs>
-    <clipPath id="fav-left-disc">
-      <circle cx="22" cy="32" r="14" />
-    </clipPath>
-  </defs>
   <circle cx="22" cy="32" r="14" stroke="#F4F0E8" stroke-width="6" fill="none" />
-  <circle cx="42" cy="32" r="14" fill="#FF6847" clip-path="url(#fav-left-disc)" />
   <circle cx="42" cy="32" r="14" stroke="#FF6847" stroke-width="6" fill="none" />
 </svg>
