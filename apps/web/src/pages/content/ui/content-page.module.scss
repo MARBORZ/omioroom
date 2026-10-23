@@ -156,11 +156,31 @@
 
   summary {
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
     font-size: var(--font-size-md);
     font-weight: 600;
     line-height: 1.5;
-    list-style-position: outside;
+    list-style: none;
     padding: var(--space-1) 0;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: "+";
+      flex-shrink: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-xl);
+      font-weight: 400;
+    }
+  }
+
+  &[open] summary::after {
+    content: "\2212";
   }
 
   p {
@@ -249,8 +269,6 @@
 
   .cpFaq summary {
     min-height: 44px;
-    display: flex;
-    align-items: center;
   }
 
   .cpCta .cpOpen {
