@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck, Settings, LogOut } from "lucide-react";
+import { Plus, LogIn, Edit2, Check, Tv, Lock, Globe, UserCheck, Settings, LogOut, Info } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -9,6 +9,8 @@ import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { backend } from "../../../shared/api/backend.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
+import { showToast } from "../../../shared/ui/toast/toast.js";
+import { PublicFeed } from "../../../widgets/public-feed/index.js";
 import {
   DEFAULT_ROOM_PARTICIPANTS,
   MIN_ROOM_PARTICIPANTS,
@@ -114,6 +116,21 @@ export const HomePage: React.FC<HomePageProps> = ({
       }
     } finally {
       setJoinLoading(false);
+    }
+  };
+
+  const handleJoinFeedRoom = async (globalId: string) => {
+    try {
+      const snapshot = await backend.joinRoom(globalId);
+      onRoomJoined(snapshot, null);
+    } catch (err: any) {
+      if (err?.code === "ROOM_FULL") {
+        showToast(t.home.errors.roomFull);
+      } else if (err?.code === "ROOM_NOT_FOUND") {
+        showToast(t.home.errors.roomNotFound);
+      } else {
+        showToast(err?.code === "RATE_LIMITED" ? t.invite.rateLimited : t.home.errors.genericJoinError);
+      }
     }
   };
 
@@ -251,6 +268,13 @@ export const HomePage: React.FC<HomePageProps> = ({
             </Button>
           </div>
 
+          {visibility === "public" && (
+            <div className={styles.publicNotice}>
+              <Info size={14} className={styles.publicNoticeIcon} />
+              <span>{t.home.publicNotice}</span>
+            </div>
+          )}
+
           <details className={styles.advancedSettings}>
             <summary className={styles.advancedSummary}>
               <Settings size={13} />
@@ -335,6 +359,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       </div>
       </div>
       </div>
+
+      <PublicFeed onJoinRoom={handleJoinFeedRoom} />
     </div>
   );
 };

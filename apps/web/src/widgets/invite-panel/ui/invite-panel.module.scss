@@ -76,3 +76,22 @@
   display: flex;
   gap: var(--space-2);
 }
+
+.publicNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.publicNoticeIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-accent);
+}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, LogOut, Settings, Copy, Check } from "lucide-react";
+import { Users, LogOut, Settings, Copy, Check, Flag } from "lucide-react";
 import { SettingsModal } from "../../../widgets/settings-modal/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
@@ -14,6 +14,7 @@ interface RoomHeaderProps {
   onLeave?: () => void;
   roomNumber?: string;
   onOpenParticipants?: () => void;
+  onReportRoom?: () => void;
 }
 
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
@@ -24,6 +25,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   onLeave,
   roomNumber,
   onOpenParticipants,
+  onReportRoom,
 }) => {
   const { t } = useI18n();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -85,6 +87,18 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
               <Users size={13} />
               <span>{participantCount}/{maxParticipants}</span>
             </span>
+          )}
+
+          {!isOwner && onReportRoom && (
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={onReportRoom}
+              aria-label={t.report.reportRoom}
+              title={t.report.reportRoom}
+            >
+              <Flag size={15} />
+            </button>
           )}
 
           <button

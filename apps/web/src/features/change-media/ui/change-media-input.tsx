@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { parseMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
+import { parseAllowedMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -12,14 +12,24 @@ import styles from "./change-media-input.module.scss";
 interface ChangeMediaInputProps {
   onMediaSelect: (media: MediaSourceInfo) => Promise<boolean | void> | boolean | void;
   currentMedia?: MediaSourceInfo | null;
+  isOpenRoom?: boolean;
   loading?: boolean;
   disabled?: boolean;
+}
+
+function isLikelyDirectFileOrUnsupported(val: string): boolean {
+  const trimmed = val.trim();
+  if (!trimmed) return false;
+  if (/\.(mp4|webm|m3u8)(\?.*)?$/i.test(trimmed)) return true;
+  if (/^https?:\/\//i.test(trimmed) && !parseAllowedMediaUrl(trimmed)) return true;
+  return false;
 }
 
 /** Pick where the video comes from, then paste its link. "Any link" accepts every supported source. */
 export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   onMediaSelect,
   currentMedia,
+  isOpenRoom = false,
   loading = false,
   disabled = false,
 }) => {
@@ -32,7 +42,6 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   const hints: Record<string, string> = {
     vk: t.room.hintVk,
     rutube: t.room.hintRutube,
-    file: t.room.hintFile,
   };
   const sourceHint = source ? hints[source.id] : undefined;
 
@@ -40,9 +49,10 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     e.preventDefault();
     setError(null);
 
-    const parsed = parseMediaUrl(url);
+    const trimmed = url.trim();
+    const parsed = parseAllowedMediaUrl(trimmed);
     if (!parsed) {
-      setError(t.room.urlError);
+      setError(t.room.supportedPlatformsHint);
       return;
     }
     if (source && !source.types.includes(parsed.type)) {
@@ -89,8 +99,13 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           placeholder={source ? source.example : t.room.videoSourcePlaceholder}
           value={url}
           onChange={(e) => {
-            setUrl(e.target.value);
-            if (error) setError(null);
+            const val = e.target.value;
+            setUrl(val);
+            if (isLikelyDirectFileOrUnsupported(val)) {
+              setError(t.room.supportedPlatformsHint);
+            } else if (error) {
+              setError(null);
+            }
           }}
           disabled={disabled || loading}
           error={error || undefined}
@@ -107,6 +122,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
         </Button>
       </div>
       {sourceHint && <p className={styles.hint}>{sourceHint}</p>}
+      {isOpenRoom && <p className={styles.hint}>{t.room.openRoomMediaHint}</p>}
     </form>
   );
 };

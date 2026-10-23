@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff } from "lucide-react";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -17,6 +17,7 @@ interface RoomChatProps {
   participants?: ParticipantDto[];
   roomId?: string;
   isMuted?: boolean;
+  onReportMessage?: (messageId: string) => void;
 }
 
 interface ReplyState {
@@ -70,6 +71,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   participants,
   roomId,
   isMuted = false,
+  onReportMessage,
 }) => {
   const { user } = useSession();
   const { t } = useI18n();
@@ -345,9 +347,17 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         err?.message === "MUTED" ||
         (typeof err?.message === "string" && err.message.includes("MUTED"));
 
+      const isLinksNotAllowed =
+        err?.code === "LINKS_NOT_ALLOWED" ||
+        err?.message === "LINKS_NOT_ALLOWED" ||
+        (typeof err?.message === "string" && err.message.includes("LINKS_NOT_ALLOWED"));
+
       if (isMutedError) {
         showToast(t.chat.mutedNotice, { id: "chat-muted-notice" });
         setError(t.chat.mutedNotice);
+      } else if (isLinksNotAllowed) {
+        showToast(t.chat.linksNotAllowed, { id: "chat-links-not-allowed" });
+        setError(t.chat.linksNotAllowed);
       } else if (err instanceof ChatImageError) {
         setError(err.reason === "size" ? t.chat.imageTooLarge : t.chat.imageType);
       } else if (err?.code === "RATE_LIMITED") {
@@ -525,6 +535,18 @@ export const RoomChat: React.FC<RoomChatProps> = ({
               >
                 <Reply size={13} />
               </button>
+
+              {!isOwn && onReportMessage && (
+                <button
+                  type="button"
+                  className={styles.replyActionBtn}
+                  onClick={() => onReportMessage(m.id)}
+                  title={t.chat.report}
+                  aria-label={t.chat.report}
+                >
+                  <Flag size={13} />
+                </button>
+              )}
             </div>
           );
         })}

@@ -600,4 +600,60 @@ describe("Web Utilities", () => {
     );
     expect(ownerSettings).toContain("Чёрный список");
   });
+
+  it("verifies direct media deprecation and allowed sources", async () => {
+    const { VIDEO_SOURCES } = await import("../features/change-media/model/sources.js");
+    const { parseAllowedMediaUrl } = await import("@omioroom/contracts");
+
+    // Only 4 platforms supported
+    const sourceIds = VIDEO_SOURCES.map((s) => s.id);
+    expect(sourceIds).toEqual(["youtube", "vk", "rutube", "vimeo"]);
+    expect(sourceIds).not.toContain("file");
+    expect(sourceIds).not.toContain("hls");
+
+    // Allowed platforms parse correctly
+    expect(parseAllowedMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).not.toBeNull();
+    expect(parseAllowedMediaUrl("https://vk.com/video-12345_67890")).not.toBeNull();
+    expect(parseAllowedMediaUrl("https://rutube.ru/video/a7ef5ba8f8f6a3f7d6b5aeb3ef2e7bbe/")).not.toBeNull();
+    expect(parseAllowedMediaUrl("https://vimeo.com/12345678")).not.toBeNull();
+
+    // Direct files, HLS, or unsupported domains return null
+    expect(parseAllowedMediaUrl("https://example.com/video.mp4")).toBeNull();
+    expect(parseAllowedMediaUrl("https://example.com/stream.m3u8")).toBeNull();
+    expect(parseAllowedMediaUrl("https://dailymotion.com/video/x123")).toBeNull();
+  });
+
+  it("verifies public feed and report modal rendering", async () => {
+    const { PublicFeed } = await import("../widgets/public-feed/ui/public-feed.js");
+    const { ReportModal } = await import("../widgets/report-modal/ui/report-modal.js");
+    const { I18nProvider } = await import("../shared/lib/i18n/i18n-context.js");
+
+    // Report modal rendering
+    const modalHtml = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ReportModal, {
+          isOpen: true,
+          target: { type: "room", roomId: "r1" },
+          onClose: () => {},
+        })
+      )
+    );
+    expect(modalHtml).toContain("Пожаловаться");
+    expect(modalHtml).toContain("Недопустимое видео");
+    expect(modalHtml).toContain("Оскорбления");
+    expect(modalHtml).toContain("Спам");
+    expect(modalHtml).toContain("Другое");
+
+    // Public feed empty state
+    const feedHtml = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(PublicFeed, { onJoinRoom: () => {} })
+      )
+    );
+    expect(feedHtml).toContain("Сейчас смотрят");
+  });
 });

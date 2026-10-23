@@ -11,6 +11,7 @@ export interface Translations {
     copyLink: string;
     loading: string;
     close: string;
+    cancel: string;
     room: string;
     public: string;
     private: string;
@@ -33,6 +34,7 @@ export interface Translations {
     createTitle: string;
     privateMode: string;
     publicMode: string;
+    publicNotice: string;
     createBtn: string;
     or: string;
     joinTitle: string;
@@ -55,7 +57,6 @@ export interface Translations {
     playerError: string;
     hintVk: string;
     hintRutube: string;
-    hintFile: string;
     tapToJoin: string;
     standbyViewer: string;
     standbyViewerDesc: string;
@@ -90,6 +91,17 @@ export interface Translations {
     codeCopied: string;
     waitingNote: string;
     addVideoFirst: string;
+    mediaBlockedGeneral: string;
+    mediaBlockedUnverifiable: string;
+    chooseAnotherMedia: string;
+    mediaNotAllowedInOpenRoom: string;
+    mediaCooldown: string;
+    mediaUnsupportedToast: string;
+    supportedPlatformsHint: string;
+    openRoomMediaHint: string;
+    publicNotice: string;
+    switchToPublicTitle: string;
+    switchToPublicConfirm: string;
     reconnecting: string;
     switchToPublic: string;
     switchToPrivate: string;
@@ -199,6 +211,8 @@ export interface Translations {
     cancelReply: string;
     youAreMuted: string;
     mutedNotice: string;
+    linksNotAllowed: string;
+    report: string;
   };
   friends: {
     title: string;
@@ -279,6 +293,29 @@ export interface Translations {
     mutedByOwner: string;
     activePeers: (count: number) => string;
     noPeers: string;
+  };
+  feed: {
+    title: string;
+    empty: string;
+    participants: (count: number, max: number) => string;
+    join: string;
+  };
+  report: {
+    reportRoom: string;
+    reportMessage: string;
+    titleRoom: string;
+    titleMessage: string;
+    reasonLabel: string;
+    reasons: {
+      video: string;
+      insults: string;
+      spam: string;
+      other: string;
+    };
+    detailsPlaceholder: string;
+    send: string;
+    thanks: string;
+    failed: string;
   };
   settings: {
     title: string;

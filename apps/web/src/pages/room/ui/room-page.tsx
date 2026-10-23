@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Mic, Users, Share2, Film, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { MessageSquare, Mic, Users, Share2, Film, X, ChevronLeft, ChevronRight, Maximize2, Minimize2, ShieldAlert } from "lucide-react";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { RoomHeader } from "../../../widgets/room-header/ui/room-header.js";
@@ -13,6 +13,7 @@ import { InvitePanel } from "../../../widgets/invite-panel/ui/invite-panel.js";
 import { ConnectionNotice } from "../../../shared/ui/connection-notice/connection-notice.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { ConfirmDialog } from "../../../shared/ui/confirm-dialog/confirm-dialog.js";
+import { ReportModal } from "../../../widgets/report-modal/index.js";
 import { ResizeHandle } from "../../../shared/ui/resize-handle/resize-handle.js";
 import { useResizableWidth } from "../../../shared/lib/use-resizable-width.js";
 import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
@@ -563,6 +564,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     else onLeave();
   };
 
+  // Report modal state
+  const [reportTarget, setReportTarget] = useState<{ messageId?: string } | null>(null);
+
+  const handleReportSubmit = async (reasonText: string) => {
+    await backend.reportRoom(snapshot.room.id, reasonText, reportTarget?.messageId);
+    showToast(tRef.current.report.thanks, { id: "report-success" });
+  };
+
   // Command sender helper
   const sendPlayerCommand = useCallback(
     async (partialPayload: Omit<PlayerCommandPayload, "commandId" | "roomId">): Promise<boolean> => {
@@ -581,8 +590,29 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           err?.message === "MEDIA_ALREADY_LOADED" ||
           (typeof err?.message === "string" && err.message.includes("MEDIA_ALREADY_LOADED"));
 
+        const isNotAllowedInOpenRoom =
+          err?.code === "MEDIA_NOT_ALLOWED_IN_OPEN_ROOM" ||
+          err?.message === "MEDIA_NOT_ALLOWED_IN_OPEN_ROOM" ||
+          (typeof err?.message === "string" && err.message.includes("MEDIA_NOT_ALLOWED_IN_OPEN_ROOM"));
+
+        const isCooldown =
+          err?.code === "MEDIA_COOLDOWN" ||
+          err?.message === "MEDIA_COOLDOWN" ||
+          (typeof err?.message === "string" && err.message.includes("MEDIA_COOLDOWN"));
+
+        const isUnsupported =
+          err?.code === "MEDIA_UNSUPPORTED" ||
+          err?.message === "MEDIA_UNSUPPORTED" ||
+          (typeof err?.message === "string" && err.message.includes("MEDIA_UNSUPPORTED"));
+
         if (isAlreadyLoaded) {
           showToast(tRef.current.room.mediaAlreadyLoaded, { id: "media-already-loaded" });
+        } else if (isNotAllowedInOpenRoom) {
+          showToast(tRef.current.room.mediaNotAllowedInOpenRoom, { id: "media-not-allowed-in-open-room" });
+        } else if (isCooldown) {
+          showToast(tRef.current.room.mediaCooldown, { id: "media-cooldown" });
+        } else if (isUnsupported) {
+          showToast(tRef.current.room.mediaUnsupportedToast, { id: "media-unsupported" });
         } else {
           showToast(tRef.current.room.commandFailed, { id: "player-cmd-error" });
         }
@@ -768,6 +798,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         onNavigateMyRooms={() => setPendingExit("my-rooms")}
         onLeave={() => setPendingExit("leave")}
         onOpenParticipants={() => setActiveTab("participants")}
+        onReportRoom={!snapshot.isOwner ? () => setReportTarget({}) : undefined}
       />
 
       <main
@@ -835,16 +866,41 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
           {!playback?.media && (
             <div className={styles.videoPlaceholder}>
-              <span>{canControl ? t.room.addVideoFirst : t.room.standbyViewer}</span>
-              {canControl && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Film size={14} />}
-                  onClick={() => setActiveTab("media")}
-                >
-                  {t.room.standby}
-                </Button>
+              {playback?.mediaBlocked ? (
+                <div className={styles.mediaBlockedNotice}>
+                  <div className={styles.mediaBlockedIcon}>
+                    <ShieldAlert size={26} />
+                  </div>
+                  <span className={styles.mediaBlockedText}>
+                    {playback.mediaBlocked === "unverifiable"
+                      ? t.room.mediaBlockedUnverifiable
+                      : t.room.mediaBlockedGeneral}
+                  </span>
+                  {canControl && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Film size={14} />}
+                      onClick={() => setActiveTab("media")}
+                    >
+                      {t.room.chooseAnotherMedia}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <span>{canControl ? t.room.addVideoFirst : t.room.standbyViewer}</span>
+                  {canControl && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Film size={14} />}
+                      onClick={() => setActiveTab("media")}
+                    >
+                      {t.room.standby}
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -998,7 +1054,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           <div className={styles.panelsContainer}>
             {canControl && (
               <div data-panel="media" className={styles.panelWrapper}>
-                <ChangeMediaInput onMediaSelect={handleMediaSelect} currentMedia={playback?.media} />
+                <ChangeMediaInput
+                  onMediaSelect={handleMediaSelect}
+                  currentMedia={playback?.media}
+                  isOpenRoom={snapshot.room.visibility === "public"}
+                />
               </div>
             )}
 
@@ -1020,6 +1080,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   participants={participants}
                   roomId={snapshot.room.id}
                   isMuted={isCurrentUserMuted}
+                  onReportMessage={(messageId) => setReportTarget({ messageId })}
                 />
               </div>
             )}
@@ -1148,6 +1209,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 participants={participants}
                 roomId={snapshot.room.id}
                 isMuted={isCurrentUserMuted}
+                onReportMessage={(messageId) => setReportTarget({ messageId })}
               />
             </div>
           </div>
@@ -1162,6 +1224,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         cancelLabel={t.room.leaveStay}
         onConfirm={() => void confirmExit()}
         onCancel={cancelExit}
+      />
+
+      <ReportModal
+        isOpen={reportTarget !== null}
+        onClose={() => setReportTarget(null)}
+        onSubmit={handleReportSubmit}
+        title={reportTarget?.messageId ? t.report.titleMessage : t.report.titleRoom}
       />
     </div>
   );

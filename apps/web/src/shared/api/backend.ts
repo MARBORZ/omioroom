@@ -19,6 +19,17 @@ import { supabase } from "./supabase.js";
 
 const CHAT_BUCKET = "chat-attachments";
 
+export interface FeedRoomDto {
+  globalId: string;
+  participantCount: number;
+  maxParticipants: number;
+  status: string;
+  mediaType: string;
+  mediaSourceId: string;
+  mediaTitle: string | null;
+  updatedAt: string;
+}
+
 export function generateClientRequestId(): string {
   return crypto.randomUUID();
 }
@@ -62,6 +73,8 @@ export const backend = {
   heartbeatRoom: (roomId: string) => rpc<string>("heartbeat_room", { p_room_id: roomId }),
   /** Open rooms being watched right now, ranked for this viewer, for the home page. */
   getRecommendations: (limit = 12) => rpc<RecommendationDto[]>("get_recommendations", { p_limit: limit }),
+  /** Open rooms with a video on and someone inside, for the home-page feed. */
+  listPublicRooms: (limit = 24) => rpc<FeedRoomDto[]>("list_public_rooms", { p_limit: limit }),
   /** Reports the room, or one chat message of it, to the moderators. */
   reportRoom: (roomId: string, reason: string, messageId?: string) =>
     rpc<{ ok: boolean }>("report_room", { p_room_id: roomId, p_reason: reason, p_message_id: messageId ?? null }),

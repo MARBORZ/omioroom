@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Copy, Check, RotateCw, Eye, EyeOff, Link2 } from "lucide-react";
+import { Copy, Check, RotateCw, Eye, EyeOff, Link2, Info } from "lucide-react";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
+import { ConfirmDialog } from "../../../shared/ui/confirm-dialog/confirm-dialog.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
 import styles from "./invite-panel.module.scss";
 
@@ -32,6 +33,7 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState<"rotate" | "revoke" | "toggle" | null>(null);
+  const [showPublicConfirm, setShowPublicConfirm] = useState(false);
 
   const inviteUrl = () => {
     const base = `${window.location.origin}/#room=${globalRoomId}`;
@@ -151,18 +153,42 @@ export const InvitePanel: React.FC<InvitePanelProps> = ({
         </div>
       )}
 
+      {visibility === "public" && (
+        <div className={styles.publicNotice}>
+          <Info size={14} className={styles.publicNoticeIcon} />
+          <span>{t.room.publicNotice}</span>
+        </div>
+      )}
+
       {isOwner && (
         <Button
           variant="secondary"
           size="sm"
           loading={busy === "toggle"}
-          onClick={() =>
-            void run("toggle", () => onToggleVisibility?.(visibility === "public" ? "private" : "public") ?? Promise.resolve())
-          }
+          onClick={() => {
+            if (visibility === "private") {
+              setShowPublicConfirm(true);
+            } else {
+              void run("toggle", () => onToggleVisibility?.("private") ?? Promise.resolve());
+            }
+          }}
         >
           {visibility === "public" ? t.room.switchToPrivate : t.room.switchToPublic}
         </Button>
       )}
+
+      <ConfirmDialog
+        isOpen={showPublicConfirm}
+        title={t.room.switchToPublicTitle}
+        message={t.room.publicNotice}
+        confirmLabel={t.room.switchToPublicConfirm}
+        cancelLabel={t.common.cancel}
+        onConfirm={() => {
+          setShowPublicConfirm(false);
+          void run("toggle", () => onToggleVisibility?.("public") ?? Promise.resolve());
+        }}
+        onCancel={() => setShowPublicConfirm(false)}
+      />
     </section>
   );
 };
