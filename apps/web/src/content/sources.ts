@@ -23,8 +23,8 @@ function build(copy: SourceCopy): ContentPageDef {
           heading: ru ? "Другие источники" : "Other sources",
           paragraphs: [
             ru
-              ? "OMIOROOM работает с YouTube, VK Видео, RuTube, Vimeo, прямыми файлами (MP4, WebM) и потоками HLS."
-              : "OMIOROOM works with YouTube, VK Video, RuTube, Vimeo, direct files (MP4, WebM) and HLS streams.",
+              ? "OMIOROOM работает с YouTube, VK Видео, RuTube и Vimeo."
+              : "OMIOROOM works with YouTube, VK Video, RuTube and Vimeo.",
           ],
         },
       ],
@@ -187,44 +187,6 @@ export const SOURCE_PAGES: ContentPageDef[] = [
       notes: [
         "The video plays in Vimeo's official player for each viewer; we do not store it.",
         "Unlisted videos open with the full link that includes the h=… parameter.",
-      ],
-    },
-  }),
-  build({
-    path: "/video-files-together",
-    nav: { ru: "Файлы и потоки", en: "Files and streams" },
-    ru: {
-      title: "Смотреть MP4 и HLS вместе онлайн по ссылке — OMIOROOM",
-      description:
-        "Смотрите вместе видео по прямой ссылке на файл (MP4, WebM) или поток HLS (.m3u8). Синхронная пауза и перемотка, чат и голос.",
-      heading: "Прямые ссылки на видео: MP4, WebM и HLS",
-      lead: "Если у вас есть прямая ссылка на видеофайл или поток, OMIOROOM воспроизведёт его у всех участников синхронно.",
-      how: [
-        "Создайте комнату на главной странице.",
-        "Вставьте прямую ссылку на файл (…/video.mp4, …/video.webm) или на поток (…/playlist.m3u8).",
-        "Отправьте друзьям приглашение и нажмите «Играть».",
-      ],
-      notes: [
-        "Файл или поток должен открываться по ссылке без входа в аккаунт и разрешать воспроизведение на других сайтах.",
-        "Длинные ролики (часы) подгружаются заранее, потоки HLS буферизуются на минуту вперёд.",
-        "Мы не храним файл: каждый зритель загружает его с вашего источника напрямую.",
-      ],
-    },
-    en: {
-      title: "Watch MP4 and HLS together online by link — OMIOROOM",
-      description:
-        "Watch together a video from a direct file link (MP4, WebM) or an HLS stream (.m3u8). Synced pause and seeking, chat and voice.",
-      heading: "Direct video links: MP4, WebM and HLS",
-      lead: "If you have a direct link to a video file or stream, OMIOROOM plays it for all participants in sync.",
-      how: [
-        "Create a room on the home page.",
-        "Paste a direct file link (…/video.mp4, …/video.webm) or a stream link (…/playlist.m3u8).",
-        "Send your friends the invitation and press Play.",
-      ],
-      notes: [
-        "The file or stream must open by link without signing in and must allow playback on other sites.",
-        "Long videos (hours) are loaded ahead; HLS streams are buffered a minute ahead.",
-        "We do not store the file: every viewer loads it from your source directly.",
       ],
     },
   }),

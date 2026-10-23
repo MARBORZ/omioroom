@@ -241,3 +241,15 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
     return null;
   }
 }
+
+/** Media types played from a link to a file or stream on any site; no longer supported in rooms. */
+export const DIRECT_MEDIA_TYPES: readonly MediaType[] = [MediaType.HTML5, MediaType.HLS];
+
+/**
+ * Like parseMediaUrl, but only for what rooms accept: YouTube, VK Video, RuTube and Vimeo.
+ * Direct files and streams return null.
+ */
+export function parseAllowedMediaUrl(inputUrl: string): MediaSourceInfo | null {
+  const parsed = parseMediaUrl(inputUrl);
+  return parsed && !DIRECT_MEDIA_TYPES.includes(parsed.type) ? parsed : null;
+}

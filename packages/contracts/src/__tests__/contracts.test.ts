@@ -7,6 +7,7 @@ import {
   privateCodeSchema,
   globalRoomIdSchema,
   parseMediaUrl,
+  parseAllowedMediaUrl,
   mediaSourceInfoSchema,
   calculateExpectedPosition,
   MediaType,
@@ -206,4 +207,14 @@ describe("Contracts and Domain Logic", () => {
     expect(ru?.canonicalUrl.startsWith("https://vkvideo.ru/")).toBe(true);
   });
 
+
+  it("rooms accept only the four platforms: direct files and streams are refused", () => {
+    expect(parseAllowedMediaUrl("https://www.youtube.com/watch?v=jNQXAC9IVRw")?.type).toBe("youtube");
+    expect(parseAllowedMediaUrl("https://vk.com/video-126483390_456239718")?.type).toBe("vk");
+    expect(parseAllowedMediaUrl("https://rutube.ru/video/a7ef5ba8f8f6a3f7d6b5aeb3ef2e7bbe/")?.type).toBe("rutube");
+    expect(parseAllowedMediaUrl("https://vimeo.com/22439234")?.type).toBe("vimeo");
+    expect(parseAllowedMediaUrl("https://example.com/movie.mp4")).toBeNull();
+    expect(parseAllowedMediaUrl("https://example.com/stream/live.m3u8")).toBeNull();
+    expect(parseAllowedMediaUrl("https://example.com/")).toBeNull();
+  });
 });

@@ -31,11 +31,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.omioroom.live/video-files-together</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://www.omioroom.live/faq</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

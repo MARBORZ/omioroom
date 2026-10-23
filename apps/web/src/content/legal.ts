@@ -17,7 +17,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
           {
             heading: "1. О сервисе",
             paragraphs: [
-              "OMIOROOM — веб-сервис, который синхронизирует просмотр видео между участниками комнаты и даёт чат и голосовое общение. Сервис не хранит и не распространяет видео: ролики воспроизводятся у каждого зрителя из стороннего источника (YouTube, VK Видео, RuTube, Vimeo или вашей ссылки).",
+              "OMIOROOM — веб-сервис, который синхронизирует просмотр видео между участниками комнаты и даёт чат и голосовое общение. Сервис не хранит и не распространяет видео: ролики воспроизводятся у каждого зрителя из стороннего источника (YouTube, VK Видео, RuTube или Vimeo).",
             ],
           },
           {
@@ -92,7 +92,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
           {
             heading: "1. About the service",
             paragraphs: [
-              "OMIOROOM is a web service that synchronizes video playback between the participants of a room and provides chat and voice communication. The service does not store or distribute videos: they play for each viewer from a third-party source (YouTube, VK Video, RuTube, Vimeo or your link).",
+              "OMIOROOM is a web service that synchronizes video playback between the participants of a room and provides chat and voice communication. The service does not store or distribute videos: they play for each viewer from a third-party source (YouTube, VK Video, RuTube or Vimeo).",
             ],
           },
           {
@@ -208,7 +208,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
             heading: "5. Кому передаются данные",
             paragraphs: [
               "Мы не продаём данные и не используем их для рекламы. Для работы сервиса мы используем провайдеров, которые обрабатывают данные по нашему поручению: хостинг сайта (Vercel), базу данных, вход, хранилище и обмен сообщениями (Supabase). Их серверы могут находиться в разных странах.",
-              "Видео воспроизводят плееры сторонних площадок (YouTube, VK Видео, RuTube, Vimeo) или ваша ссылка. Эти площадки могут собирать данные по своим правилам, когда ролик загружается у вас в браузере.",
+              "Видео воспроизводят плееры сторонних площадок (YouTube, VK Видео, RuTube, Vimeo). Эти площадки могут собирать данные по своим правилам, когда ролик загружается у вас в браузере.",
               "Для установления голосовой связи используется публичный STUN-сервер Google. Участники комнаты видят то, что вы публикуете в ней: имя, сообщения, изображения, ваше присутствие.",
               "Открытая комната доступна любому, кто знает её номер, поэтому её содержимое (имена, сообщения, изображения) видят и незнакомые люди. В голосовом чате участники видят сетевые адреса друг друга: в открытых комнатах включайте голос, только если доверяете собеседникам. В закрытой комнате данные видят только те, кто вошёл по ключу.",
             ],
@@ -283,7 +283,7 @@ export const LEGAL_PAGES: ContentPageDef[] = [
             heading: "5. Who the data is shared with",
             paragraphs: [
               "We do not sell data or use it for advertising. To run the service we use providers who process data on our behalf: site hosting (Vercel), database, sign-in, storage and messaging (Supabase). Their servers may be located in different countries.",
-              "Videos are played by third-party players (YouTube, VK Video, RuTube, Vimeo) or by your link. Those platforms may collect data under their own rules when a video loads in your browser.",
+              "Videos are played by third-party players (YouTube, VK Video, RuTube, Vimeo). Those platforms may collect data under their own rules when a video loads in your browser.",
               "A public Google STUN server is used to set up voice connections. Room participants see what you publish in it: your name, messages, images and presence.",
               "An open room is available to anyone who knows its number, so its content (names, messages, images) is also seen by strangers. In voice chat, participants can see each other's network addresses: in open rooms, switch voice on only if you trust the others. In a private room, only people who entered with the key see the data.",
             ],

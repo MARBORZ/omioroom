@@ -25,7 +25,7 @@ export const FAQ_PAGE: ContentPageDef = {
         {
           question: "Какие видео можно смотреть?",
           answer:
-            "Ролики YouTube, VK Видео, RuTube и Vimeo, а также прямые ссылки на файлы (MP4, WebM) и потоки HLS (.m3u8). Подписочные сервисы с защитой от копирования (Netflix, Disney+ и подобные) не поддерживаются.",
+            "Ролики YouTube, VK Видео, RuTube и Vimeo: у этих площадок есть собственная модерация и возрастные ограничения. Личные файлы и ссылки на другие сайты не поддерживаются, как и подписочные сервисы (Netflix, Disney+ и подобные).",
         },
         {
           question: "Видео проходит через ваши серверы?",
@@ -99,7 +99,7 @@ export const FAQ_PAGE: ContentPageDef = {
         {
           question: "Which videos can we watch?",
           answer:
-            "YouTube, VK Video, RuTube and Vimeo videos, plus direct links to files (MP4, WebM) and HLS streams (.m3u8). Subscription services with copy protection (Netflix, Disney+ and similar) are not supported.",
+            "YouTube, VK Video, RuTube and Vimeo videos: these platforms have their own moderation and age restrictions. Personal files and links to other sites are not supported, nor are subscription services (Netflix, Disney+ and similar).",
         },
         {
           question: "Does the video pass through your servers?",

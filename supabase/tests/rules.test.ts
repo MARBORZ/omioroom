@@ -968,12 +968,13 @@ describe("maintenance", () => {
     expect(await t.as(owner).rpc("list_banned_users")).toEqual([]);
     expect(await code(t.as(guest).rpc("join_room", { p_global_id: r2.globalId }))).toBe("OK");
   });
-  it("accepts only well-formed links on each platform's own domain, and only platforms in open rooms", async () => {
+  it("accepts only well-formed links on each platform's own domain; direct files and streams are not supported", async () => {
     const owner = await t.newUser();
     const open = await room(owner, "public");
+    const closed = await room(owner, "private");
     const send = (roomId: string, media: object) =>
       code(t.as(owner).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
-    await t.db.exec("create or replace function public.open_rooms_platforms_only() returns boolean language sql immutable as $$ select true $$");
+    await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select false $$");
 
     // A forged link for a platform player: right type, wrong address
     expect(await send(open.id, { type: "rutube", sourceId: "x", canonicalUrl: "https://evil.example/play/embed/" + "a".repeat(32) })).toBe("MEDIA_UNSUPPORTED");
@@ -982,23 +983,20 @@ describe("maintenance", () => {
     expect(await send(open.id, { type: "vimeo", sourceId: "1", canonicalUrl: "https://vimeo.com.evil.example/video/1" })).toBe("MEDIA_UNSUPPORTED");
     expect(await send(open.id, { type: "nope", sourceId: "1", canonicalUrl: "https://example.com/x" })).toBe("MEDIA_UNSUPPORTED");
 
-    // Real shapes pass
-    expect(await send(open.id, { type: "youtube", sourceId: "abc12345678", canonicalUrl: "https://www.youtube.com/watch?v=abc12345678" })).toBe("OK");
-    expect(await send(open.id, { type: "vk", sourceId: "-12_34", canonicalUrl: "https://vk.com/video_ext.php?oid=-12&id=34&autoplay=0" })).toBe("OK");
-    expect(await send(open.id, { type: "rutube", sourceId: "a".repeat(32), canonicalUrl: "https://rutube.ru/play/embed/" + "a".repeat(32) })).toBe("OK");
-    expect(await send(open.id, { type: "vimeo", sourceId: "76979871", canonicalUrl: "https://player.vimeo.com/video/76979871" })).toBe("OK");
+    // Real shapes pass, in open and in private rooms
+    for (const r of [open, closed]) {
+      expect(await send(r.id, { type: "youtube", sourceId: "abc12345678", canonicalUrl: "https://www.youtube.com/watch?v=abc12345678" })).toBe("OK");
+      expect(await send(r.id, { type: "vk", sourceId: "-12_34", canonicalUrl: "https://vk.com/video_ext.php?oid=-12&id=34&autoplay=0" })).toBe("OK");
+      expect(await send(r.id, { type: "rutube", sourceId: "a".repeat(32), canonicalUrl: "https://rutube.ru/play/embed/" + "a".repeat(32) })).toBe("OK");
+      expect(await send(r.id, { type: "vimeo", sourceId: "76979871", canonicalUrl: "https://player.vimeo.com/video/76979871" })).toBe("OK");
+    }
 
-    // Direct files and streams: not in an open room, fine in a private one
-    expect(await send(open.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("MEDIA_NOT_ALLOWED_IN_OPEN_ROOM");
-    expect(await send(open.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("MEDIA_NOT_ALLOWED_IN_OPEN_ROOM");
-    const closed = await room(owner, "private");
-    expect(await send(closed.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("OK");
-
-    // Opening a room that plays a direct file stops that video
-    await t.as(owner).rpc("set_visibility", { p_room_id: closed.id, p_visibility: "public" });
-    const snap = await t.as(owner).rpc("get_room_snapshot", { p_room_id: closed.id });
-    expect(snap.playback.media).toBeNull();
-    await t.db.exec("create or replace function public.open_rooms_platforms_only() returns boolean language sql immutable as $$ select false $$");
+    // Direct files and streams are refused everywhere
+    for (const r of [open, closed]) {
+      expect(await send(r.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("MEDIA_UNSUPPORTED");
+      expect(await send(r.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("MEDIA_UNSUPPORTED");
+    }
+    await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select true $$");
   });
   it("automatic moderation removes a video with a blocked title from an open room and cools down repeat offenders", async () => {
     const owner = await t.newUser();

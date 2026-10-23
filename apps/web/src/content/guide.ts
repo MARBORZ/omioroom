@@ -17,7 +17,7 @@ export const GUIDE_PAGES: ContentPageDef[] = [
             heading: "Четыре шага",
             steps: [
               "Откройте сайт и нажмите «Создать комнату». Войти можно без аккаунта: имя назначится само.",
-              "Вставьте ссылку на видео: YouTube, VK Видео, RuTube, Vimeo или прямой файл.",
+              "Вставьте ссылку на видео: YouTube, VK Видео, RuTube или Vimeo.",
               "Отправьте друзьям ссылку-приглашение или шестизначный номер комнаты.",
               "Нажмите «Играть»: видео стартует у всех одновременно. Пауза и перемотка тоже общие.",
             ],
@@ -65,7 +65,7 @@ export const GUIDE_PAGES: ContentPageDef[] = [
             heading: "Four steps",
             steps: [
               "Open the site and press “Create room”. You can join without an account: a name is assigned for you.",
-              "Paste a video link: YouTube, VK Video, RuTube, Vimeo or a direct file.",
+              "Paste a video link: YouTube, VK Video, RuTube or Vimeo.",
               "Send your friends the invitation link or the six-digit room number.",
               "Press Play: the video starts for everyone at once. Pause and seeking are shared too.",
             ],
