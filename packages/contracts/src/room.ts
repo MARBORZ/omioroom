@@ -78,20 +78,24 @@ export const roomSnapshotDtoSchema = z.object({
   playback: roomPlaybackStateDtoSchema.nullable(),
 });
 
-/** One open room in the home-page feed. Never carries names or chat. */
-export const feedRoomDtoSchema = z.object({
+/** One open room offered on the home page. Never carries names of people or chat. */
+export const recommendationDtoSchema = z.object({
   globalId: globalRoomIdSchema,
+  /** Title of the video (or the platform's name when the title could not be read). */
+  title: z.string(),
+  hasTitle: z.boolean(),
   participantCount: z.number().int().min(1),
   maxParticipants: maxParticipantsSchema,
+  platform: z.string(),
+  /** Banner image of the current video; null when the platform gives none. */
+  thumbnailUrl: z.string().nullable(),
   status: z.string(),
-  mediaType: z.string(),
-  mediaSourceId: z.string(),
-  /** Title from the platform, when it could be read. */
-  mediaTitle: z.string().nullable(),
-  updatedAt: z.string(),
+  friendsInside: z.number().int().nonnegative(),
+  /** Why it is worth a look: "friends" (a friend is inside), "popular" (3+ people watching), "live" (playing now). */
+  badge: z.enum(["friends", "popular", "live"]).nullable(),
 });
 
-export type FeedRoomDto = z.infer<typeof feedRoomDtoSchema>;
+export type RecommendationDto = z.infer<typeof recommendationDtoSchema>;
 
 export type RoomSnapshotDto = z.infer<typeof roomSnapshotDtoSchema>;
 

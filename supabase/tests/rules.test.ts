@@ -1044,47 +1044,68 @@ describe("maintenance", () => {
     expect(await set(priv, yt("bbbbbbbbbbb"))).toBe("OK");
     expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: priv.id })).playback.media).not.toBeNull();
   });
-  it("the feed lists open rooms that are in use with a video on, never private ones, and honours bans and reports", async () => {
-    const owner = await t.newUser();
-    const other = await t.newUser();
+  it("recommendations list open rooms in use with a video on, rank them simply, and respect privacy, bans and reports", async () => {
+    const o1 = await t.newUser();
+    const o2 = await t.newUser();
+    const o3 = await t.newUser();
     const viewer = await t.newUser();
+    const friend = await t.newUser();
     const yt = (id: string) => ({ type: "youtube", sourceId: id, canonicalUrl: `https://www.youtube.com/watch?v=${id}` });
     const setVideo = (u: string, roomId: string, id: string) =>
       t.as(u).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: yt(id) });
-    const open = await room(owner, "public");
-    const empty = await room(other, "public");
+    const recs = () => t.as(viewer).rpc("get_recommendations");
+    const ids = async () => (await recs()).map((r: any) => r.globalId);
+
+    const small = await room(o1, "public");
+    const big = await room(o2, "public");
+    const none = await room(o3, "public");           // no video
     const priv = await room(viewer, "private");
-    await setVideo(owner, open.id, "aaaaaaaaaaa");
-    await setVideo(viewer, priv.id, "bbbbbbbbbbb");
-    await t.db.exec("insert into public.media_verdicts (media_key, title, verdict) values ('youtube:aaaaaaaaaaa', 'Cute cats', 'ok')");
+    await setVideo(o1, small.id, "aaaaaaaaaaa");
+    await setVideo(o2, big.id, "bbbbbbbbbbb");
+    await setVideo(viewer, priv.id, "ccccccccccc");
+    await t.db.exec("insert into public.media_verdicts (media_key, title, verdict, thumbnail_url) values ('youtube:bbbbbbbbbbb', 'Cute cats', 'ok', 'https://img.example.com/cats.jpg')");
+    // two more people join the big room, so it has three inside; one video is playing
+    for (const u of [await t.newUser(), await t.newUser()]) await t.as(u).rpc("join_room", { p_global_id: big.globalId });
+    await t.as(o2).rpc("player_command", { p_room_id: big.id, p_command_id: randomUUID(), p_type: "play", p_position: 0 });
 
-    let feed = await t.as(viewer).rpc("list_public_rooms");
-    expect(feed.map((r: any) => r.globalId)).toEqual([open.globalId]);
-    expect(feed[0].mediaTitle).toBe("Cute cats");
-    expect(feed[0].participantCount).toBe(1);
-    expect(JSON.stringify(feed)).not.toMatch(/ownerUserId|displayName|userId/);
-    // no video: not listed; nobody inside: not listed
-    expect(feed.map((r: any) => r.globalId)).not.toContain(empty.globalId);
-    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour' where room_id = '${open.id}'`);
-    expect(await t.as(viewer).rpc("list_public_rooms")).toEqual([]);
-    await t.db.exec(`update public.member_activity set last_active_at = now() where room_id = '${open.id}'`);
+    let list = await recs();
+    expect(list.map((r: any) => r.globalId)).toEqual([big.globalId, small.globalId]);
+    expect(list[0]).toMatchObject({ title: "Cute cats", participantCount: 3, platform: "youtube", thumbnailUrl: "https://img.example.com/cats.jpg", badge: "popular" });
+    // no verdict yet: platform name as the title and the platform's own thumbnail
+    expect(list[1]).toMatchObject({ title: "YouTube", thumbnailUrl: "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg", badge: null });
+    expect(JSON.stringify(list)).not.toMatch(/ownerUserId|displayName|userId/);
+    expect(await ids()).not.toContain(none.globalId);
+    expect(await ids()).not.toContain(priv.globalId);
 
-    // someone banned by the owner does not see the owner's rooms
-    await t.as(owner).rpc("ban_member", { p_room_id: open.id, p_user_id: viewer });
-    expect(await t.as(viewer).rpc("list_public_rooms")).toEqual([]);
-    await t.as(owner).rpc("unban_user", { p_user_id: viewer });
+    // a friend of the viewer inside lifts a small room above a bigger one
+    await t.db.exec(`insert into public.friendships (user_id, friend_id) values ('${viewer}', '${friend}')`);
+    await t.as(friend).rpc("join_room", { p_global_id: small.globalId });
+    list = await recs();
+    expect(list[0]).toMatchObject({ globalId: small.globalId, friendsInside: 1, badge: "friends" });
 
-    // three different reporters take the room off the feed for a day
+    // rooms of an owner who banned the viewer disappear; the viewer's own rooms never show
+    await t.as(viewer).rpc("join_room", { p_global_id: big.globalId });
+    expect(await ids()).not.toContain(big.globalId);
+    await t.as(viewer).rpc("leave_room", { p_room_id: big.id });
+    await t.db.exec(`delete from public.room_members where room_id = '${big.id}' and user_id = '${viewer}'`);
+    await t.db.exec(`insert into public.owner_bans (owner_id, user_id) values ('${o2}', '${viewer}')`);
+    expect(await ids()).not.toContain(big.globalId);
+    await t.db.exec(`delete from public.owner_bans where owner_id = '${o2}'`);
+    expect(await ids()).toContain(big.globalId);
+
+    // nobody inside: not listed
+    await t.db.exec(`update public.member_activity set last_active_at = now() - interval '1 hour' where room_id = '${small.id}'`);
+    expect(await ids()).not.toContain(small.globalId);
+
+    // three different reporters take a room off the list for a day
     const reporters = [await t.newUser(), await t.newUser(), await t.newUser()];
-    for (const r of reporters) await t.as(r).rpc("join_room", { p_global_id: open.globalId });
-    expect((await t.as(viewer).rpc("list_public_rooms")).length).toBe(1);
-    expect(await code(t.as(viewer).rpc("report_room", { p_room_id: open.id, p_reason: "not a member" }))).not.toBe("OK");
+    for (const r of reporters) await t.as(r).rpc("join_room", { p_global_id: big.globalId });
+    expect(await code(t.as(viewer).rpc("report_room", { p_room_id: big.id, p_reason: "not a member" }))).not.toBe("OK");
     for (const r of reporters) {
-      expect(await code(t.as(r).rpc("report_room", { p_room_id: open.id, p_reason: "inappropriate video" }))).toBe("OK");
+      expect(await code(t.as(r).rpc("report_room", { p_room_id: big.id, p_reason: "inappropriate video" }))).toBe("OK");
     }
-    feed = await t.as(viewer).rpc("list_public_rooms");
-    expect(feed).toEqual([]);
-    expect(await code(t.as(reporters[0]!).rpc("report_room", { p_room_id: open.id, p_reason: "x" }))).toBe("INVALID_PAYLOAD");
+    expect(await ids()).not.toContain(big.globalId);
+    expect(await code(t.as(reporters[0]!).rpc("report_room", { p_room_id: big.id, p_reason: "x" }))).toBe("INVALID_PAYLOAD");
   });
 
   it("links in the chat of open rooms are for the owner and controllers only", async () => {

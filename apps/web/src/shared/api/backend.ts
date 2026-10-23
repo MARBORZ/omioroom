@@ -4,7 +4,7 @@ import type {
   FriendDto,
   MediaSourceInfo,
   PlayerCommandPayload,
-  FeedRoomDto,
+  RecommendationDto,
   RoomCreateResult,
   RoomOwnerAccessDto,
   RoomPlaybackStateDto,
@@ -60,8 +60,8 @@ export const backend = {
   resumeRoom: (roomId: string) => rpc<RoomSnapshotDto>("resume_room", { p_room_id: roomId }),
   /** Heartbeat that reports the state: "OK" | "ROOM_NOT_FOUND" | "ROOM_CLOSED" | "NOT_MEMBER" | "BANNED". */
   heartbeatRoom: (roomId: string) => rpc<string>("heartbeat_room", { p_room_id: roomId }),
-  /** Open rooms with a video on and someone inside, for the home-page feed. */
-  listPublicRooms: (limit = 24) => rpc<FeedRoomDto[]>("list_public_rooms", { p_limit: limit }),
+  /** Open rooms being watched right now, ranked for this viewer, for the home page. */
+  getRecommendations: (limit = 12) => rpc<RecommendationDto[]>("get_recommendations", { p_limit: limit }),
   /** Reports the room, or one chat message of it, to the moderators. */
   reportRoom: (roomId: string, reason: string, messageId?: string) =>
     rpc<{ ok: boolean }>("report_room", { p_room_id: roomId, p_reason: reason, p_message_id: messageId ?? null }),
