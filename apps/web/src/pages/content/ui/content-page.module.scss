@@ -194,29 +194,30 @@
 }
 
 .cpFoot {
+  margin-top: var(--space-6);
   border-top: var(--border-width) solid var(--color-border);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
+/* Same width and left edge as the article above */
 .cpFootRow {
-  max-width: 960px;
+  max-width: 760px;
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 var(--space-1);
+  gap: var(--space-1) var(--space-4);
 
   .cpLink {
-    padding: 4px var(--space-2);
-    font-size: var(--font-size-xs);
+    padding: 4px 0;
+    font-size: var(--font-size-sm);
   }
 }
 
 .cpCopy {
   margin-left: auto;
-  padding: 4px var(--space-2);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 /* Tablets and phones */
@@ -270,13 +271,24 @@
   }
 
   .cpFoot {
-    padding: var(--space-2) var(--space-3);
+    margin-top: var(--space-5);
+    padding: var(--space-3) var(--space-4) var(--space-4);
   }
 
-  .cpFootRow .cpLink {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
+  .cpFootRow {
+    gap: 0 var(--space-4);
+
+    .cpLink {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  .cpCopy {
+    width: 100%;
+    margin-left: 0;
+    padding-top: var(--space-2);
   }
 }
 
