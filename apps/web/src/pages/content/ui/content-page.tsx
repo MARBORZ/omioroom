@@ -138,13 +138,51 @@ export const ContentPage: React.FC<{ page: ContentPageDef }> = ({ page }) => {
       </main>
 
       <footer className={styles.cpFoot}>
-        <nav className={styles.cpFootRow} aria-label={ru ? "Ссылки" : "Links"}>
-          {[...group("guide"), ...group("faq"), ...group("source"), ...group("legal")].map(link)}
-          <a className={styles.cpLink} href={`mailto:${CONTACT_EMAIL}`}>
-            {CONTACT_EMAIL}
-          </a>
-          <span className={styles.cpCopy}>© OMIOROOM</span>
-        </nav>
+        <div className={styles.cpFootInner}>
+          <div className={styles.cpFootGrid}>
+            <div className={styles.cpFootColBrand}>
+              <a href="/" className={styles.cpFootLogo} aria-label="OMIOROOM">
+                <Logo size="sm" showText={true} />
+              </a>
+              <p className={styles.cpFootTagline}>
+                {ru
+                  ? "Смотрите видео вместе в реальном времени"
+                  : "Watch videos together in real-time sync"}
+              </p>
+              <a className={styles.cpFootContact} href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
+              </a>
+            </div>
+
+            <div className={styles.cpFootCol}>
+              <div className={styles.cpFootColTitle}>{ru ? "О сервисе" : "About"}</div>
+              <nav className={styles.cpFootNav} aria-label={ru ? "О сервисе" : "About"}>
+                {[...group("guide"), ...group("faq")].map(link)}
+              </nav>
+            </div>
+
+            <div className={styles.cpFootCol}>
+              <div className={styles.cpFootColTitle}>{ru ? "Платформы" : "Platforms"}</div>
+              <nav className={styles.cpFootNav} aria-label={ru ? "Платформы" : "Platforms"}>
+                {group("source").map(link)}
+              </nav>
+            </div>
+
+            <div className={styles.cpFootCol}>
+              <div className={styles.cpFootColTitle}>{ru ? "Условия" : "Legal"}</div>
+              <nav className={styles.cpFootNav} aria-label={ru ? "Условия" : "Legal"}>
+                {group("legal").map(link)}
+              </nav>
+            </div>
+          </div>
+
+          <div className={styles.cpFootBottom}>
+            <span className={styles.cpCopy}>© {new Date().getFullYear()} OMIOROOM</span>
+            <a href="/" className={styles.cpFootAppBtn}>
+              {ru ? "Открыть сервис" : "Open app"}
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
