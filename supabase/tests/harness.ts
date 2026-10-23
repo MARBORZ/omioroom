@@ -67,6 +67,8 @@ export async function createTestDb(): Promise<TestDb> {
 
   let counter = 0;
   // Most tests need several rooms per user; the limit itself is tested explicitly (see rules.test.ts)
+  // Most tests play direct links in open rooms; the open-room source rule is tested explicitly
+  await db.exec("create or replace function public.open_rooms_platforms_only() returns boolean language sql immutable as $$ select false $$");
   // Tests act right after joining; the grace period itself is tested explicitly
   await db.exec("create or replace function public.join_grace() returns interval language sql immutable as $$ select interval '0 seconds' $$");
   await db.exec("create or replace function public.room_limit_per_user() returns integer language sql immutable as $$ select 100 $$");
