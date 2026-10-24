@@ -227,6 +227,10 @@ export const ru: Translations = {
     mutedNotice: "Вы не можете отправлять сообщения, пока вас заглушили",
     linksNotAllowed: "В открытых комнатах ссылки в чате доступны только владельцу",
     report: "Пожаловаться",
+    delete: "Удалить",
+    deleteConfirm: "Удалить сообщение?",
+    deletedNotice: "Сообщение удалено",
+    react: "Реакция",
   },
   friends: {
     title: "Друзья",

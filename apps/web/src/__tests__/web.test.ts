@@ -10,6 +10,7 @@ import { Skeleton } from "../shared/ui/skeleton/skeleton.js";
 import { Loader } from "../shared/ui/loader/loader.js";
 import { MediaType, parseMediaUrl } from "@omioroom/contracts";
 import { YouTubePlayerAdapter } from "../shared/lib/adapters/youtube-adapter.js";
+import { snapSeekDelta } from "../widgets/video-player/ui/video-player-frame.js";
 
 describe("Web Utilities", () => {
   it("formats time correctly for mm:ss and hh:mm:ss", () => {
@@ -676,5 +677,31 @@ describe("Web Utilities", () => {
     expect(en.room.minutesShort(2)).toBe("2m");
     expect(ru.room.minutesSecondsShort(1, 30)).toBe("1 мин 30 сек");
     expect(en.room.minutesSecondsShort(1, 30)).toBe("1m 30s");
+  });
+
+  it("snaps seek delta to clean multiples of 5 (preventing +9s or -11s jitter)", () => {
+    // 10-second seeks with slight network / debounce jitter
+    expect(snapSeekDelta(9.1)).toBe(10);
+    expect(snapSeekDelta(9.4)).toBe(10);
+    expect(snapSeekDelta(10.0)).toBe(10);
+    expect(snapSeekDelta(10.8)).toBe(10);
+    expect(snapSeekDelta(-9.2)).toBe(10);
+    expect(snapSeekDelta(-10.9)).toBe(10);
+
+    // Multi-skip aggregation (20s, 30s)
+    expect(snapSeekDelta(19.3)).toBe(20);
+    expect(snapSeekDelta(20.7)).toBe(20);
+    expect(snapSeekDelta(29.1)).toBe(30);
+
+    // 5-second skip
+    expect(snapSeekDelta(4.8)).toBe(5);
+    expect(snapSeekDelta(5.2)).toBe(5);
+
+    // Manual slider scrubs with non-multiple-of-5 offsets
+    expect(snapSeekDelta(32.0)).toBe(32);
+    expect(snapSeekDelta(13.0)).toBe(13);
+
+    // Clamped seek to beginning of video (e.g. from 3s to 0s)
+    expect(snapSeekDelta(-3.2, 0)).toBe(3);
   });
 });

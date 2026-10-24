@@ -18,7 +18,7 @@ import { ResizeHandle } from "../../../shared/ui/resize-handle/resize-handle.js"
 import { useResizableWidth } from "../../../shared/lib/use-resizable-width.js";
 import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
-import { openRoomChannel, type RoomChannelStatus } from "../../../shared/api/realtime.js";
+import { openRoomChannel, broadcastChatReaction, broadcastChatDeleted, type RoomChannelStatus } from "../../../shared/api/realtime.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { clearStoredActiveRoom } from "../../../shared/lib/active-room.js";
 import {
@@ -321,10 +321,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         }
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        handleSeek(Math.max(0, currentTime - 10));
+        handleSeek(Math.max(0, currentTime - 10), true);
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        handleSeek(Math.min(duration || Infinity, currentTime + 10));
+        handleSeek(Math.min(duration || Infinity, currentTime + 10), true);
       }
     };
 
@@ -398,6 +398,36 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       onChat: (msg) => {
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100)));
         if (msg.senderId !== user.id && !chatVisibleRef.current) setUnreadMessages((n) => n + 1);
+      },
+      onChatUpdated: (msg) => {
+        setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+      },
+      onChatDeleted: (deletedId) => {
+        setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+      },
+      onReactionBroadcast: ({ messageId, emoji, userId: rUserId, action }) => {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId) return m;
+            const currentList = m.reactions?.[emoji] ?? [];
+            const hasUser = currentList.includes(rUserId);
+            let nextList: string[];
+            if (action === "add" && !hasUser) {
+              nextList = [...currentList, rUserId];
+            } else if (action === "remove" && hasUser) {
+              nextList = currentList.filter((u) => u !== rUserId);
+            } else {
+              return m;
+            }
+            const nextReactions = { ...m.reactions };
+            if (nextList.length === 0) {
+              delete nextReactions[emoji];
+            } else {
+              nextReactions[emoji] = nextList;
+            }
+            return { ...m, reactions: nextReactions };
+          })
+        );
       },
       onChatSeen: (uid, seenAt) =>
         setSnapshot((prev) => ({
@@ -614,14 +644,22 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   };
 
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSeek = (pos: number) => {
+  const handleSeek = (pos: number, immediate = false) => {
     setCurrentTime(pos);
-    if (seekTimerRef.current) clearTimeout(seekTimerRef.current);
-    seekTimerRef.current = setTimeout(() => {
+    if (seekTimerRef.current) {
+      clearTimeout(seekTimerRef.current);
       seekTimerRef.current = null;
+    }
+    if (immediate) {
       videoPlayerRef.current?.seek(pos);
       sendPlayerCommand({ type: "seek", position: pos });
-    }, 250);
+    } else {
+      seekTimerRef.current = setTimeout(() => {
+        seekTimerRef.current = null;
+        videoPlayerRef.current?.seek(pos);
+        sendPlayerCommand({ type: "seek", position: pos });
+      }, 250);
+    }
   };
 
   // The speed picker answers at once; the room state confirms it (or takes it back if the command fails)
@@ -706,6 +744,68 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const path = image ? await backend.uploadChatImage(snapshot.room.id, image) : null;
     await backend.sendChat(snapshot.room.id, text, path);
   };
+
+  const handleToggleReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!user) return;
+      const targetMsg = messages.find((m) => m.id === messageId);
+      const currentList = targetMsg?.reactions?.[emoji] ?? [];
+      const hasUser = currentList.includes(user.id);
+      const action = hasUser ? "remove" : "add";
+
+      // Optimistic update
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const list = m.reactions?.[emoji] ?? [];
+          const next = action === "add" ? [...list, user.id] : list.filter((id) => id !== user.id);
+          const nextReactions = { ...m.reactions };
+          if (next.length === 0) {
+            delete nextReactions[emoji];
+          } else {
+            nextReactions[emoji] = next;
+          }
+          return { ...m, reactions: nextReactions };
+        })
+      );
+
+      // Broadcast immediately to room channel
+      broadcastChatReaction(snapshot.room.id, {
+        messageId,
+        emoji,
+        userId: user.id,
+        action,
+      });
+
+      // Persist in backend
+      try {
+        await backend.toggleReaction(snapshot.room.id, messageId, emoji);
+      } catch (err) {
+        console.error("Failed to persist reaction:", err);
+      }
+    },
+    [user, messages, snapshot.room.id]
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      // Optimistic update
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+      // Broadcast immediately
+      broadcastChatDeleted(snapshot.room.id, messageId);
+
+      // Persist in backend
+      try {
+        await backend.deleteMessage(snapshot.room.id, messageId);
+        showToast(tRef.current.chat.deletedNotice, { id: "msg-deleted" });
+      } catch (err) {
+        console.error("Failed to delete message:", err);
+        void backend.chatHistory(snapshot.room.id).then(setMessages).catch(() => {});
+      }
+    },
+    [snapshot.room.id]
+  );
 
 
   // Cinema: Escape leaves it (unless a dialog is open), the page behind does not scroll
@@ -1051,6 +1151,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   roomId={snapshot.room.id}
                   isMuted={isCurrentUserMuted}
                   onReportMessage={(messageId) => setReportTarget({ messageId })}
+                  onToggleReaction={handleToggleReaction}
+                  onDeleteMessage={handleDeleteMessage}
+                  isOwner={snapshot.isOwner}
+                  canControl={canControl}
                 />
               </div>
             )}
@@ -1180,6 +1284,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 roomId={snapshot.room.id}
                 isMuted={isCurrentUserMuted}
                 onReportMessage={(messageId) => setReportTarget({ messageId })}
+                onToggleReaction={handleToggleReaction}
+                onDeleteMessage={handleDeleteMessage}
+                isOwner={snapshot.isOwner}
+                canControl={canControl}
               />
             </div>
           </div>

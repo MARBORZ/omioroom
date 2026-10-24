@@ -15,6 +15,9 @@ export type RoomChannelStatus = "connected" | "connecting" | "reconnecting" | "d
 export interface RoomChannelHandlers {
   onPlayback: (state: RoomPlaybackStateDto) => void;
   onChat: (message: ChatMessageDto) => void;
+  onChatUpdated?: (message: ChatMessageDto) => void;
+  onChatDeleted?: (messageId: string) => void;
+  onReactionBroadcast?: (data: { messageId: string; emoji: string; userId: string; action: "add" | "remove" }) => void;
   /** Visibility, closure or revision changes of the room row. */
   onRoomChanged: (row: RoomRowChange) => void;
   /** A member joined or had their permissions changed; refetch participants. */
@@ -76,6 +79,25 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
     )
     .on(
       "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "chat_messages", filter: `room_id=eq.${roomId}` },
+      (payload) => handlers.onChatUpdated?.(mapChatRow(payload.new as Parameters<typeof mapChatRow>[0]))
+    )
+    .on(
+      "postgres_changes",
+      { event: "DELETE", schema: "public", table: "chat_messages", filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        const id = (payload.old as { id?: string })?.id;
+        if (id) handlers.onChatDeleted?.(id);
+      }
+    )
+    .on("broadcast", { event: "chat_reaction" }, (event) => {
+      if (event.payload) handlers.onReactionBroadcast?.(event.payload);
+    })
+    .on("broadcast", { event: "chat_deleted" }, (event) => {
+      if (event.payload?.messageId) handlers.onChatDeleted?.(event.payload.messageId);
+    })
+    .on(
+      "postgres_changes",
       { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
       (payload) => {
         const row = payload.new as {
@@ -128,4 +150,17 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+export function broadcastChatReaction(
+  roomId: string,
+  payload: { messageId: string; emoji: string; userId: string; action: "add" | "remove" }
+): void {
+  const channel = supabase.channel(`room:${roomId}`);
+  void channel.send({ type: "broadcast", event: "chat_reaction", payload });
+}
+
+export function broadcastChatDeleted(roomId: string, messageId: string): void {
+  const channel = supabase.channel(`room:${roomId}`);
+  void channel.send({ type: "broadcast", event: "chat_deleted", payload: { messageId } });
 }

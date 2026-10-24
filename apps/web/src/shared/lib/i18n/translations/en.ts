@@ -227,6 +227,10 @@ export const en: Translations = {
     mutedNotice: "You cannot send messages while muted",
     linksNotAllowed: "In open rooms, links in chat are only allowed for the owner",
     report: "Report",
+    delete: "Delete",
+    deleteConfirm: "Delete message?",
+    deletedNotice: "Message deleted",
+    react: "React",
   },
   friends: {
     title: "Friends",

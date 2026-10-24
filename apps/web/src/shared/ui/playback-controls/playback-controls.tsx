@@ -13,7 +13,7 @@ interface PlaybackControlsProps {
   disabled?: boolean;
   onPlay: () => void;
   onPause: () => void;
-  onSeek: (position: number) => void;
+  onSeek: (position: number, immediate?: boolean) => void;
   onRateChange?: (rate: number) => void;
   onToggleMute?: () => void;
   /** Speeds the current source supports; empty means it cannot change speed. */
@@ -49,11 +49,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   };
 
   const skipForward = () => {
-    onSeek(Math.min(duration, currentTime + 10));
+    onSeek(Math.min(duration, currentTime + 10), true);
   };
 
   const skipBackward = () => {
-    onSeek(Math.max(0, currentTime - 10));
+    onSeek(Math.max(0, currentTime - 10), true);
   };
 
   return (

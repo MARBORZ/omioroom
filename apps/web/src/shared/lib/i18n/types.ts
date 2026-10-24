@@ -221,6 +221,10 @@ export interface Translations {
     mutedNotice: string;
     linksNotAllowed: string;
     report: string;
+    delete: string;
+    deleteConfirm: string;
+    deletedNotice: string;
+    react: string;
   };
   friends: {
     title: string;

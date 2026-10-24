@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag } from "lucide-react";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag, Trash2 } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -13,6 +13,8 @@ import { backend } from "../../../shared/api/backend.js";
 import { ChatImage } from "./chat-image.js";
 import styles from "./room-chat.module.scss";
 
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "😮", "😢"] as const;
+
 interface RoomChatProps {
   messages: ChatMessageDto[];
   loading?: boolean;
@@ -21,6 +23,10 @@ interface RoomChatProps {
   roomId?: string;
   isMuted?: boolean;
   onReportMessage?: (messageId: string) => void;
+  onToggleReaction?: (messageId: string, emoji: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
+  isOwner?: boolean;
+  canControl?: boolean;
 }
 
 interface ReplyState {
@@ -75,6 +81,10 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   roomId,
   isMuted = false,
   onReportMessage,
+  onToggleReaction,
+  onDeleteMessage,
+  isOwner = false,
+  canControl = false,
 }) => {
   const { user } = useSession();
   const { t } = useI18n();
@@ -82,6 +92,19 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 
   const prevMessageIdsRef = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
   const initialLoadedRef = useRef(false);
+  const renderedMessageIdsRef = useRef<Set<string>>(new Set());
+
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveMessageId(null);
+      setConfirmDeleteId(null);
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   // Play subtle notification sound when new message arrives from another user
   useEffect(() => {
@@ -478,49 +501,29 @@ export const RoomChat: React.FC<RoomChatProps> = ({
           else if (isSameSenderBelow) groupClass = styles.groupFirst;
           else groupClass = styles.groupSingle;
 
+          const isNew = !renderedMessageIdsRef.current.has(m.id) && initialLoadedRef.current;
+          if (!renderedMessageIdsRef.current.has(m.id)) {
+            renderedMessageIdsRef.current.add(m.id);
+          }
+
+          const hasReactions = m.reactions && Object.keys(m.reactions).length > 0;
+          const isConfirmingDelete = confirmDeleteId === m.id;
+
           return (
             <div
               key={m.id}
               id={`msg-${m.id}`}
-              className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
+              className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${isNew ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
+              onClick={() => setActiveMessageId((prev) => (prev === m.id ? null : m.id))}
             >
-              {isImageOnly ? (
-                <div
-                  className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${styles.imageOnlyBubble}`}
-                >
-                  {!isOwn && !isSameSenderAbove && (
-                    <span className={styles.imageSenderOverlay}>{m.senderName}</span>
-                  )}
-                  <ChatImage
-                    path={m.attachmentPath!}
-                    onOpen={setZoomUrl}
-                    openLabel={t.chat.openImage}
-                    className={styles}
-                    onLoad={() => {
-                      if (isNearBottomRef.current) scrollToBottom(true);
-                    }}
-                  />
-                  <div className={styles.imageFloatingMeta}>
-                    <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
-                    {isOwn &&
-                      (isRead ? (
-                        <CheckCheck size={12} className={styles.checkIcon} />
-                      ) : (
-                        <Check size={12} className={styles.checkIcon} />
-                      ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${hasImage ? styles.withImageBubble : ""}`}
-                >
-                  {/* Sender name shown only on first message of the group */}
-                  {!isOwn && !isSameSenderAbove && (
-                    <span className={styles.senderName}>{m.senderName}</span>
-                  )}
-
-                  {/* Image attachment in multi-content bubble */}
-                  {hasImage && (
+              <div className={`${styles.bubbleWrapper} ${isOwn ? styles.bubbleWrapperOwn : styles.bubbleWrapperOther}`}>
+                {isImageOnly ? (
+                  <div
+                    className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${styles.imageOnlyBubble}`}
+                  >
+                    {!isOwn && !isSameSenderAbove && (
+                      <span className={styles.imageSenderOverlay}>{m.senderName}</span>
+                    )}
                     <ChatImage
                       path={m.attachmentPath!}
                       onOpen={setZoomUrl}
@@ -530,28 +533,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                         if (isNearBottomRef.current) scrollToBottom(true);
                       }}
                     />
-                  )}
-
-                  {/* Reply quote banner inside message bubble */}
-                  {parsed.reply && (
-                    <button
-                      type="button"
-                      className={styles.quoteBlock}
-                      onClick={() => handleQuoteClick(parsed.reply!.id)}
-                      title={t.chat.reply}
-                    >
-                      <div className={styles.quoteStripe} />
-                      <div className={styles.quoteBody}>
-                        <span className={styles.quoteSender}>{parsed.reply.senderName}</span>
-                        <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Message content: text and timestamp inline (Telegram style) */}
-                  <div className={styles.textContainer}>
-                    {parsed.body && <span className={styles.text}>{parsed.body}</span>}
-                    <span className={styles.metaRow}>
+                    <div className={styles.imageFloatingMeta}>
                       <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
                       {isOwn &&
                         (isRead ? (
@@ -559,33 +541,169 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                         ) : (
                           <Check size={12} className={styles.checkIcon} />
                         ))}
-                    </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div
+                    className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${hasImage ? styles.withImageBubble : ""}`}
+                  >
+                    {/* Sender name shown only on first message of the group */}
+                    {!isOwn && !isSameSenderAbove && (
+                      <span className={styles.senderName}>{m.senderName}</span>
+                    )}
 
-              {/* Hover action to reply */}
-              <button
-                type="button"
-                className={styles.replyActionBtn}
-                onClick={() => handleStartReply(m)}
-                title={t.chat.reply}
-                aria-label={t.chat.reply}
+                    {/* Image attachment in multi-content bubble */}
+                    {hasImage && (
+                      <ChatImage
+                        path={m.attachmentPath!}
+                        onOpen={setZoomUrl}
+                        openLabel={t.chat.openImage}
+                        className={styles}
+                        onLoad={() => {
+                          if (isNearBottomRef.current) scrollToBottom(true);
+                        }}
+                      />
+                    )}
+
+                    {/* Reply quote banner inside message bubble */}
+                    {parsed.reply && (
+                      <button
+                        type="button"
+                        className={styles.quoteBlock}
+                        onClick={() => handleQuoteClick(parsed.reply!.id)}
+                        title={t.chat.reply}
+                      >
+                        <div className={styles.quoteStripe} />
+                        <div className={styles.quoteBody}>
+                          <span className={styles.quoteSender}>{parsed.reply.senderName}</span>
+                          <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Message content: text and timestamp inline (Telegram style) */}
+                    <div className={styles.textContainer}>
+                      {parsed.body && <span className={styles.text}>{parsed.body}</span>}
+                      <span className={styles.metaRow}>
+                        <span className={styles.time}>{formatMsgTime(m.createdAt)}</span>
+                        {isOwn &&
+                          (isRead ? (
+                            <CheckCheck size={12} className={styles.checkIcon} />
+                          ) : (
+                            <Check size={12} className={styles.checkIcon} />
+                          ))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reaction badges under bubble */}
+                {hasReactions && (
+                  <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
+                    {Object.entries(m.reactions).map(([emoji, uids]) => {
+                      if (!uids || uids.length === 0) return null;
+                      const hasReacted = Boolean(user?.id && uids.includes(user.id));
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className={`${styles.reactionBadge} ${hasReacted ? styles.reactionBadgeActive : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleReaction?.(m.id, emoji);
+                          }}
+                          title={`${emoji} (${uids.length})`}
+                        >
+                          <span className={styles.reactionEmoji}>{emoji}</span>
+                          <span className={styles.reactionCount}>{uids.length}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Floating action bar: Reactions + Reply + Delete + Report */}
+              <div
+                className={`${styles.actionBar} ${activeMessageId === m.id ? styles.actionBarActive : ""}`}
+                onClick={(e) => e.stopPropagation()}
               >
-                <Reply size={13} />
-              </button>
-
-              {!isOwn && onReportMessage && (
-                <button
-                  type="button"
-                  className={styles.replyActionBtn}
-                  onClick={() => onReportMessage(m.id)}
-                  title={t.chat.report}
-                  aria-label={t.chat.report}
-                >
-                  <Flag size={13} />
-                </button>
-              )}
+                {isConfirmingDelete ? (
+                  <div className={styles.deleteConfirmBanner}>
+                    <span className={styles.deleteConfirmText}>{t.chat.deleteConfirm}</span>
+                    <button
+                      type="button"
+                      className={styles.deleteConfirmYes}
+                      onClick={() => {
+                        setConfirmDeleteId(null);
+                        onDeleteMessage?.(m.id);
+                      }}
+                    >
+                      {t.chat.delete}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteConfirmNo}
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      {t.chat.close}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.reactionPicker}>
+                      {QUICK_EMOJIS.map((emoji) => {
+                        const uids = m.reactions?.[emoji] ?? [];
+                        const hasReacted = Boolean(user?.id && uids.includes(user.id));
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`${styles.emojiBtn} ${hasReacted ? styles.emojiBtnActive : ""}`}
+                            onClick={() => onToggleReaction?.(m.id, emoji)}
+                            title={emoji}
+                            aria-label={emoji}
+                          >
+                            {emoji}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={styles.actionDivider} />
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => handleStartReply(m)}
+                      title={t.chat.reply}
+                      aria-label={t.chat.reply}
+                    >
+                      <Reply size={13} />
+                    </button>
+                    {(isOwn || isOwner || canControl) && onDeleteMessage && (
+                      <button
+                        type="button"
+                        className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                        onClick={() => setConfirmDeleteId(m.id)}
+                        title={t.chat.delete}
+                        aria-label={t.chat.delete}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                    {!isOwn && onReportMessage && (
+                      <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => onReportMessage(m.id)}
+                        title={t.chat.report}
+                        aria-label={t.chat.report}
+                      >
+                        <Flag size={13} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           );
         })}

@@ -122,6 +122,17 @@ export const backend = {
       p_text: text,
       p_attachment_path: attachmentPath,
     }),
+  toggleReaction: (roomId: string, messageId: string, emoji: string) =>
+    rpc<Record<string, string[]>>("toggle_chat_reaction", {
+      p_room_id: roomId,
+      p_message_id: messageId,
+      p_emoji: emoji,
+    }),
+  deleteMessage: (roomId: string, messageId: string) =>
+    rpc<boolean>("delete_chat_message", {
+      p_room_id: roomId,
+      p_message_id: messageId,
+    }),
   /** Uploads an image to the room's folder and returns its storage path. */
   uploadChatImage: async (roomId: string, file: File): Promise<string> => {
     const prepared = await prepareChatImage(file);
@@ -146,7 +157,7 @@ export const backend = {
   chatHistory: async (roomId: string): Promise<ChatMessageDto[]> => {
     const { data, error } = await supabase
       .from("chat_messages")
-      .select("id, room_id, sender_id, sender_name, body, attachment_path, attachment_type, created_at")
+      .select("id, room_id, sender_id, sender_name, body, attachment_path, attachment_type, created_at, reactions")
       .eq("room_id", roomId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -168,6 +179,7 @@ interface ChatRow {
   attachment_path: string | null;
   attachment_type: "image" | null;
   created_at: string;
+  reactions?: Record<string, string[]>;
 }
 
 export function mapChatRow(row: ChatRow): ChatMessageDto {
@@ -180,5 +192,6 @@ export function mapChatRow(row: ChatRow): ChatMessageDto {
     attachmentPath: row.attachment_path,
     attachmentType: row.attachment_type,
     createdAt: row.created_at,
+    reactions: row.reactions ?? {},
   };
 }

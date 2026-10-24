@@ -27,6 +27,8 @@ export const chatMessageDtoSchema = z.object({
   attachmentPath: z.string().nullable(),
   attachmentType: attachmentTypeSchema.nullable(),
   createdAt: z.string().datetime(),
+  /** Reactions map: emoji -> array of user UUIDs who reacted with that emoji */
+  reactions: z.record(z.string(), z.array(z.string().uuid())).default({}),
 });
 
 export type ChatMessageDto = z.infer<typeof chatMessageDtoSchema>;
