@@ -79,7 +79,7 @@
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 0;
   width: 100%;
 
   &.ownNew {
@@ -119,28 +119,28 @@
 @keyframes msg-glide-in-own {
   0% {
     opacity: 0;
-    transform: translate3d(10px, 14px, 0) scale(0.93);
+    transform: translateY(10px) scale(0.96);
   }
   60% {
     opacity: 1;
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes msg-glide-in-other {
   0% {
     opacity: 0;
-    transform: translate3d(-10px, 14px, 0) scale(0.93);
+    transform: translateY(10px) scale(0.96);
   }
   60% {
     opacity: 1;
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -150,7 +150,7 @@
   flex-direction: column;
   max-width: calc(100% - 38px);
   width: fit-content;
-  min-width: 120px;
+  min-width: 0;
 }
 
 .bubbleWrapperOwn {
@@ -166,7 +166,7 @@
 
   .replyActionBtn {
     order: -1;
-    margin-right: 2px;
+    margin-right: 6px;
   }
 }
 
@@ -174,7 +174,7 @@
   justify-content: flex-start;
 
   .replyActionBtn {
-    margin-left: 2px;
+    margin-left: 6px;
   }
 }
 
@@ -196,7 +196,7 @@
   display: block;
   max-width: 100%;
   width: fit-content;
-  min-width: 120px;
+  min-width: 0;
   padding: 7px 12px 7px 12px;
   font-size: 14px;
   line-height: 1.36;
@@ -206,7 +206,7 @@
   transition: all var(--motion-fast) var(--ease-out);
 }
 
-/* Grouping radii for Own Bubbles */
+/* Grouping radii for Own Bubbles - Anchor stays strictly 4px along the entire right axis */
 .ownRow.groupSingle .bubble {
   border-radius: 18px 18px 4px 18px;
 }
@@ -217,10 +217,10 @@
   border-radius: 18px 4px 4px 18px;
 }
 .ownRow.groupLast .bubble {
-  border-radius: 18px 4px 18px 18px;
+  border-radius: 18px 4px 4px 18px;
 }
 
-/* Grouping radii for Other Bubbles */
+/* Grouping radii for Other Bubbles - Anchor stays strictly 4px along the entire left axis */
 .otherRow.groupSingle .bubble {
   border-radius: 18px 18px 18px 4px;
 }
@@ -231,7 +231,7 @@
   border-radius: 4px 18px 18px 4px;
 }
 .otherRow.groupLast .bubble {
-  border-radius: 4px 18px 18px 18px;
+  border-radius: 4px 18px 18px 4px;
 }
 
 .ownBubble {
@@ -1366,9 +1366,9 @@
 
 @media (max-width: 640px) {
   .bubble {
-    max-width: calc(100% - 38px);
+    max-width: 100%;
     font-size: 13.5px;
-    padding: 7px 11px 5px;
+    padding: 6px 11px 6px 11px;
   }
 
   .list {
