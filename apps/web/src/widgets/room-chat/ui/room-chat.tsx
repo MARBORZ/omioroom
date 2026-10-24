@@ -45,21 +45,16 @@ interface ParsedMessage {
   body: string;
 }
 
-function parseMessageText(rawText: string): ParsedMessage {
-  if (rawText.startsWith("> [") && rawText.includes("]: ")) {
-    const headerEnd = rawText.indexOf("]: ");
-    const lineEnd = rawText.indexOf("\n", headerEnd);
-    if (headerEnd !== -1 && lineEnd !== -1) {
-      const meta = rawText.slice(3, headerEnd);
-      const [id, ...nameParts] = meta.split("|");
-      const senderName = nameParts.join("|");
-      const snippet = rawText.slice(headerEnd + 3, lineEnd);
-      const body = rawText.slice(lineEnd + 1);
-      return {
-        reply: { id, senderName, snippet },
-        body,
-      };
-    }
+const REPLY_HEADER_REGEX = /^> \[([a-zA-Z0-9_-]+)\|([^\]]+)\]: ([^\n]*)(?:\n([\s\S]*))?$/;
+
+export function parseMessageText(rawText: string): ParsedMessage {
+  const match = rawText.match(REPLY_HEADER_REGEX);
+  if (match) {
+    const [, id, senderName, snippet, body = ""] = match;
+    return {
+      reply: { id, senderName, snippet },
+      body,
+    };
   }
   return { body: rawText };
 }
@@ -375,8 +370,20 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     const trimmed = text.trim();
     if (!trimmed && !image) return;
 
+    let quoteSnippet = "";
+    if (replyTo) {
+      const cleanSnippetText = replyTo.text.slice(0, 80).replace(/\n/g, " ").trim();
+      if (replyTo.attachmentPath && cleanSnippetText) {
+        quoteSnippet = `📷 ${cleanSnippetText}`;
+      } else if (replyTo.attachmentPath) {
+        quoteSnippet = `📷 ${t.chat.photo}`;
+      } else {
+        quoteSnippet = cleanSnippetText;
+      }
+    }
+
     const finalText = replyTo
-      ? `> [${replyTo.id}|${replyTo.senderName}]: ${replyTo.text.slice(0, 80).replace(/\n/g, " ") || (replyTo.attachmentPath ? t.chat.openImage : "")}\n${trimmed}`
+      ? `> [${replyTo.id}|${replyTo.senderName}]: ${quoteSnippet}\n${trimmed}`
       : trimmed;
 
     const currentImage = image;
@@ -552,20 +559,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                       <span className={styles.senderName}>{m.senderName}</span>
                     )}
 
-                    {/* Image attachment in multi-content bubble */}
-                    {hasImage && (
-                      <ChatImage
-                        path={m.attachmentPath!}
-                        onOpen={setZoomUrl}
-                        openLabel={t.chat.openImage}
-                        className={styles}
-                        onLoad={() => {
-                          if (isNearBottomRef.current) scrollToBottom(true);
-                        }}
-                      />
-                    )}
-
-                    {/* Reply quote banner inside message bubble */}
+                    {/* Reply quote banner inside message bubble (placed at top of bubble) */}
                     {parsed.reply && (
                       <button
                         type="button"
@@ -579,6 +573,19 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                           <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
                         </div>
                       </button>
+                    )}
+
+                    {/* Image attachment in multi-content bubble */}
+                    {hasImage && (
+                      <ChatImage
+                        path={m.attachmentPath!}
+                        onOpen={setZoomUrl}
+                        openLabel={t.chat.openImage}
+                        className={styles}
+                        onLoad={() => {
+                          if (isNearBottomRef.current) scrollToBottom(true);
+                        }}
+                      />
                     )}
 
                     {/* Message content: text and timestamp inline (Telegram style) */}
@@ -738,9 +745,23 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                 <span>{t.chat.replyTo} {replyTo.senderName}</span>
               </div>
               <div className={styles.replyBannerSnippet}>
-                {replyTo.text || (replyTo.attachmentPath ? t.chat.openImage : "")}
+                {replyTo.attachmentPath && !replyTo.text
+                  ? `📷 ${t.chat.photo}`
+                  : replyTo.attachmentPath
+                  ? `📷 ${replyTo.text}`
+                  : replyTo.text}
               </div>
             </div>
+            {replyTo.attachmentPath && (
+              <div className={styles.replyBannerThumb}>
+                <ChatImage
+                  path={replyTo.attachmentPath}
+                  onOpen={setZoomUrl}
+                  openLabel={t.chat.openImage}
+                  className={styles}
+                />
+              </div>
+            )}
             <button
               type="button"
               className={styles.replyBannerClose}

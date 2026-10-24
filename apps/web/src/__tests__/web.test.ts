@@ -11,6 +11,7 @@ import { Loader } from "../shared/ui/loader/loader.js";
 import { MediaType, parseMediaUrl } from "@omioroom/contracts";
 import { YouTubePlayerAdapter } from "../shared/lib/adapters/youtube-adapter.js";
 import { snapSeekDelta } from "../widgets/video-player/ui/video-player-frame.js";
+import { parseMessageText } from "../widgets/room-chat/ui/room-chat.js";
 
 describe("Web Utilities", () => {
   it("formats time correctly for mm:ss and hh:mm:ss", () => {
@@ -703,5 +704,57 @@ describe("Web Utilities", () => {
 
     // Clamped seek to beginning of video (e.g. from 3s to 0s)
     expect(snapSeekDelta(-3.2, 0)).toBe(3);
+  });
+
+  it("robustly parses chat quote/reply headers and multiline bodies", () => {
+    // Standard reply
+    const r1 = parseMessageText("> [msg-123|Amadi]: Привет всем\nКак дела?");
+    expect(r1.reply).toEqual({
+      id: "msg-123",
+      senderName: "Amadi",
+      snippet: "Привет всем",
+    });
+    expect(r1.body).toBe("Как дела?");
+
+    // Reply to photo with emoji snippet
+    const r2 = parseMessageText("> [msg-456|Masuev]: 📷 Фото\nКлассный кадр");
+    expect(r2.reply).toEqual({
+      id: "msg-456",
+      senderName: "Masuev",
+      snippet: "📷 Фото",
+    });
+    expect(r2.body).toBe("Классный кадр");
+
+    // Reply with no body (e.g. only image attachment or empty text)
+    const r3 = parseMessageText("> [msg-789|User]: 📷 Фото\n");
+    expect(r3.reply).toEqual({
+      id: "msg-789",
+      senderName: "User",
+      snippet: "📷 Фото",
+    });
+    expect(r3.body).toBe("");
+
+    // Reply without trailing newline
+    const r4 = parseMessageText("> [msg-999|User]: Цитата");
+    expect(r4.reply).toEqual({
+      id: "msg-999",
+      senderName: "User",
+      snippet: "Цитата",
+    });
+    expect(r4.body).toBe("");
+
+    // Multiline body preserved
+    const r5 = parseMessageText("> [msg-111|Alex]: Header\nLine 1\nLine 2\nLine 3");
+    expect(r5.reply).toEqual({
+      id: "msg-111",
+      senderName: "Alex",
+      snippet: "Header",
+    });
+    expect(r5.body).toBe("Line 1\nLine 2\nLine 3");
+
+    // Regular non-reply message
+    const r6 = parseMessageText("Просто сообщение без цитаты");
+    expect(r6.reply).toBeUndefined();
+    expect(r6.body).toBe("Просто сообщение без цитаты");
   });
 });

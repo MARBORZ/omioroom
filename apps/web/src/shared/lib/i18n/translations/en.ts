@@ -219,6 +219,7 @@ export const en: Translations = {
     sendFailed: "Failed to send message",
     openImage: "Open image",
     close: "Close",
+    photo: "Photo",
     dropImage: "Drop image here",
     reply: "Reply",
     replyTo: "Replying to",

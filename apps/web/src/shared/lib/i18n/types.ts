@@ -213,6 +213,7 @@ export interface Translations {
     sendFailed: string;
     openImage: string;
     close: string;
+    photo: string;
     dropImage: string;
     reply: string;
     replyTo: string;

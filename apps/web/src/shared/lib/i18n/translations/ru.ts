@@ -219,6 +219,7 @@ export const ru: Translations = {
     sendFailed: "Не удалось отправить сообщение",
     openImage: "Открыть изображение",
     close: "Закрыть",
+    photo: "Фото",
     dropImage: "Перетащите изображение сюда",
     reply: "Ответить",
     replyTo: "В ответ",
