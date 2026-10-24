@@ -91,6 +91,51 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [quickReactionEffect, setQuickReactionEffect] = useState<{ id: string; emoji: string } | null>(null);
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMessageTap = useCallback(
+    (e: React.MouseEvent, msgId: string) => {
+      // Don't trigger if clicked on an interactive child
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          `button, a, input, textarea, .${styles.actionBar}, .${styles.quoteBlock}, .${styles.imageButton}, .${styles.reactionBadge}`
+        )
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+      const last = lastTapRef.current;
+
+      if (last && last.id === msgId && now - last.time < 320) {
+        // Double-tap or double-click detected: quick reaction like Telegram (👍)
+        if (tapTimerRef.current) {
+          clearTimeout(tapTimerRef.current);
+          tapTimerRef.current = null;
+        }
+        lastTapRef.current = null;
+
+        void onToggleReaction?.(msgId, "👍");
+
+        setQuickReactionEffect({ id: msgId, emoji: "👍" });
+        setTimeout(() => setQuickReactionEffect(null), 850);
+        return;
+      }
+
+      lastTapRef.current = { id: msgId, time: now };
+
+      // Single tap: toggle action bar
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      tapTimerRef.current = setTimeout(() => {
+        setActiveMessageId((prev) => (prev === msgId ? null : msgId));
+        tapTimerRef.current = null;
+      }, 240);
+    },
+    [onToggleReaction]
+  );
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -521,9 +566,15 @@ export const RoomChat: React.FC<RoomChatProps> = ({
               key={m.id}
               id={`msg-${m.id}`}
               className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${isNew ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
-              onClick={() => setActiveMessageId((prev) => (prev === m.id ? null : m.id))}
+              onClick={(e) => handleMessageTap(e, m.id)}
             >
               <div className={`${styles.bubbleWrapper} ${isOwn ? styles.bubbleWrapperOwn : styles.bubbleWrapperOther}`}>
+                {/* Double-tap burst reaction animation */}
+                {quickReactionEffect?.id === m.id && (
+                  <div className={styles.doubleTapBurst}>
+                    <span className={styles.doubleTapEmoji}>{quickReactionEffect.emoji}</span>
+                  </div>
+                )}
                 {isImageOnly ? (
                   <div
                     className={`${styles.bubble} ${isOwn ? styles.ownBubble : styles.otherBubble} ${styles.imageOnlyBubble}`}
