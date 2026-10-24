@@ -8,14 +8,17 @@ export interface SettingsState {
   theme: ThemeMode;
   density: DensityMode;
   reducedMotion: ReducedMotionMode;
+  soundNotifications: boolean;
   setTheme: (theme: ThemeMode) => void;
   setDensity: (density: DensityMode) => void;
   setReducedMotion: (mode: ReducedMotionMode) => void;
+  setSoundNotifications: (enabled: boolean) => void;
 }
 
 const STORAGE_KEY_THEME = "omioroom_theme";
 const STORAGE_KEY_DENSITY = "omioroom_density";
 const STORAGE_KEY_MOTION = "omioroom_reduced_motion";
+const STORAGE_KEY_SOUND = "omioroom_sound_notifications";
 
 const SettingsContext = createContext<SettingsState | null>(null);
 
@@ -56,6 +59,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return (localStorage.getItem(STORAGE_KEY_MOTION) as ReducedMotionMode) || "system";
   });
 
+  const [soundNotifications, setSoundNotificationsState] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return true;
+    const stored = localStorage.getItem(STORAGE_KEY_SOUND);
+    return stored === null ? true : stored === "true";
+  });
+
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
     try {
@@ -74,6 +83,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setReducedMotionState(newMotion);
     try {
       localStorage.setItem(STORAGE_KEY_MOTION, newMotion);
+    } catch {}
+  };
+
+  const setSoundNotifications = (enabled: boolean) => {
+    setSoundNotificationsState(enabled);
+    try {
+      localStorage.setItem(STORAGE_KEY_SOUND, String(enabled));
     } catch {}
   };
 
@@ -126,9 +142,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         theme,
         density,
         reducedMotion,
+        soundNotifications,
         setTheme,
         setDensity,
         setReducedMotion,
+        setSoundNotifications,
       }}
     >
       {children}
@@ -139,7 +157,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 export function useSettings(): SettingsState {
   const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error("useSettings must be used within SettingsProvider");
+    return {
+      theme: "system",
+      density: "default",
+      reducedMotion: "system",
+      soundNotifications: true,
+      setTheme: () => {},
+      setDensity: () => {},
+      setReducedMotion: () => {},
+      setSoundNotifications: () => {},
+    };
   }
   return context;
 }

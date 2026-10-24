@@ -337,5 +337,8 @@ export const en: Translations = {
     motionSystem: "System default",
     motionReduced: "Reduced motion",
     motionFull: "Full motion",
+    soundNotifications: "Message sounds",
+    soundOn: "On",
+    soundOff: "Off",
   },
 };

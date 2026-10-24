@@ -331,5 +331,8 @@ export interface Translations {
     motionSystem: string;
     motionReduced: string;
     motionFull: string;
+    soundNotifications: string;
+    soundOn: string;
+    soundOff: string;
   };
 }

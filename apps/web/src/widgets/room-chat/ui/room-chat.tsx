@@ -4,6 +4,8 @@ import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, Chevro
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { useSettings } from "../../../shared/lib/settings/index.js";
+import { playNotificationSound } from "../../../shared/lib/sound/chat-sound.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
@@ -76,6 +78,29 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 }) => {
   const { user } = useSession();
   const { t } = useI18n();
+  const { soundNotifications } = useSettings();
+
+  const prevMessageIdsRef = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
+  const initialLoadedRef = useRef(false);
+
+  // Play subtle notification sound when new message arrives from another user
+  useEffect(() => {
+    if (!initialLoadedRef.current) {
+      initialLoadedRef.current = true;
+      prevMessageIdsRef.current = new Set(messages.map((m) => m.id));
+      return;
+    }
+
+    const newFromOthers = messages.filter(
+      (m) => !prevMessageIdsRef.current.has(m.id) && m.senderId !== user?.id
+    );
+
+    prevMessageIdsRef.current = new Set(messages.map((m) => m.id));
+
+    if (newFromOthers.length > 0 && soundNotifications) {
+      playNotificationSound();
+    }
+  }, [messages, user?.id, soundNotifications]);
 
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -311,6 +336,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     if (isMuted) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (sending) return;
       if (text.trim() || image) {
         const form = e.currentTarget.form;
         if (form) {
@@ -322,7 +348,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isMuted) return;
+    if (isMuted || sending) return;
     const trimmed = text.trim();
     if (!trimmed && !image) return;
 
@@ -330,19 +356,27 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       ? `> [${replyTo.id}|${replyTo.senderName}]: ${replyTo.text.slice(0, 80).replace(/\n/g, " ") || (replyTo.attachmentPath ? t.chat.openImage : "")}\n${trimmed}`
       : trimmed;
 
+    const currentImage = image;
+
+    // Clear input immediately so user can type next message instantly without interruption
+    setText("");
+    setImage(null);
+    setReplyTo(null);
+
+    // Keep focus explicitly on the textarea
+    textareaRef.current?.focus();
+
     setError(null);
     setSending(true);
     try {
-      await onSend(finalText, image);
-      setText("");
-      setImage(null);
-      setReplyTo(null);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
+      await onSend(finalText, currentImage);
       isNearBottomRef.current = true;
       scrollToBottom(true);
     } catch (err: any) {
+      // Restore text only if user hasn't typed anything new in the meantime
+      setText((prev) => (prev ? prev : trimmed));
+      if (currentImage) setImage(currentImage);
+
       const isMutedError =
         err?.code === "MUTED" ||
         err?.message === "MUTED" ||
@@ -368,6 +402,10 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       }
     } finally {
       setSending(false);
+      // Ensure focus remains on textarea after submission completes
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
     }
   };
 
@@ -668,7 +706,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
             aria-label={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
-            disabled={isMuted || sending}
+            disabled={isMuted}
           />
 
           <button

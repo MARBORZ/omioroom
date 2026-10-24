@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { X, Sun, Moon, Monitor, Eye, Zap, Globe } from "lucide-react";
+import { X, Sun, Moon, Monitor, Eye, Zap, Globe, Volume2, VolumeX } from "lucide-react";
 import { useSettings } from "../../../shared/lib/settings/index.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
@@ -14,7 +14,16 @@ export interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, isOwner = false }) => {
-  const { theme, density, reducedMotion, setTheme, setDensity, setReducedMotion } = useSettings();
+  const {
+    theme,
+    density,
+    reducedMotion,
+    soundNotifications,
+    setTheme,
+    setDensity,
+    setReducedMotion,
+    setSoundNotifications,
+  } = useSettings();
   const { lang, setLang, t } = useI18n();
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -186,6 +195,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
               >
                 <Zap size={14} />
                 <span>{t.settings.motionFull}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sound Notifications */}
+          <div className={styles.section}>
+            <label className={styles.sectionLabel}>{t.settings.soundNotifications}</label>
+            <div className={styles.segmentedGroup} role="radiogroup" aria-label={t.settings.soundNotifications}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={soundNotifications}
+                className={`${styles.segmentBtn} ${soundNotifications ? styles.active : ""}`}
+                onClick={() => setSoundNotifications(true)}
+              >
+                <Volume2 size={14} />
+                <span>{t.settings.soundOn}</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!soundNotifications}
+                className={`${styles.segmentBtn} ${!soundNotifications ? styles.active : ""}`}
+                onClick={() => setSoundNotifications(false)}
+              >
+                <VolumeX size={14} />
+                <span>{t.settings.soundOff}</span>
               </button>
             </div>
           </div>

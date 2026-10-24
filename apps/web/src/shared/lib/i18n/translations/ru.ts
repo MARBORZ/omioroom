@@ -337,5 +337,8 @@ export const ru: Translations = {
     motionSystem: "Как в системе",
     motionReduced: "Уменьшить движение",
     motionFull: "Включены",
+    soundNotifications: "Звук сообщений",
+    soundOn: "Включён",
+    soundOff: "Выключен",
   },
 };
