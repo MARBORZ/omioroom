@@ -149,6 +149,8 @@
   display: flex;
   flex-direction: column;
   max-width: calc(100% - 38px);
+  width: fit-content;
+  min-width: fit-content;
 }
 
 .bubbleWrapperOwn {
@@ -188,14 +190,14 @@
 .bubble {
   position: relative;
   display: block;
-  max-width: calc(100% - 38px);
-  min-width: 0;
-  flex-shrink: 1;
+  max-width: 100%;
+  width: fit-content;
+  min-width: fit-content;
   padding: 6px 10px 5px 12px;
   font-size: 14px;
   line-height: 1.36;
   word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   transition: all var(--motion-fast) var(--ease-out);
 }
@@ -302,6 +304,9 @@
 
 .textContainer {
   display: block;
+  width: fit-content;
+  min-width: fit-content;
+  max-width: 100%;
 
   &::after {
     content: "";
@@ -315,6 +320,7 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Telegram Metadata Row inside bubble */
