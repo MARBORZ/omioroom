@@ -33,7 +33,7 @@ begin
       least(s.seats, 8) * 2.0
         + case when p.status = 'playing' then 3 else 0 end
         + greatest(0, 3 - extract(epoch from (now() - greatest(r.updated_at, to_timestamp(p.anchor_server_time / 1000.0)))) / 600.0)
-        + case when s.friends > 0 then 5 else 0 end
+        + case when s.friends > 0 then 6 else 0 end
         + (abs(hashtext(r.id::text || to_char(now(), 'YYYYMMDDHH24'))) % 100) / 100.0 as score
     from public.rooms r
     join public.profiles owner_p on owner_p.id = r.owner_id

@@ -4629,7 +4629,7 @@ begin
       least(s.seats, 8) * 2.0
         + case when p.status = 'playing' then 3 else 0 end
         + greatest(0, 3 - extract(epoch from (now() - greatest(r.updated_at, to_timestamp(p.anchor_server_time / 1000.0)))) / 600.0)
-        + case when s.friends > 0 then 5 else 0 end
+        + case when s.friends > 0 then 6 else 0 end
         + (abs(hashtext(r.id::text || to_char(now(), 'YYYYMMDDHH24'))) % 100) / 100.0 as score
     from public.rooms r
     join public.profiles owner_p on owner_p.id = r.owner_id
@@ -4665,3 +4665,45 @@ as $$
 $$;
 revoke execute on function public.list_public_rooms(integer) from public, anon;
 grant execute on function public.list_public_rooms(integer) to authenticated;
+
+-- ===== 20261022003800_fix_room_mutes_in_everyone_mode.sql =====
+-- Fix room mutes in 'everyone' mode:
+-- In 'everyone' mode, ordinary participants can control playback, but they are not controllers.
+-- The owner (and appointed controllers) must be able to mute ordinary members in 'everyone' mode.
+
+create or replace function public.set_member_muted(p_room_id uuid, p_user_id uuid, p_muted boolean) returns void
+language plpgsql security definer set search_path = public
+as $$
+declare v_uid uuid := public.require_uid();
+begin
+  perform public.assert_active_member(p_room_id, v_uid);
+  -- Only the owner or members explicitly granted control may mute others
+  if not exists (
+    select 1 from public.room_members
+    where room_id = p_room_id and user_id = v_uid and (role = 'owner' or can_control = true)
+  ) then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  if p_user_id is null or p_user_id = v_uid
+     or not exists (select 1 from public.room_members where room_id = p_room_id and user_id = p_user_id) then
+    raise exception 'INVALID_PAYLOAD';
+  end if;
+
+  if coalesce(p_muted, false) then
+    -- The owner and members explicitly granted control cannot be muted
+    if exists (
+      select 1 from public.room_members
+      where room_id = p_room_id and user_id = p_user_id and (role = 'owner' or can_control = true)
+    ) then
+      raise exception 'FORBIDDEN';
+    end if;
+    insert into public.room_mutes (room_id, user_id, muted_by) values (p_room_id, p_user_id, v_uid)
+      on conflict (room_id, user_id) do nothing;
+  else
+    delete from public.room_mutes where room_id = p_room_id and user_id = p_user_id;
+  end if;
+end $$;
+
+revoke execute on function public.set_member_muted(uuid, uuid, boolean) from public, anon;
+grant execute on function public.set_member_muted(uuid, uuid, boolean) to authenticated;

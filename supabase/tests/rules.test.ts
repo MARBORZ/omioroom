@@ -907,6 +907,14 @@ describe("maintenance", () => {
 
     await t.as(owner).rpc("set_member_muted", { p_room_id: r.id, p_user_id: a, p_muted: false });
     expect((await t.as(a).rpc("send_chat", { p_room_id: r.id, p_text: "hi again" })).text ?? "ok").toBeTruthy();
+
+    // works in 'everyone' mode as well: owner can mute ordinary members, but not vice versa
+    const r2 = await room(owner, "public", { p_control_mode: "everyone" });
+    for (const u of [a, b]) await t.as(u).rpc("join_room", { p_global_id: r2.globalId });
+    expect(await code(t.as(b).rpc("set_member_muted", { p_room_id: r2.id, p_user_id: a, p_muted: true }))).not.toBe("OK");
+    await t.as(owner).rpc("set_member_muted", { p_room_id: r2.id, p_user_id: a, p_muted: true });
+    expect((await t.as(b).rpc("get_room_snapshot", { p_room_id: r2.id })).mutedUserIds).toEqual([a]);
+    expect(await code(t.as(a).rpc("send_chat", { p_room_id: r2.id, p_text: "hi" }))).toBe("MUTED");
   });
   it("the room limit is one by default and can be raised for a chosen account", async () => {
     const owner = await t.newUser();
