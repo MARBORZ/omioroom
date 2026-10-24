@@ -20,6 +20,7 @@ interface PlaybackControlsProps {
   rates?: number[];
   onToggleCinema?: () => void;
   cinema?: boolean;
+  pausedByName?: string | null;
 }
 
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -37,6 +38,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   rates = [0.5, 0.75, 1, 1.25, 1.5, 2],
   onToggleCinema,
   cinema = false,
+  pausedByName = null,
 }) => {
   const { t } = useI18n();
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -86,7 +88,20 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className={styles.playPauseBtn}
             onClick={isPlaying ? onPause : onPlay}
             disabled={disabled}
-            aria-label={isPlaying ? t.room.pauseVideo : t.room.playVideo}
+            aria-label={
+              isPlaying
+                ? t.room.pauseVideo
+                : pausedByName
+                ? `${t.room.actionPaused}: ${pausedByName}`
+                : t.room.playVideo
+            }
+            title={
+              isPlaying
+                ? t.room.pauseVideo
+                : pausedByName
+                ? `${t.room.actionPaused}: ${pausedByName}`
+                : t.room.playVideo
+            }
           >
             {isPlaying ? <Pause size={20} /> : <Play size={20} className={styles.playIcon} />}
           </button>

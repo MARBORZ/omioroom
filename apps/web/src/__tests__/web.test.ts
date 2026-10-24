@@ -656,4 +656,25 @@ describe("Web Utilities", () => {
     );
     expect(feedHtml).toContain("Сейчас смотрят");
   });
+
+  it("verifies playback action indicator translations and delta formatting", () => {
+    expect(ru.room.actionPaused).toBe("ПАУЗА");
+    expect(ru.room.actionResumed).toBe("ВОСПРОИЗВЕДЕНИЕ");
+    expect(ru.room.actionSeekForward).toBe("ПЕРЕМОТКА ВПЕРЁД");
+    expect(ru.room.actionSeekBackward).toBe("ПЕРЕМОТКА НАЗАД");
+    expect(ru.room.you).toBe("Вы");
+
+    expect(en.room.actionPaused).toBe("PAUSED");
+    expect(en.room.actionResumed).toBe("PLAYING");
+    expect(en.room.actionSeekForward).toBe("SEEK FORWARD");
+    expect(en.room.actionSeekBackward).toBe("SEEK BACKWARD");
+    expect(en.room.you).toBe("You");
+
+    expect(ru.room.secondsShort(10)).toBe("10 сек");
+    expect(en.room.secondsShort(10)).toBe("10s");
+    expect(ru.room.minutesShort(2)).toBe("2 мин");
+    expect(en.room.minutesShort(2)).toBe("2m");
+    expect(ru.room.minutesSecondsShort(1, 30)).toBe("1 мин 30 сек");
+    expect(en.room.minutesSecondsShort(1, 30)).toBe("1m 30s");
+  });
 });

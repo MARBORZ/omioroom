@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Play, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
+import { Play, Pause, FastForward, Rewind, VolumeX } from "lucide-react";
 import {
   MediaType,
   PlaybackStatus,
@@ -71,6 +71,8 @@ export interface VideoPlayerFrameProps {
   bufferingNames?: string[];
   isMuted?: boolean;
   onToggleMute?: () => void;
+  participants?: Array<{ userId: string; displayName?: string | null }>;
+  currentUserId?: string;
 }
 
 export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFrameProps>(
@@ -90,6 +92,8 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
       bufferingNames = [],
       isMuted = false,
       onToggleMute,
+      participants = [],
+      currentUserId,
     },
     ref
   ) => {
@@ -164,6 +168,212 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         if (timer) clearTimeout(timer);
       };
     }, [isBufferingActive, roomHolding]);
+
+    // Action indicator overlay (pause, play, seek forward, seek backward)
+    const [actionOverlay, setActionOverlay] = useState<{
+      type: "pause" | "play" | "seek_forward" | "seek_backward";
+      actorName: string;
+      deltaSeconds?: number;
+    } | null>(null);
+    const [showActionOverlay, setShowActionOverlay] = useState(false);
+    const actionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const prevPlaybackRef = useRef<RoomPlaybackStateDto | null>(null);
+    const lastSeekRef = useRef<{
+      type: "seek_forward" | "seek_backward";
+      delta: number;
+      at: number;
+    } | null>(null);
+
+    const resolveActorName = useCallback(
+      (userId: string | null | undefined): string => {
+        if (!userId) return "";
+        if (currentUserId && userId === currentUserId) {
+          return t.room.you;
+        }
+        const found = participants.find((p) => p.userId === userId);
+        return found?.displayName || "";
+      },
+      [currentUserId, participants, t.room.you]
+    );
+
+    useEffect(() => {
+      const prev = prevPlaybackRef.current;
+      const curr = playbackState;
+      prevPlaybackRef.current = curr;
+
+      // During initial 2.5 seconds of mount, ignore playback transitions
+      if (!curr || !curr.media || Date.now() - mountedAtRef.current < 2500) {
+        return;
+      }
+
+      // Media change or first initialization
+      if (
+        !prev ||
+        !prev.media ||
+        prev.media.canonicalUrl !== curr.media.canonicalUrl ||
+        prev.media.type !== curr.media.type
+      ) {
+        return;
+      }
+
+      // No revision change means no server command occurred
+      if (curr.revision === prev.revision) {
+        return;
+      }
+
+      // If buffering or ended, hide action overlay
+      if (curr.status === PlaybackStatus.BUFFERING || curr.status === PlaybackStatus.ENDED) {
+        setShowActionOverlay(false);
+        return;
+      }
+
+      const actorName = resolveActorName(curr.updatedByUserId);
+
+      // Calculate position change
+      const serverNow = getEstimatedServerNow();
+      const prevExpected =
+        prev.status === PlaybackStatus.PLAYING
+          ? calculateExpectedPosition(prev, serverNow)
+          : prev.anchorPosition;
+
+      const posDelta = curr.anchorPosition - prevExpected;
+      let action: {
+        type: "pause" | "play" | "seek_forward" | "seek_backward";
+        actorName: string;
+        deltaSeconds?: number;
+      } | null = null;
+
+      if (Math.abs(posDelta) >= 2.0) {
+        const deltaSec = Math.round(Math.abs(posDelta));
+        const seekType = posDelta > 0 ? "seek_forward" : "seek_backward";
+
+        let finalDelta = deltaSec;
+        if (
+          lastSeekRef.current &&
+          lastSeekRef.current.type === seekType &&
+          Date.now() - lastSeekRef.current.at < 2200
+        ) {
+          finalDelta = lastSeekRef.current.delta + deltaSec;
+        }
+        lastSeekRef.current = { type: seekType, delta: finalDelta, at: Date.now() };
+
+        action = {
+          type: seekType,
+          actorName,
+          deltaSeconds: finalDelta,
+        };
+      } else if (prev.status !== PlaybackStatus.PAUSED && curr.status === PlaybackStatus.PAUSED) {
+        lastSeekRef.current = null;
+        action = {
+          type: "pause",
+          actorName,
+        };
+      } else if (prev.status === PlaybackStatus.PAUSED && curr.status === PlaybackStatus.PLAYING) {
+        lastSeekRef.current = null;
+        action = {
+          type: "play",
+          actorName,
+        };
+      }
+
+      if (action) {
+        if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+        setActionOverlay(action);
+        setShowActionOverlay(true);
+
+        const durationMs =
+          action.type === "pause" ? 3000 : action.type === "play" ? 1500 : 2000;
+
+        actionTimerRef.current = setTimeout(() => {
+          setShowActionOverlay(false);
+          actionTimerRef.current = null;
+        }, durationMs);
+      }
+    }, [playbackState, getEstimatedServerNow, resolveActorName]);
+
+    useEffect(() => {
+      return () => {
+        if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+      };
+    }, []);
+
+    const formatSeekDelta = useCallback(
+      (deltaSeconds: number, isForward: boolean): string => {
+        const prefix = isForward ? "+" : "-";
+        if (deltaSeconds < 60) {
+          return `${prefix}${t.room.secondsShort(deltaSeconds)}`;
+        }
+        const mins = Math.floor(deltaSeconds / 60);
+        const secs = deltaSeconds % 60;
+        if (secs === 0) {
+          return `${prefix}${t.room.minutesShort(mins)}`;
+        }
+        return `${prefix}${t.room.minutesSecondsShort(mins, secs)}`;
+      },
+      [t.room]
+    );
+
+    const actionSubtitle = useMemo(() => {
+      if (!actionOverlay) return null;
+      const { type, actorName, deltaSeconds } = actionOverlay;
+      if (type === "seek_forward" || type === "seek_backward") {
+        const formattedDelta = deltaSeconds
+          ? formatSeekDelta(deltaSeconds, type === "seek_forward")
+          : "";
+        if (formattedDelta && actorName) {
+          return `${formattedDelta} • ${actorName}`;
+        }
+        return formattedDelta || actorName || null;
+      }
+      return actorName || null;
+    }, [actionOverlay, formatSeekDelta]);
+
+    const getActionTitle = (type?: "pause" | "play" | "seek_forward" | "seek_backward"): string => {
+      switch (type) {
+        case "pause":
+          return t.room.actionPaused;
+        case "play":
+          return t.room.actionResumed;
+        case "seek_forward":
+          return t.room.actionSeekForward;
+        case "seek_backward":
+          return t.room.actionSeekBackward;
+        default:
+          return "";
+      }
+    };
+
+    const renderActionIcon = (type?: "pause" | "play" | "seek_forward" | "seek_backward") => {
+      if (!type) return null;
+      switch (type) {
+        case "pause":
+          return (
+            <div className={styles.actionIcon} aria-hidden>
+              <Pause size={36} />
+            </div>
+          );
+        case "play":
+          return (
+            <div className={styles.actionIcon} aria-hidden>
+              <Play size={36} />
+            </div>
+          );
+        case "seek_forward":
+          return (
+            <div className={styles.actionIcon} aria-hidden>
+              <FastForward size={36} />
+            </div>
+          );
+        case "seek_backward":
+          return (
+            <div className={styles.actionIcon} aria-hidden>
+              <Rewind size={36} />
+            </div>
+          );
+        default:
+          return null;
+      }
+    };
 
     // Events fired by our own programmatic play/pause/seek must not be re-sent as user actions
     const guardUntilRef = useRef(0);
@@ -691,6 +901,21 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
               <p className={styles.syncSubtitle}>
                 {bufferingNames.join(", ")}
               </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {playbackState?.media && !showSyncOverlay && (
+        <div
+          className={`${styles.syncOverlay} ${showActionOverlay ? styles.syncOverlayVisible : ""}`}
+          aria-live="polite"
+        >
+          <div className={styles.syncContent}>
+            {renderActionIcon(actionOverlay?.type)}
+            <h3 className={styles.syncTitle}>{getActionTitle(actionOverlay?.type)}</h3>
+            {actionSubtitle && (
+              <p className={styles.syncSubtitle}>{actionSubtitle}</p>
             )}
           </div>
         </div>

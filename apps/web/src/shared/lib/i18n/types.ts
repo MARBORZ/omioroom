@@ -138,6 +138,14 @@ export interface Translations {
     tabScrollRight: string;
     syncing: string;
     waitingForNames: (names: string) => string;
+    actionPaused: string;
+    actionResumed: string;
+    actionSeekForward: string;
+    actionSeekBackward: string;
+    secondsShort: (seconds: number) => string;
+    minutesShort: (minutes: number) => string;
+    minutesSecondsShort: (minutes: number, seconds: number) => string;
+    you: string;
   };
   myRooms: {
     title: string;

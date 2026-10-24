@@ -816,6 +816,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             isBuffering={isBuffering}
             bufferingNames={waitingNames}
             onToggleMute={() => setIsMuted((m) => !m)}
+            participants={participants}
+            currentUserId={user?.id}
           />
 
           <PlaybackControls
@@ -833,6 +835,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             onToggleMute={() => setIsMuted((m) => !m)}
             onToggleCinema={handleToggleCinema}
             cinema={cinema}
+            pausedByName={
+              !isPlaying && playback?.updatedByUserId
+                ? user?.id === playback.updatedByUserId
+                  ? t.room.you
+                  : participants.find((p) => p.userId === playback.updatedByUserId)?.displayName ?? null
+                : null
+            }
           />
 
           {!playback?.media && (
