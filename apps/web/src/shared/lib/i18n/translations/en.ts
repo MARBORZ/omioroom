@@ -303,7 +303,7 @@ export const en: Translations = {
   feed: {
     title: "Watching now",
     empty: "Nobody is watching openly yet. Create your own room",
-    participants: (count: number, max: number) => `${count} of ${max}`,
+    participants: (count: number, max: number) => `${count}/${max}`,
     join: "Join",
   },
   report: {

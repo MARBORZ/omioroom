@@ -31,7 +31,7 @@
 
 .feedGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: var(--space-4);
   width: 100%;
 }
@@ -48,11 +48,12 @@
   padding: 0;
   color: inherit;
   font-family: inherit;
-  transition: border-color var(--transition-fast), transform var(--transition-fast);
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 
   &:hover {
     border-color: var(--color-border-focus);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
 
   &:active {
@@ -111,26 +112,53 @@
   line-height: 1.2;
 }
 
-.playingBadge {
+.liveBadge {
   position: absolute;
-  top: var(--space-2);
+  bottom: var(--space-2);
   right: var(--space-2);
-  width: 20px;
-  height: 20px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.cardDetails {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  flex: 1;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-full);
-  background-color: var(--color-success);
-  color: #000;
+  background: linear-gradient(135deg, var(--color-primary, #6366f1), var(--color-accent, #8b5cf6));
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
 }
 
-.cardContent {
-  padding: var(--space-3);
+.metaCol {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 2px;
   flex: 1;
+  min-width: 0;
 }
 
 .cardTitle {
@@ -146,19 +174,34 @@
   min-height: 2.7em;
 }
 
-.cardMeta {
+.ownerRow {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ownerName {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.statsRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  margin-top: 4px;
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  color: var(--color-text-faint);
 }
 
 .participants {
   display: flex;
   align-items: center;
   gap: 4px;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .metaIcon {
@@ -198,11 +241,25 @@
   aspect-ratio: 16 / 9;
 }
 
-.skeletonBody {
+.skeletonDetails {
+  display: flex;
+  gap: var(--space-3);
   padding: var(--space-3);
+  align-items: flex-start;
+}
+
+.skeletonAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.skeletonLines {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1;
 }
 
 .skeletonLine {
@@ -237,7 +294,7 @@
 
   .feedCard,
   .skeletonCard {
-    flex: 0 0 240px;
+    flex: 0 0 250px;
     max-width: 80vw;
     scroll-snap-align: start;
   }

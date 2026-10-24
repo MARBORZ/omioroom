@@ -11,6 +11,7 @@ const MAX_WAIT_MS = 6000;
 let alreadyShown = false;
 
 function prefersReducedMotion(): boolean {
+  if (typeof document === "undefined") return false;
   const root = document.documentElement;
   if (root.getAttribute("data-reduced-motion") === "reduce") return true;
   return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
@@ -22,6 +23,22 @@ export const BootSplash: React.FC<{ ready?: boolean }> = ({ ready = true }) => {
   const [reduced] = useState(prefersReducedMotion);
   const [minElapsed, setMinElapsed] = useState(false);
   const [leaving, setLeaving] = useState(false);
+
+  // Lock scroll while the bootstrap splash is visible until it completely disappears
+  useEffect(() => {
+    if (!visible) return;
+    const root = document.documentElement;
+    const body = document.body;
+    const prevRootOverflow = root.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+
+    return () => {
+      root.style.overflow = prevRootOverflow;
+      body.style.overflow = prevBodyOverflow;
+    };
+  }, [visible]);
 
   // Plays for its full length, and stays until the app is ready (session connected)
   useEffect(() => {

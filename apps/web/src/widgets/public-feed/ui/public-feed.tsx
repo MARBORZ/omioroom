@@ -9,7 +9,8 @@ interface PublicFeedProps {
   onJoinRoom: (globalId: string) => Promise<void> | void;
 }
 
-function formatPlatformName(type: string): string {
+function formatPlatformName(type?: string | null): string {
+  if (!type) return "";
   switch (type.toLowerCase()) {
     case "youtube":
       return "YouTube";
@@ -33,7 +34,7 @@ export const PublicFeed: React.FC<PublicFeedProps> = ({ onJoinRoom }) => {
 
   const fetchRooms = useCallback(async () => {
     try {
-      const data = await backend.listPublicRooms(24);
+      const data = await backend.getRecommendations(24);
       setRooms(data);
       lastFetchedRef.current = Date.now();
     } catch {
@@ -86,27 +87,18 @@ export const PublicFeed: React.FC<PublicFeedProps> = ({ onJoinRoom }) => {
 
       {loading && rooms.length === 0 ? (
         <div className={styles.feedGrid}>
-          <div className={styles.skeletonCard}>
-            <Skeleton className={styles.skeletonThumb} />
-            <div className={styles.skeletonBody}>
-              <Skeleton className={styles.skeletonLine} />
-              <Skeleton className={styles.skeletonLineShort} />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className={styles.skeletonCard}>
+              <Skeleton className={styles.skeletonThumb} />
+              <div className={styles.skeletonDetails}>
+                <Skeleton className={styles.skeletonAvatar} />
+                <div className={styles.skeletonLines}>
+                  <Skeleton className={styles.skeletonLine} />
+                  <Skeleton className={styles.skeletonLineShort} />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className={styles.skeletonCard}>
-            <Skeleton className={styles.skeletonThumb} />
-            <div className={styles.skeletonBody}>
-              <Skeleton className={styles.skeletonLine} />
-              <Skeleton className={styles.skeletonLineShort} />
-            </div>
-          </div>
-          <div className={styles.skeletonCard}>
-            <Skeleton className={styles.skeletonThumb} />
-            <div className={styles.skeletonBody}>
-              <Skeleton className={styles.skeletonLine} />
-              <Skeleton className={styles.skeletonLineShort} />
-            </div>
-          </div>
+          ))}
         </div>
       ) : rooms.length === 0 ? (
         <div className={styles.emptyState}>
@@ -115,10 +107,10 @@ export const PublicFeed: React.FC<PublicFeedProps> = ({ onJoinRoom }) => {
       ) : (
         <div className={styles.feedGrid}>
           {rooms.map((room) => {
-            const isYouTube = room.mediaType.toLowerCase() === "youtube";
-            const platformName = formatPlatformName(room.mediaType);
-            const title = room.mediaTitle || platformName;
+            const platformName = formatPlatformName(room.platform);
+            const title = room.title || platformName || "Видео";
             const isJoining = joiningId === room.globalId;
+            const ownerInitial = (room.ownerName?.trim()?.[0] || "U").toUpperCase();
 
             return (
               <button
@@ -129,9 +121,9 @@ export const PublicFeed: React.FC<PublicFeedProps> = ({ onJoinRoom }) => {
                 disabled={Boolean(joiningId)}
               >
                 <div className={styles.thumbWrapper}>
-                  {isYouTube && room.mediaSourceId ? (
+                  {room.thumbnailUrl ? (
                     <img
-                      src={`https://i.ytimg.com/vi/${room.mediaSourceId}/hqdefault.jpg`}
+                      src={room.thumbnailUrl}
                       alt=""
                       className={styles.thumbnail}
                       loading="lazy"
@@ -141,24 +133,33 @@ export const PublicFeed: React.FC<PublicFeedProps> = ({ onJoinRoom }) => {
                       <Film size={32} className={styles.fallbackIcon} />
                     </div>
                   )}
-                  <span className={styles.platformBadge}>{platformName}</span>
+                  {platformName && <span className={styles.platformBadge}>{platformName}</span>}
                   {room.status === "playing" && (
-                    <span className={styles.playingBadge}>
+                    <span className={styles.liveBadge}>
                       <Play size={10} fill="currentColor" />
+                      <span>LIVE</span>
                     </span>
                   )}
                 </div>
 
-                <div className={styles.cardContent}>
-                  <div className={styles.cardTitle} title={title}>
-                    {title}
+                <div className={styles.cardDetails}>
+                  <div className={styles.avatar} aria-hidden="true">
+                    {ownerInitial}
                   </div>
-                  <div className={styles.cardMeta}>
-                    <span className={styles.participants}>
-                      <Users size={12} className={styles.metaIcon} />
-                      <span>{t.feed.participants(room.participantCount, room.maxParticipants)}</span>
-                    </span>
-                    <span className={styles.roomCode}>#{room.globalId}</span>
+                  <div className={styles.metaCol}>
+                    <div className={styles.cardTitle} title={title}>
+                      {title}
+                    </div>
+                    <div className={styles.ownerRow} title={room.ownerName}>
+                      <span className={styles.ownerName}>{room.ownerName}</span>
+                    </div>
+                    <div className={styles.statsRow}>
+                      <span className={styles.participants}>
+                        <Users size={12} className={styles.metaIcon} />
+                        <span>{t.feed.participants(room.participantCount, room.maxParticipants)}</span>
+                      </span>
+                      <span className={styles.roomCode}>#{room.globalId}</span>
+                    </div>
                   </div>
                 </div>
               </button>

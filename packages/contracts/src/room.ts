@@ -78,7 +78,7 @@ export const roomSnapshotDtoSchema = z.object({
   playback: roomPlaybackStateDtoSchema.nullable(),
 });
 
-/** One open room offered on the home page. Never carries names of people or chat. */
+/** One open room offered on the home page. */
 export const recommendationDtoSchema = z.object({
   globalId: globalRoomIdSchema,
   /** Title of the video (or the platform's name when the title could not be read). */
@@ -89,6 +89,8 @@ export const recommendationDtoSchema = z.object({
   platform: z.string(),
   /** Banner image of the current video; null when the platform gives none. */
   thumbnailUrl: z.string().nullable(),
+  /** Room owner's display name. */
+  ownerName: z.string(),
   status: z.string(),
   friendsInside: z.number().int().nonnegative(),
   /** Why it is worth a look: "friends" (a friend is inside), "popular" (3+ people watching), "live" (playing now). */
