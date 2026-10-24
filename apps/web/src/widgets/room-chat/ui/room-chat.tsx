@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag, Trash2 } from "lucide-react";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag, Trash2, Clock } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -8,7 +8,6 @@ import { useSettings } from "../../../shared/lib/settings/index.js";
 import { playNotificationSound } from "../../../shared/lib/sound/chat-sound.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { ChatImageError, isAllowedChatImage } from "../../../shared/lib/image/prepare-chat-image.js";
-import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import { backend } from "../../../shared/api/backend.js";
 import { ChatImage } from "./chat-image.js";
 import styles from "./room-chat.module.scss";
@@ -34,6 +33,17 @@ interface ReplyState {
   senderName: string;
   text: string;
   attachmentPath: string | null;
+}
+
+interface PendingMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  localPreviewUrl?: string | null;
+  hasImage: boolean;
+  createdAt: string;
+  isUploading?: boolean;
 }
 
 interface ParsedMessage {
@@ -92,8 +102,31 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [quickReactionEffect, setQuickReactionEffect] = useState<{ id: string; emoji: string } | null>(null);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reconcile pending optimistic messages as real messages arrive from realtime
+  useEffect(() => {
+    setPendingMessages((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.filter((p) => {
+        const found = messages.some(
+          (m) =>
+            m.senderId === p.senderId &&
+            (m.text === p.text ||
+              (p.hasImage &&
+                Boolean(m.attachmentPath) &&
+                Math.abs(new Date(m.createdAt).getTime() - new Date(p.createdAt).getTime()) < 35000))
+        );
+        if (found) {
+          if (p.localPreviewUrl) URL.revokeObjectURL(p.localPreviewUrl);
+          return false;
+        }
+        return true;
+      });
+    });
+  }, [messages]);
 
   const handleMessageTap = useCallback(
     (e: React.MouseEvent, msgId: string) => {
@@ -432,11 +465,30 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       : trimmed;
 
     const currentImage = image;
+    const pendingId = `pending-${Date.now()}`;
+    const localPreviewUrl = currentImage ? URL.createObjectURL(currentImage) : null;
+
+    const pendingMsg: PendingMessage = {
+      id: pendingId,
+      senderId: user?.id ?? "me",
+      senderName: user?.displayName || "You",
+      text: finalText,
+      localPreviewUrl,
+      hasImage: Boolean(currentImage),
+      createdAt: new Date().toISOString(),
+      isUploading: Boolean(currentImage),
+    };
+
+    setPendingMessages((prev) => [...prev, pendingMsg]);
 
     // Clear input immediately so user can type next message instantly without interruption
     setText("");
     setImage(null);
     setReplyTo(null);
+
+    // Scroll to bottom immediately with Apple spring feel
+    isNearBottomRef.current = true;
+    scrollToBottom(true);
 
     // Keep focus explicitly on the textarea
     textareaRef.current?.focus();
@@ -447,7 +499,21 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       await onSend(finalText, currentImage);
       isNearBottomRef.current = true;
       scrollToBottom(true);
+
+      // Failsafe cleanup in case realtime event was delayed
+      setTimeout(() => {
+        setPendingMessages((prev) => {
+          const remaining = prev.filter((p) => p.id !== pendingId);
+          if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+          return remaining;
+        });
+      }, 4000);
     } catch (err: any) {
+      setPendingMessages((prev) => {
+        if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+        return prev.filter((p) => p.id !== pendingId);
+      });
+
       // Restore text only if user hasn't typed anything new in the meantime
       setText((prev) => (prev ? prev : trimmed));
       if (currentImage) setImage(currentImage);
@@ -508,10 +574,19 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         onScroll={handleScroll}
       >
         {loading && (
-          <div className={styles.skeletonList}>
-            <Skeleton width="45%" shape="text" />
-            <Skeleton width="75%" shape="text" />
-            <Skeleton width="60%" shape="text" />
+          <div className={styles.skeletonList} aria-label="Loading messages">
+            <div className={`${styles.skeletonRow} ${styles.skeletonRowOther}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonBubbleOther}`} style={{ width: "55%", height: "42px" }} />
+            </div>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRowOwn}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonBubbleOwn}`} style={{ width: "42%", height: "38px" }} />
+            </div>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRowOther}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonBubbleOther}`} style={{ width: "68%", height: "148px", borderRadius: "18px" }} />
+            </div>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRowOwn}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonBubbleOwn}`} style={{ width: "48%", height: "38px" }} />
+            </div>
           </div>
         )}
 
@@ -760,6 +835,69 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                       </button>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Optimistic pending messages (smooth Apple bubble glide-in) */}
+        {pendingMessages.map((p) => {
+          const parsed = parseMessageText(p.text);
+          const isImageOnly = p.hasImage && !parsed.body && !parsed.reply;
+          return (
+            <div
+              key={p.id}
+              id={`msg-${p.id}`}
+              className={`${styles.messageRow} ${styles.ownRow} ${styles.ownNew} ${styles.groupSingle} ${styles.pendingRow}`}
+            >
+              <div className={`${styles.bubbleWrapper} ${styles.bubbleWrapperOwn}`}>
+                {isImageOnly ? (
+                  <div
+                    className={`${styles.bubble} ${styles.ownBubble} ${styles.imageOnlyBubble} ${styles.pendingBubble}`}
+                  >
+                    <ChatImage
+                      previewUrl={p.localPreviewUrl}
+                      isUploading={p.isUploading}
+                      openLabel={t.chat.openImage}
+                      className={styles}
+                    />
+                    <div className={styles.imageFloatingMeta}>
+                      <span className={styles.time}>{formatMsgTime(p.createdAt)}</span>
+                      <Clock size={11} className={styles.pendingClockIcon} />
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`${styles.bubble} ${styles.ownBubble} ${p.hasImage ? styles.withImageBubble : ""} ${styles.pendingBubble}`}
+                  >
+                    {parsed.reply && (
+                      <div className={styles.quoteBlock}>
+                        <div className={styles.quoteStripe} />
+                        <div className={styles.quoteBody}>
+                          <span className={styles.quoteSender}>{parsed.reply.senderName}</span>
+                          <span className={styles.quoteSnippet}>{parsed.reply.snippet}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {p.hasImage && (
+                      <ChatImage
+                        previewUrl={p.localPreviewUrl}
+                        isUploading={p.isUploading}
+                        openLabel={t.chat.openImage}
+                        className={styles}
+                      />
+                    )}
+
+                    <div className={styles.textContainer}>
+                      {parsed.body && <span className={styles.text}>{parsed.body}</span>}
+                      <span className={styles.metaRow}>
+                        <span className={styles.time}>{formatMsgTime(p.createdAt)}</span>
+                        <Clock size={11} className={styles.pendingClockIcon} />
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

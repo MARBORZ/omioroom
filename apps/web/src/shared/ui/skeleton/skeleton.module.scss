@@ -13,12 +13,13 @@
   height: var(--skeleton-height, auto);
   background: linear-gradient(
     90deg,
-    var(--color-skeleton-base) 25%,
+    var(--color-skeleton-base) 0%,
     var(--color-skeleton-highlight) 50%,
-    var(--color-skeleton-base) 75%
+    var(--color-skeleton-base) 100%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .block {

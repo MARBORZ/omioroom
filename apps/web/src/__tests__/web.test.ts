@@ -12,6 +12,7 @@ import { MediaType, parseMediaUrl } from "@omioroom/contracts";
 import { YouTubePlayerAdapter } from "../shared/lib/adapters/youtube-adapter.js";
 import { snapSeekDelta } from "../widgets/video-player/ui/video-player-frame.js";
 import { parseMessageText } from "../widgets/room-chat/ui/room-chat.js";
+import { ChatImage } from "../widgets/room-chat/ui/chat-image.js";
 
 describe("Web Utilities", () => {
   it("formats time correctly for mm:ss and hh:mm:ss", () => {
@@ -756,5 +757,22 @@ describe("Web Utilities", () => {
     const r6 = parseMessageText("Просто сообщение без цитаты");
     expect(r6.reply).toBeUndefined();
     expect(r6.body).toBe("Просто сообщение без цитаты");
+  });
+
+  it("ChatImage renders skeleton placeholder while loading", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ChatImage, {
+        path: "room-1/test.png",
+        openLabel: "Open",
+        className: {
+          imageContainer: "img-container",
+          imageSkeleton: "img-skeleton",
+          shimmerEffect: "shimmer",
+          imagePlaceholder: "img-placeholder",
+        },
+      })
+    );
+    expect(html).toContain("img-skeleton");
+    expect(html).toContain("shimmer");
   });
 });
