@@ -98,6 +98,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const prevMessageIdsRef = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
   const initialLoadedRef = useRef(false);
   const renderedMessageIdsRef = useRef<Set<string>>(new Set());
+  const sentMessageTextsRef = useRef<Set<string>>(new Set());
 
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -224,29 +225,11 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     isNearBottomRef.current = true;
     setShowScrollBottom(false);
 
-    const doScroll = () => {
-      if (!listRef.current) return;
-      const target = listRef.current.scrollHeight;
-      if (smooth) {
-        listRef.current.scrollTo({ top: target, behavior: "smooth" });
-      } else {
-        listRef.current.scrollTop = target;
-      }
-    };
-
-    doScroll();
-
-    // Re-check after paint & layout recalculation (for multi-line text, emojis, and bubbles)
-    requestAnimationFrame(() => {
-      doScroll();
-      setTimeout(doScroll, 40);
-      setTimeout(() => {
-        if (listRef.current && isNearBottomRef.current) {
-          listRef.current.scrollTop = listRef.current.scrollHeight;
-          setShowScrollBottom(false);
-        }
-      }, 150);
-    });
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
   }, []);
 
   // Messages count as read only while the list is really on screen, in a visible browser tab, scrolled to the end
@@ -479,6 +462,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       isUploading: Boolean(currentImage),
     };
 
+    sentMessageTextsRef.current.add(finalText);
     setPendingMessages((prev) => [...prev, pendingMsg]);
 
     // Clear input immediately so user can type next message instantly without interruption
@@ -633,6 +617,12 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             renderedMessageIdsRef.current.add(m.id);
           }
 
+          const wasOptimistic = isOwn && sentMessageTextsRef.current.has(m.text);
+          if (wasOptimistic) {
+            sentMessageTextsRef.current.delete(m.text);
+          }
+          const shouldAnimate = isNew && !wasOptimistic;
+
           const hasReactions = m.reactions && Object.keys(m.reactions).length > 0;
           const isConfirmingDelete = confirmDeleteId === m.id;
 
@@ -640,7 +630,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             <div
               key={m.id}
               id={`msg-${m.id}`}
-              className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${isNew ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
+              className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${shouldAnimate ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
               onClick={(e) => handleMessageTap(e, m.id)}
             >
               <div className={`${styles.bubbleWrapper} ${isOwn ? styles.bubbleWrapperOwn : styles.bubbleWrapperOther}`}>
@@ -842,7 +832,19 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         })}
 
         {/* Optimistic pending messages (smooth Apple bubble glide-in) */}
-        {pendingMessages.map((p) => {
+        {pendingMessages
+          .filter(
+            (p) =>
+              !messages.some(
+                (m) =>
+                  m.senderId === p.senderId &&
+                  (m.text === p.text ||
+                    (p.hasImage &&
+                      Boolean(m.attachmentPath) &&
+                      Math.abs(new Date(m.createdAt).getTime() - new Date(p.createdAt).getTime()) < 35000))
+              )
+          )
+          .map((p) => {
           const parsed = parseMessageText(p.text);
           const isImageOnly = p.hasImage && !parsed.body && !parsed.reply;
           return (
