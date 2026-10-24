@@ -46,49 +46,57 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           <button type="button" className={styles.brand} onClick={onNavigateHome} title={t.common.brand}>
             <Logo size="sm" showText={true} />
           </button>
-          {roomNumber && (
-            <button
-              type="button"
-              className={`${styles.roomChip} ${copied ? styles.copiedChip : ""}`}
-              onClick={handleCopyRoom}
-              title={copied ? t.common.copied : t.common.copyLink}
-              aria-label={`${t.room.roomNumber} ${roomNumber}`}
-            >
-              <span className={styles.roomPrefix}>{t.room.roomNumber}</span>
-              <span className={styles.roomNum}>{roomNumber}</span>
-              {copied ? (
-                <span className={styles.copiedBadge}>
-                  <Check size={12} className={styles.copyIcon} />
-                  <span className={styles.copiedText}>{t.common.copied}</span>
-                </span>
-              ) : (
-                <Copy size={12} className={styles.copyIcon} />
+          {(roomNumber || onOpenParticipants) && (
+            <div className={styles.roomBadge}>
+              {roomNumber && (
+                <button
+                  type="button"
+                  className={`${styles.roomChip} ${copied ? styles.copiedChip : ""}`}
+                  onClick={handleCopyRoom}
+                  title={copied ? t.common.copied : t.common.copyLink}
+                  aria-label={`${t.room.roomNumber} ${roomNumber}`}
+                >
+                  <span className={styles.roomPrefix}>{t.room.roomNumber}</span>
+                  <span className={styles.roomNum}>{roomNumber}</span>
+                  {copied ? (
+                    <span className={styles.copiedBadge}>
+                      <Check size={11} className={styles.copyIcon} />
+                      <span className={styles.copiedText}>{t.common.copied}</span>
+                    </span>
+                  ) : (
+                    <Copy size={11} className={styles.copyIcon} />
+                  )}
+                </button>
               )}
-            </button>
+
+              {roomNumber && (
+                <div className={styles.badgeDivider} aria-hidden />
+              )}
+
+              {onOpenParticipants ? (
+                <button
+                  type="button"
+                  className={styles.peopleBtn}
+                  onClick={onOpenParticipants}
+                  title={`${t.group.participants}: ${participantCount} / ${maxParticipants}`}
+                  aria-label={t.group.participants}
+                >
+                  <span className={styles.pulseDot} />
+                  <Users size={12} className={styles.usersIcon} />
+                  <span className={styles.peopleCount}>{participantCount}/{maxParticipants}</span>
+                </button>
+              ) : (
+                <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
+                  <span className={styles.pulseDot} />
+                  <Users size={12} className={styles.usersIcon} />
+                  <span className={styles.peopleCount}>{participantCount}/{maxParticipants}</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
 
         <div className={styles.rightSection}>
-          {onOpenParticipants ? (
-            <button
-              type="button"
-              className={styles.peopleBtn}
-              onClick={onOpenParticipants}
-              title={`${t.group.participants}: ${participantCount} / ${maxParticipants}`}
-              aria-label={t.group.participants}
-            >
-              <span className={styles.pulseDot} />
-              <Users size={13} />
-              <span>{participantCount}/{maxParticipants}</span>
-            </button>
-          ) : (
-            <span className={styles.people} title={`${participantCount} / ${maxParticipants}`}>
-              <span className={styles.pulseDot} />
-              <Users size={13} />
-              <span>{participantCount}/{maxParticipants}</span>
-            </span>
-          )}
-
           {!isOwner && onReportRoom && (
             <button
               type="button"

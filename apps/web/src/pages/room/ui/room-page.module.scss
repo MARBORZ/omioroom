@@ -331,11 +331,26 @@
       width: 100% !important;
       height: auto !important;
       overflow: visible !important;
-    }
 
-    /* On mobile phones, chat is opened via the floating circle or chat tab into fullscreen/half-screen overlay */
-    .panelsContainer > [data-panel="chat"] {
-      display: none !important;
+      &[data-active-tab="chat"] {
+        height: clamp(440px, calc(100dvh - 300px), 720px) !important;
+        overflow: hidden !important;
+
+        .panelsContainer {
+          flex: 1 1 auto !important;
+          height: 100% !important;
+          min-height: 0 !important;
+          overflow: hidden !important;
+        }
+
+        [data-panel="chat"] {
+          display: flex !important;
+          flex: 1 1 auto !important;
+          height: 100% !important;
+          min-height: 0 !important;
+          overflow: hidden !important;
+        }
+      }
     }
   }
 

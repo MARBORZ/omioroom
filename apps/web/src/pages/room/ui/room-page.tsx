@@ -824,9 +824,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }, [cinema]);
 
   // Unread counter for the collapsed chat button
-  const chatVisible = isMobile
-    ? mobileChatOpen
-    : (cinema ? cinemaChatOpen : activeTab === "chat");
+  const chatVisible = cinema
+    ? (isMobile ? mobileChatOpen : cinemaChatOpen)
+    : activeTab === "chat";
   chatVisibleRef.current = chatVisible;
   useEffect(() => {
     if (chatVisible) setUnreadMessages(0);
@@ -1043,15 +1043,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={isMobile ? mobileChatOpen : activeTab === "chat"}
-                    className={`${styles.tabBtn} ${(isMobile ? mobileChatOpen : activeTab === "chat") ? styles.activeTab : ""}`}
-                    onClick={() => {
-                      if (isMobile) {
-                        setMobileChatOpen(true);
-                      } else {
-                        setActiveTab("chat");
-                      }
-                    }}
+                    aria-selected={activeTab === "chat"}
+                    className={`${styles.tabBtn} ${activeTab === "chat" ? styles.activeTab : ""}`}
+                    onClick={() => setActiveTab("chat")}
                   >
                     <MessageSquare size={14} />
                     <span>{t.room.tabChat}</span>
@@ -1141,23 +1135,21 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               />
             </div>
 
-            {!isMobile && (
-              <div data-panel="chat" className={styles.panelWrapper}>
-                <RoomChat
-                  messages={messages}
-                  loading={chatLoading}
-                  onSend={handleSendChat}
-                  participants={participants}
-                  roomId={snapshot.room.id}
-                  isMuted={isCurrentUserMuted}
-                  onReportMessage={(messageId) => setReportTarget({ messageId })}
-                  onToggleReaction={handleToggleReaction}
-                  onDeleteMessage={handleDeleteMessage}
-                  isOwner={snapshot.isOwner}
-                  canControl={canControl}
-                />
-              </div>
-            )}
+            <div data-panel="chat" className={styles.panelWrapper}>
+              <RoomChat
+                messages={messages}
+                loading={chatLoading}
+                onSend={handleSendChat}
+                participants={participants}
+                roomId={snapshot.room.id}
+                isMuted={isCurrentUserMuted}
+                onReportMessage={(messageId) => setReportTarget({ messageId })}
+                onToggleReaction={handleToggleReaction}
+                onDeleteMessage={handleDeleteMessage}
+                isOwner={snapshot.isOwner}
+                canControl={canControl}
+              />
+            </div>
 
             <div data-panel="participants" className={styles.panelWrapper}>
               <ParticipantsPanel
