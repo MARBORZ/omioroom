@@ -5,17 +5,13 @@ import { Button } from "../../../shared/ui/button/button.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Loader } from "../../../shared/ui/loader/loader.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
-import { deleteVideo, listVideos, uploadVideo, type StoredVideo } from "../../../shared/api/videos.js";
+import { deleteVideo, listVideos, titleFromFileName, uploadVideo, type Video } from "../../../shared/api/videos.js";
+import { formatDuration, formatFileSize } from "../../../shared/lib/format-duration.js";
 import styles from "./dashboard-page.module.scss";
 
 /** The dashboard lives at /dashboard and at the root of a dashboard.* host. */
 export function isDashboardLocation(loc: Pick<Location, "hostname" | "pathname"> = window.location): boolean {
   return loc.hostname.startsWith("dashboard.") || loc.pathname.replace(/\/+$/, "") === "/dashboard";
-}
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} ГБ`;
-  return `${(bytes / 1024 ** 2).toFixed(1)} МБ`;
 }
 
 const SignIn: React.FC = () => {
@@ -59,9 +55,10 @@ const SignIn: React.FC = () => {
 };
 
 const Library: React.FC = () => {
-  const [videos, setVideos] = useState<StoredVideo[] | null>(null);
+  const [videos, setVideos] = useState<Video[] | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
-  const [uploadName, setUploadName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -77,63 +74,65 @@ const Library: React.FC = () => {
     void refresh();
   }, [refresh]);
 
-  const handleFile = async (file: File | undefined) => {
+  const choose = (f: File | undefined) => {
+    setFile(f ?? null);
+    setTitle(f ? titleFromFileName(f.name) : "");
+  };
+
+  const upload = async () => {
     if (!file) return;
-    setUploadName(file.name);
     setProgress(0);
     try {
-      await uploadVideo(file, setProgress);
+      await uploadVideo(file, title, setProgress);
       showToast("Видео загружено");
+      setFile(null);
+      setTitle("");
+      if (inputRef.current) inputRef.current.value = "";
       await refresh();
     } catch (err: any) {
       showToast(err?.message ?? "Не удалось загрузить");
     } finally {
       setProgress(null);
-      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
-  const remove = async (video: StoredVideo) => {
-    if (!window.confirm(`Удалить «${video.name}»?`)) return;
+  const remove = async (video: Video) => {
+    if (!window.confirm(`Удалить «${video.title}»?`)) return;
     try {
-      await deleteVideo(video.name);
-      setVideos((list) => list?.filter((v) => v.name !== video.name) ?? null);
+      await deleteVideo(video);
+      setVideos((list) => list?.filter((v) => v.id !== video.id) ?? null);
     } catch (err: any) {
       showToast(err?.message ?? "Не удалось удалить");
     }
   };
 
-  const copy = async (video: StoredVideo) => {
+  const copy = async (video: Video) => {
     await navigator.clipboard.writeText(video.url).catch(() => {});
     showToast("Ссылка скопирована");
   };
 
+  const uploading = progress !== null;
   return (
     <>
       <div className={styles.card}>
         <h2 className={styles.subtitle}>Загрузка</h2>
-        <p className={styles.hint}>MP4 или WebM (H.264/AAC для лучшей совместимости). Файл попадает в бакет videos.</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="video/mp4,video/webm"
-          hidden
-          onChange={(e) => void handleFile(e.target.files?.[0])}
-        />
-        <Button
-          variant="primary"
-          icon={<Upload size={16} />}
-          disabled={progress !== null}
-          onClick={() => inputRef.current?.click()}
-        >
-          Выбрать видео
+        <p className={styles.hint}>MP4 или WebM (H.264/AAC для лучшей совместимости). Превью и длительность определяются автоматически.</p>
+        <input ref={inputRef} type="file" accept="video/mp4,video/webm" hidden onChange={(e) => choose(e.target.files?.[0])} />
+        <Button icon={<Upload size={16} />} disabled={uploading} onClick={() => inputRef.current?.click()}>
+          {file ? file.name : "Выбрать видео"}
         </Button>
-        {progress !== null && (
+        {file && (
+          <>
+            <TextField label="Название" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} disabled={uploading} />
+            <Button variant="primary" loading={uploading} disabled={!title.trim()} onClick={() => void upload()}>
+              Загрузить
+            </Button>
+          </>
+        )}
+        {uploading && (
           <div className={styles.progress} role="progressbar" aria-valuenow={Math.round(progress * 100)}>
             <div className={styles.progressBar} style={{ width: `${progress * 100}%` }} />
-            <span className={styles.progressLabel}>
-              {uploadName} · {Math.round(progress * 100)}%
-            </span>
+            <span className={styles.progressLabel}>{Math.round(progress * 100)}%</span>
           </div>
         )}
       </div>
@@ -147,10 +146,15 @@ const Library: React.FC = () => {
         ) : (
           <ul className={styles.list}>
             {videos.map((v) => (
-              <li key={v.name} className={styles.item}>
+              <li key={v.id} className={styles.item}>
+                <span className={styles.thumb}>{v.thumbnailUrl && <img src={v.thumbnailUrl} alt="" loading="lazy" />}</span>
                 <div className={styles.itemInfo}>
-                  <span className={styles.itemName}>{v.name}</span>
-                  <span className={styles.itemMeta}>{v.size ? formatSize(v.size) : ""}</span>
+                  <span className={styles.itemName}>{v.title}</span>
+                  <span className={styles.itemMeta}>
+                    {[formatDuration(v.durationSeconds), formatFileSize(v.sizeBytes), new Date(v.createdAt).toLocaleDateString("ru-RU")]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </div>
                 <Button size="sm" variant="ghost" icon={<Copy size={14} />} onClick={() => void copy(v)} aria-label="Скопировать ссылку" />
                 <Button size="sm" variant="danger" icon={<Trash2 size={14} />} onClick={() => void remove(v)} aria-label="Удалить" />

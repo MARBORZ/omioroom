@@ -976,6 +976,23 @@ describe("maintenance", () => {
     expect(await t.as(owner).rpc("list_banned_users")).toEqual([]);
     expect(await code(t.as(guest).rpc("join_room", { p_global_id: r2.globalId }))).toBe("OK");
   });
+  it("keeps the video catalogue and the role to admins only", async () => {
+    const user = await t.newUser({ anonymous: false, username: "viewer" });
+    const admin = await t.newUser({ anonymous: false, username: "boss2" });
+    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
+    const insert = "insert into public.videos (title, storage_path, mime_type, size_bytes, duration_seconds) values ('Film', 'a-film.mp4', 'video/mp4', 1000, 5400) returning id, created_by";
+
+    expect((await t.as(admin).query<any>(insert))[0].created_by).toBe(admin);
+    expect(await t.as(admin).query("select id from public.videos")).toHaveLength(1);
+
+    await expect(t.as(user).query(insert)).rejects.toThrow();
+    expect(await t.as(user).query("select id from public.videos")).toEqual([]);
+    await expect(t.as(admin).query("insert into public.videos (title, storage_path, mime_type, size_bytes) values ('', 'b.mp4', 'video/mp4', 1)")).rejects.toThrow();
+    await expect(t.as(admin).query("insert into public.videos (title, storage_path, mime_type, size_bytes) values ('x', 'c.avi', 'video/x-msvideo', 1)")).rejects.toThrow();
+
+    // nobody can promote themselves
+    await expect(t.as(user).query(`update public.profiles set role = 'admin' where id = '${user}'`)).rejects.toThrow();
+  });
   it("accepts only well-formed links on each platform's own domain; direct files and streams are not supported", async () => {
     const owner = await t.newUser();
     const open = await room(owner, "public");

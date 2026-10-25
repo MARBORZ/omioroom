@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { parseAllowedMediaUrl, parseMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { useSession } from "../../../app/providers/session-context.js";
@@ -6,7 +6,8 @@ import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { Link2 } from "lucide-react";
-import { listVideos, type StoredVideo } from "../../../shared/api/videos.js";
+import type { Video } from "../../../shared/api/videos.js";
+import { VideoLibrary } from "../../video-library/ui/video-library.js";
 import { getVideoSources } from "../model/sources.js";
 import { SourceSelect } from "./source-select.js";
 import styles from "./change-media-input.module.scss";
@@ -41,19 +42,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   const isAdmin = user?.role === "admin";
   const sources = getVideoSources(isAdmin);
 
-  const [library, setLibrary] = useState<StoredVideo[]>([]);
-  useEffect(() => {
-    if (!isAdmin) return;
-    let cancelled = false;
-    listVideos()
-      .then((list) => !cancelled && setLibrary(list))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin]);
-
-  const pickFromLibrary = async (video: StoredVideo) => {
+  const pickFromLibrary = async (video: Video) => {
     const parsed = parseMediaUrl(video.url);
     if (parsed) await onMediaSelect(parsed);
   };
@@ -154,24 +143,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
         </Button>
       </div>
       {sourceHint && <p className={styles.hint}>{sourceHint}</p>}
-      {isAdmin && library.length > 0 && (
-        <>
-          <div className={styles.label}>Мои видео</div>
-          <div className={styles.chips}>
-            {library.map((v) => (
-              <button
-                key={v.name}
-                type="button"
-                className={styles.chip}
-                disabled={disabled || loading}
-                onClick={() => void pickFromLibrary(v)}
-              >
-                {v.name}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {isAdmin && source?.id === "file" && <VideoLibrary onPick={(v) => void pickFromLibrary(v)} disabled={disabled || loading} />}
       {isOpenRoom && <p className={styles.hint}>{t.room.openRoomMediaHint}</p>}
     </form>
   );
