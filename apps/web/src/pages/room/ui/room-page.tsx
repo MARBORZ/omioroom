@@ -153,12 +153,18 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   // - In portrait: floating chat circle collapses chat; clicking it opens full screen (due to lack of space).
   // - In landscape: chat opens half-screen by default, with option to toggle fullscreen.
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 720 : false
+    typeof window !== "undefined"
+      ? window.innerWidth <= 720 || (window.innerWidth > window.innerHeight && window.innerHeight <= 500)
+      : false
   );
   const [isLandscape, setIsLandscape] = useState(() =>
     typeof window !== "undefined"
       ? window.innerWidth > window.innerHeight && (window.innerHeight <= 550 || window.innerWidth <= 920)
       : false
+  );
+  // A phone turned sideways: little height left, so everything but the video steps aside
+  const [isPhoneLandscape, setIsPhoneLandscape] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth > window.innerHeight && window.innerHeight <= 500 : false
   );
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileChatFullscreen, setMobileChatFullscreen] = useState(false);
@@ -167,8 +173,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const updateViewport = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      setIsMobile(w <= 720);
+      setIsMobile(w <= 720 || (w > h && h <= 500));
       setIsLandscape(w > h && (h <= 550 || w <= 920));
+      setIsPhoneLandscape(w > h && h <= 500);
     };
     window.addEventListener("resize", updateViewport);
     window.addEventListener("orientationchange", updateViewport);
@@ -276,6 +283,19 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       return !on;
     });
   }, [activeTab]);
+
+  // Turning the phone sideways switches to the cinema view with the chat tucked away; turning it back restores the page
+  const autoCinemaRef = useRef(false);
+  useEffect(() => {
+    if (isPhoneLandscape && !cinema) {
+      autoCinemaRef.current = true;
+      handleToggleCinema();
+    } else if (!isPhoneLandscape && cinema && autoCinemaRef.current) {
+      autoCinemaRef.current = false;
+      handleToggleCinema();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPhoneLandscape]);
 
   // Keyboard accessibility:
   // F - Fullscreen / Cinema toggle

@@ -801,40 +801,85 @@
   }
 }
 
-/* Phone in cinema mode: the full-screen video used to cover the room header, leaving no way to reach the
-   participants, settings or leave buttons. Keep the header pinned on top and fit the video under it. */
-@media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
-  .roomContainer[data-cinema="true"] {
-    --cinema-header-h: calc(44px + env(safe-area-inset-top, 0px));
+/* Phone held sideways: nothing but the picture. No frame, no header; the controls shrink to one thin row laid over
+   the bottom of the video. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mainContent[data-cinema="true"] {
+    grid-template-columns: minmax(0, 1fr) !important;
 
-    [data-layout="room-header"] {
-      position: fixed !important;
-      top: 0;
+    .sidebarSection {
+      display: none !important;
+    }
+
+    .videoSection {
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      --player-max-height: none;
+    }
+
+    .videoSection > :first-child {
+      max-height: none !important;
+      height: 100% !important;
+    }
+
+    .videoSection [class*="playerFrame"] {
+      aspect-ratio: auto !important;
+      height: 100% !important;
+      max-height: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+
+    .videoSection > [class*="controlsContainer"] {
+      position: absolute !important;
       left: 0;
       right: 0;
-      z-index: 100;
-      height: var(--cinema-header-h) !important;
-      padding-top: env(safe-area-inset-top, 0px) !important;
-      padding-left: max(var(--space-3), env(safe-area-inset-left, 0px)) !important;
-      padding-right: max(var(--space-3), env(safe-area-inset-right, 0px)) !important;
-      box-sizing: border-box;
-      background-color: rgba(10, 10, 12, 0.86);
-      border-bottom-color: rgba(255, 255, 255, 0.08);
-    }
+      bottom: 0;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: var(--space-3) !important;
+      margin-top: 0 !important;
+      padding: 4px max(12px, env(safe-area-inset-right, 0px)) max(4px, env(safe-area-inset-bottom, 0px))
+        max(12px, env(safe-area-inset-left, 0px)) !important;
 
-    .mainContent[data-cinema="true"] {
-      padding-top: var(--cinema-header-h) !important;
-      box-sizing: border-box;
-
-      .videoSection {
-        --player-max-height: calc(100dvh - 84px - var(--cinema-header-h));
-        height: calc(100dvh - var(--cinema-header-h)) !important;
-        max-height: calc(100dvh - var(--cinema-header-h)) !important;
+      [class*="timelineRow"] {
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: var(--space-2);
       }
 
-      .videoSection > :first-child {
-        max-height: calc(100dvh - 72px - var(--cinema-header-h)) !important;
+      [class*="buttonsRow"] {
+        flex: 0 0 auto;
+        gap: 2px;
+      }
+
+      [class*="leftGroup"],
+      [class*="rightGroup"] {
+        gap: 2px;
+      }
+
+      [class*="playPauseBtn"],
+      [class*="iconBtn"] {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+        padding: 0 !important;
+      }
+
+      [class*="timeDisplay"] {
+        font-size: 11px !important;
+      }
+
+      [class*="rateSelect"] {
+        height: 28px !important;
+        padding: 0 6px !important;
+        font-size: 11px !important;
       }
     }
+  }
+
+  .roomContainer [data-layout="room-header"] {
+    display: none !important;
   }
 }
