@@ -1,13 +1,11 @@
 import React, { useState } from "react";
-import { parseAllowedMediaUrl, parseMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
+import { parseAllowedMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { useSession } from "../../../app/providers/session-context.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { Link2 } from "lucide-react";
-import type { Video } from "../../../shared/api/videos.js";
-import { VideoLibrary } from "../../video-library/ui/video-library.js";
 import { getVideoSources } from "../model/sources.js";
 import { SourceSelect } from "./source-select.js";
 import styles from "./change-media-input.module.scss";
@@ -41,11 +39,6 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   // Direct files and streams are for admins (the database enforces the same rule)
   const isAdmin = user?.role === "admin";
   const sources = getVideoSources(isAdmin);
-
-  const pickFromLibrary = async (video: Video) => {
-    const parsed = parseMediaUrl(video.url);
-    if (parsed) await onMediaSelect(parsed);
-  };
 
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [url, setUrl] = useState("");
@@ -143,7 +136,6 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
         </Button>
       </div>
       {sourceHint && <p className={styles.hint}>{sourceHint}</p>}
-      {isAdmin && source?.id === "file" && <VideoLibrary onPick={(v) => void pickFromLibrary(v)} disabled={disabled || loading} />}
       {isOpenRoom && <p className={styles.hint}>{t.room.openRoomMediaHint}</p>}
     </form>
   );

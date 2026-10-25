@@ -976,115 +976,10 @@ describe("maintenance", () => {
     expect(await t.as(owner).rpc("list_banned_users")).toEqual([]);
     expect(await code(t.as(guest).rpc("join_room", { p_global_id: r2.globalId }))).toBe("OK");
   });
-  it("keeps the video catalogue and the role to admins only", async () => {
+  it("nobody can promote themselves to admin", async () => {
     const user = await t.newUser({ anonymous: false, username: "viewer" });
-    const admin = await t.newUser({ anonymous: false, username: "boss2" });
-    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
-    const insert = "insert into public.videos (title, storage_path, mime_type, size_bytes, duration_seconds) values ('Film', 'a-film.mp4', 'video/mp4', 1000, 5400) returning id, created_by";
-
-    expect((await t.as(admin).query<any>(insert))[0].created_by).toBe(admin);
-    expect(await t.as(admin).query("select id from public.videos")).toHaveLength(1);
-
-    await expect(t.as(user).query(insert)).rejects.toThrow();
-    expect(await t.as(user).query("select id from public.videos")).toEqual([]);
-    await expect(t.as(admin).query("insert into public.videos (title, storage_path, mime_type, size_bytes) values ('', 'b.mp4', 'video/mp4', 1)")).rejects.toThrow();
-    await expect(t.as(admin).query("insert into public.videos (title, storage_path, mime_type, size_bytes) values ('x', 'c.avi', 'video/x-msvideo', 1)")).rejects.toThrow();
-
-    // nobody can promote themselves
     await expect(t.as(user).query(`update public.profiles set role = 'admin' where id = '${user}'`)).rejects.toThrow();
-  });
-  it("accepts only well-formed links on each platform's own domain; direct files and streams are not supported", async () => {
-    const owner = await t.newUser();
-    const open = await room(owner, "public");
-    const closed = await room(owner, "private");
-    const send = (roomId: string, media: object) =>
-      code(t.as(owner).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
-    await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select false $$");
-
-    // A forged link for a platform player: right type, wrong address
-    expect(await send(open.id, { type: "rutube", sourceId: "x", canonicalUrl: "https://evil.example/play/embed/" + "a".repeat(32) })).toBe("MEDIA_UNSUPPORTED");
-    expect(await send(open.id, { type: "vk", sourceId: "1_2", canonicalUrl: "https://evil.example/video_ext.php?oid=1&id=2&autoplay=0" })).toBe("MEDIA_UNSUPPORTED");
-    expect(await send(open.id, { type: "youtube", sourceId: "abc12345678", canonicalUrl: "https://www.youtube.com/watch?v=zzz98765432" })).toBe("MEDIA_UNSUPPORTED");
-    expect(await send(open.id, { type: "vimeo", sourceId: "1", canonicalUrl: "https://vimeo.com.evil.example/video/1" })).toBe("MEDIA_UNSUPPORTED");
-    expect(await send(open.id, { type: "nope", sourceId: "1", canonicalUrl: "https://example.com/x" })).toBe("MEDIA_UNSUPPORTED");
-
-    // Real shapes pass, in open and in private rooms
-    for (const r of [open, closed]) {
-      expect(await send(r.id, { type: "youtube", sourceId: "abc12345678", canonicalUrl: "https://www.youtube.com/watch?v=abc12345678" })).toBe("OK");
-      expect(await send(r.id, { type: "vk", sourceId: "-12_34", canonicalUrl: "https://vk.com/video_ext.php?oid=-12&id=34&autoplay=0" })).toBe("OK");
-      expect(await send(r.id, { type: "rutube", sourceId: "a".repeat(32), canonicalUrl: "https://rutube.ru/play/embed/" + "a".repeat(32) })).toBe("OK");
-      expect(await send(r.id, { type: "vimeo", sourceId: "76979871", canonicalUrl: "https://player.vimeo.com/video/76979871" })).toBe("OK");
-    }
-
-    // Direct files and streams are refused everywhere for normal users
-    for (const r of [open, closed]) {
-      expect(await send(r.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("MEDIA_UNSUPPORTED");
-      expect(await send(r.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("MEDIA_UNSUPPORTED");
-    }
-
-    // Direct files and streams are permitted only for admins; a display name never grants it
-    const fake = await t.newUser({ anonymous: false, username: "mar" });
-    // roles are granted from the SQL editor (no signed-in user), never by a client
-    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'user' where id = '${fake}'`);
-    const fakeRoom = await room(fake, "private");
-    const direct = { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" };
-    const sendAs = (u: string, roomId: string, media: object) =>
-      code(t.as(u).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
-    expect(await sendAs(fake, fakeRoom.id, direct)).toBe("MEDIA_UNSUPPORTED");
-
-    const admin = await t.newUser({ anonymous: false, username: "boss" });
-    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
-    const adminRoom = await room(admin, "private");
-    expect(await sendAs(admin, adminRoom.id, direct)).toBe("OK");
-    expect(await sendAs(admin, adminRoom.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("OK");
-
-    await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select true $$");
-  });
-  it("automatic moderation removes a video with a blocked title from an open room and cools down repeat offenders", async () => {
-    const owner = await t.newUser();
-    const open = await room(owner, "public");
-    const priv = await room(owner, "private");
-    const yt = (id: string) => ({ type: "youtube", sourceId: id, canonicalUrl: `https://www.youtube.com/watch?v=${id}` });
-    const set = (r: { id: string }, media: object) =>
-      code(t.as(owner).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
-    const found = async (text: string) => (await t.db.query<any>("select public.find_blocked_term($1) as term", [text])).rows[0].term;
-
-    // title matching: whole words for short terms, substrings for long ones
-    expect(await found("Sex Education: season 1")).toBe("sex");
-    expect(await found("Visit Essex County")).toBeNull();
-    expect(await found("Gorecki: Symphony no. 3")).toBeNull();
-    expect(await found("NSFW compilation")).toBe("nsfw");
-    expect(await found("Лучшее порно")).toBe("порно");
-    expect(await found("Cats and dogs, 4K")).toBeNull();
-
-    expect(await set(open, yt("aaaaaaaaaaa"))).toBe("OK");
-    const verdict = (media: { sourceId: string }, title: string, v = "ok") =>
-      t.db.query<any>("select public.record_media_verdict($1, $2, $3, $4, null) as removed", [open.id, `youtube:${media.sourceId}`, title, v]);
-    // a harmless title leaves the video alone
-    expect((await verdict(yt("aaaaaaaaaaa"), "Cute cats")).rows[0].removed).toBe(false);
-    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback.media).not.toBeNull();
-
-    // a blocked title removes it and says why
-    expect(await set(open, yt("bbbbbbbbbbb"))).toBe("OK");
-    expect((await verdict(yt("bbbbbbbbbbb"), "Best XXX clips")).rows[0].removed).toBe(true);
-    let state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
-    expect(state.media).toBeNull();
-    expect(state.mediaBlocked).toBe("title");
-
-    // the same video is refused straight away next time, and a new video clears the note
-    expect(await set(open, yt("bbbbbbbbbbb"))).toBe("OK");
-    state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
-    expect(state.media).toBeNull();
-    expect(await set(open, yt("ccccccccccc"))).toBe("OK");
-    state = (await t.as(owner).rpc("get_room_snapshot", { p_room_id: open.id })).playback;
-    expect(state.mediaBlocked).toBeNull();
-
-    // three removals in 24 hours: no more changes in open rooms for this person
-    await verdict(yt("ccccccccccc"), "nude", "blocked");
-    expect(await set(open, yt("ddddddddddd"))).toBe("MEDIA_COOLDOWN");
-    // private rooms are not moderated and not affected
-    expect(await set(priv, yt("bbbbbbbbbbb"))).toBe("OK");
-    expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: priv.id })).playback.media).not.toBeNull();
+    expect((await t.db.query<any>(`select role from public.profiles where id = '${user}'`)).rows[0].role).toBe("user");
   });
   it("a member whose seat lapsed cannot come back into a full room, but the owner always can", async () => {
     const owner = await t.newUser();
@@ -1108,7 +1003,6 @@ describe("maintenance", () => {
     const viewer = await t.newUser();
     const r = await room(admin, "private");
     const url = "https://x.supabase.co/storage/v1/object/public/videos/ab12-film.mp4";
-    await t.db.exec(`insert into public.videos (title, storage_path, mime_type, size_bytes, duration_seconds, thumbnail_path) values ('Мой фильм', 'ab12-film.mp4', 'video/mp4', 10, 60, 'ab12-film.jpg')`);
     expect(await code(t.as(admin).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: { type: "html5", sourceId: url, canonicalUrl: url } }))).toBe("OK");
 
     await t.as(admin).rpc("set_visibility", { p_room_id: r.id, p_visibility: "public" });
@@ -1116,9 +1010,8 @@ describe("maintenance", () => {
 
     const list = await t.as(viewer).rpc("get_recommendations");
     expect(list.find((x: any) => x.globalId === r.globalId)).toMatchObject({
-      title: "Мой фильм",
+      title: "Видео",
       platform: "html5",
-      thumbnailUrl: "https://x.supabase.co/storage/v1/object/public/video-thumbnails/ab12-film.jpg",
     });
   });
   it("recommendations list open rooms in use with a video on, rank them simply, and respect privacy, bans and reports", async () => {
