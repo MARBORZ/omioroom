@@ -848,7 +848,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                   if (entries.length > 3) {
                     const top = [...entries].sort((x, y) => y[1].length - x[1].length).slice(0, 3);
                     return (
-                      <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
+                      <div className={`${styles.reactionChips} ${isOwn ? styles.reactionChipsOwn : ""}`}>
                         <button
                           type="button"
                           className={`${styles.reactionStack} ${mine ? styles.reactionBadgeActive : ""}`}
@@ -872,7 +872,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                     );
                   }
                   return (
-                    <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
+                    <div className={`${styles.reactionChips} ${isOwn ? styles.reactionChipsOwn : ""}`}>
                       {entries.map(([emoji, uids]) => {
                         const hasReacted = Boolean(user?.id && uids.includes(user.id));
                         const startLongPress = () => {
@@ -1281,7 +1281,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                 <span className={styles.reactionSheetTitle}>{t.chat.reactionsTitle}</span>
                 <button
                   type="button"
-                  className={styles.reactionSheetClose}
+                  className={styles.reactionSheetDismiss}
                   onClick={() => setReactionSheetId(null)}
                   aria-label={t.chat.reactionsClose}
                 >
@@ -1311,7 +1311,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                   </button>
                 ))}
               </div>
-              <ul className={styles.reactionSheetList}>
+              <ul className={styles.reactionSheetItems}>
                 {rows.map(({ emoji, uid }) => {
                   const isMine = uid === user?.id;
                   const name = nameOf(uid);
