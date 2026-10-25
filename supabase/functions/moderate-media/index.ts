@@ -68,6 +68,9 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
   if (type === "kodik") {
     return { verdict: "ok", reason: null, text: "Kodik Player", title: "Kodik Player" };
   }
+  if (type === "html5" || type === "hls") {
+    return { verdict: "ok", reason: null, text: "Direct Media", title: "Direct Media" };
+  }
   return { verdict: "unknown", reason: null, text: "" };
 }
 

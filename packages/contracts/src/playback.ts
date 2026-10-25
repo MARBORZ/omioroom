@@ -275,10 +275,15 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
 export const DIRECT_MEDIA_TYPES: readonly MediaType[] = [MediaType.HTML5, MediaType.HLS];
 
 /**
- * Like parseMediaUrl, but only for what rooms accept: YouTube, VK Video, RuTube and Vimeo.
- * Direct files and streams return null.
+ * Like parseMediaUrl, but only for what rooms accept: YouTube, VK Video, RuTube, Vimeo and Kodik.
+ * Direct files and streams return null unless allowDirectMedia is explicitly enabled.
  */
-export function parseAllowedMediaUrl(inputUrl: string): MediaSourceInfo | null {
+export function parseAllowedMediaUrl(
+  inputUrl: string,
+  options?: { allowDirectMedia?: boolean }
+): MediaSourceInfo | null {
   const parsed = parseMediaUrl(inputUrl);
-  return parsed && !DIRECT_MEDIA_TYPES.includes(parsed.type) ? parsed : null;
+  if (!parsed) return null;
+  if (options?.allowDirectMedia) return parsed;
+  return !DIRECT_MEDIA_TYPES.includes(parsed.type) ? parsed : null;
 }

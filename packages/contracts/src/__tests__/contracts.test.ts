@@ -233,6 +233,8 @@ describe("Contracts and Domain Logic", () => {
     expect(parseAllowedMediaUrl("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p")?.type).toBe("kodik");
     expect(parseAllowedMediaUrl("https://example.com/movie.mp4")).toBeNull();
     expect(parseAllowedMediaUrl("https://example.com/stream/live.m3u8")).toBeNull();
+    expect(parseAllowedMediaUrl("https://example.com/movie.mp4", { allowDirectMedia: true })?.type).toBe("html5");
+    expect(parseAllowedMediaUrl("https://example.com/stream/live.m3u8", { allowDirectMedia: true })?.type).toBe("hls");
     expect(parseAllowedMediaUrl("https://example.com/")).toBeNull();
   });
 });

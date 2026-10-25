@@ -999,11 +999,20 @@ describe("maintenance", () => {
       expect(await send(r.id, { type: "vimeo", sourceId: "76979871", canonicalUrl: "https://player.vimeo.com/video/76979871" })).toBe("OK");
     }
 
-    // Direct files and streams are refused everywhere
+    // Direct files and streams are refused everywhere for normal users
     for (const r of [open, closed]) {
       expect(await send(r.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("MEDIA_UNSUPPORTED");
       expect(await send(r.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("MEDIA_UNSUPPORTED");
     }
+
+    // Direct files and streams are permitted for account Mar
+    const marUser = await t.newUser({ anonymous: false, username: "mar" });
+    const marRoom = await room(marUser, "private");
+    const sendMar = (roomId: string, media: object) =>
+      code(t.as(marUser).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
+    expect(await sendMar(marRoom.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("OK");
+    expect(await sendMar(marRoom.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("OK");
+
     await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select true $$");
   });
   it("automatic moderation removes a video with a blocked title from an open room and cools down repeat offenders", async () => {

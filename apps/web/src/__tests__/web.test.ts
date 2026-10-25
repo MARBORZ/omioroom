@@ -729,7 +729,7 @@ describe("Web Utilities", () => {
   });
 
   it("verifies direct media deprecation and allowed sources", async () => {
-    const { VIDEO_SOURCES } = await import("../features/change-media/model/sources.js");
+    const { VIDEO_SOURCES, getVideoSources } = await import("../features/change-media/model/sources.js");
     const { parseAllowedMediaUrl } = await import("@omioroom/contracts");
 
     // Supported platforms
@@ -737,6 +737,7 @@ describe("Web Utilities", () => {
     expect(sourceIds).toEqual(["youtube", "vk", "rutube", "vimeo", "kodik"]);
     expect(sourceIds).not.toContain("file");
     expect(sourceIds).not.toContain("hls");
+    expect(getVideoSources(true).map((s) => s.id)).toContain("file");
 
     // Allowed platforms parse correctly
     expect(parseAllowedMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).not.toBeNull();
@@ -745,9 +746,11 @@ describe("Web Utilities", () => {
     expect(parseAllowedMediaUrl("https://vimeo.com/12345678")).not.toBeNull();
     expect(parseAllowedMediaUrl("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p")).not.toBeNull();
 
-    // Direct files, HLS, or unsupported domains return null
+    // Direct files, HLS, or unsupported domains return null by default, but allowed when privileged
     expect(parseAllowedMediaUrl("https://example.com/video.mp4")).toBeNull();
     expect(parseAllowedMediaUrl("https://example.com/stream.m3u8")).toBeNull();
+    expect(parseAllowedMediaUrl("https://example.com/video.mp4", { allowDirectMedia: true })?.type).toBe("html5");
+    expect(parseAllowedMediaUrl("https://example.com/stream.m3u8", { allowDirectMedia: true })?.type).toBe("hls");
     expect(parseAllowedMediaUrl("https://dailymotion.com/video/x123")).toBeNull();
   });
 

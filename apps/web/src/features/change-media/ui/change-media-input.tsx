@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { parseAllowedMediaUrl, type MediaSourceInfo } from "@omioroom/contracts";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { useSession } from "../../../app/providers/session-context.js";
 import { TextField } from "../../../shared/ui/text-field/text-field.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { Link2 } from "lucide-react";
-import { VIDEO_SOURCES } from "../model/sources.js";
+import { getVideoSources } from "../model/sources.js";
 import { SourceSelect } from "./source-select.js";
 import styles from "./change-media-input.module.scss";
 
@@ -17,11 +18,11 @@ interface ChangeMediaInputProps {
   disabled?: boolean;
 }
 
-function isLikelyDirectFileOrUnsupported(val: string): boolean {
+function isLikelyDirectFileOrUnsupported(val: string, allowDirectMedia = false): boolean {
   const trimmed = val.trim();
   if (!trimmed) return false;
-  if (/\.(mp4|webm|m3u8)(\?.*)?$/i.test(trimmed)) return true;
-  if (/^https?:\/\//i.test(trimmed) && !parseAllowedMediaUrl(trimmed)) return true;
+  if (!allowDirectMedia && /\.(mp4|webm|m3u8)(\?.*)?$/i.test(trimmed)) return true;
+  if (/^https?:\/\//i.test(trimmed) && !parseAllowedMediaUrl(trimmed, { allowDirectMedia })) return true;
   return false;
 }
 
@@ -34,15 +35,20 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   disabled = false,
 }) => {
   const { t } = useI18n();
+  const { user } = useSession();
+  const isMar = user?.displayName?.toLowerCase() === "mar" || user?.normalizedName === "mar";
+  const sources = getVideoSources(isMar);
+
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const source = VIDEO_SOURCES.find((s) => s.id === sourceId) ?? null;
+  const source = sources.find((s) => s.id === sourceId) ?? null;
   const hints: Record<string, string> = {
     vk: t.room.hintVk,
     rutube: t.room.hintRutube,
     kodik: t.room.hintKodik,
+    file: t.room.hintFile,
   };
   const sourceHint = source ? hints[source.id] : undefined;
 
@@ -56,7 +62,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
       return;
     }
 
-    const parsed = parseAllowedMediaUrl(trimmed);
+    const parsed = parseAllowedMediaUrl(trimmed, { allowDirectMedia: isMar });
     if (!parsed) {
       setError(t.room.supportedPlatformsHint);
       return;
@@ -95,6 +101,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           value={sourceId}
           onChange={setSourceId}
           anyLinkLabel={t.room.anyLink}
+          sources={sources}
           disabled={disabled}
         />
       </div>
@@ -107,7 +114,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
           onChange={(e) => {
             const val = e.target.value;
             setUrl(val);
-            if (isLikelyDirectFileOrUnsupported(val)) {
+            if (isLikelyDirectFileOrUnsupported(val, isMar)) {
               setError(t.room.supportedPlatformsHint);
             } else if (error) {
               setError(null);

@@ -58,6 +58,7 @@ export interface Translations {
     hintVk: string;
     hintRutube: string;
     hintKodik: string;
+    hintFile: string;
     hdrezkaNotEmbeddableHint: string;
     tapToJoin: string;
     standbyViewer: string;

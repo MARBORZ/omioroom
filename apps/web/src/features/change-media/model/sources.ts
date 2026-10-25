@@ -16,3 +16,14 @@ export const VIDEO_SOURCES: readonly VideoSource[] = [
   { id: "vimeo", label: "Vimeo", types: [MediaType.VIMEO], example: "https://vimeo.com/…" },
   { id: "kodik", label: "Кино и сериалы (Kodik / Rezka)", types: [MediaType.KODIK], example: "https://kodikplayer.com/video/…" },
 ] as const;
+
+export const FILE_SOURCE: VideoSource = {
+  id: "file",
+  label: "MP4 / HLS",
+  types: [MediaType.HTML5, MediaType.HLS],
+  example: "https://…/video.mp4 or .m3u8",
+};
+
+export function getVideoSources(isPrivileged = false): readonly VideoSource[] {
+  return isPrivileged ? [...VIDEO_SOURCES, FILE_SOURCE] : VIDEO_SOURCES;
+}

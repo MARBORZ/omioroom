@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, Globe, Play, Film, Video, FileVideo } from "lucide-react";
-import { VIDEO_SOURCES } from "../model/sources.js";
+import { VIDEO_SOURCES, type VideoSource } from "../model/sources.js";
 import styles from "./source-select.module.scss";
 
 interface SourceSelectProps {
   value: string | null;
   onChange: (sourceId: string | null) => void;
   anyLinkLabel: string;
+  sources?: readonly VideoSource[];
   disabled?: boolean;
 }
 
@@ -31,12 +32,13 @@ export const SourceSelect: React.FC<SourceSelectProps> = ({
   value,
   onChange,
   anyLinkLabel,
+  sources = VIDEO_SOURCES,
   disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedSource = VIDEO_SOURCES.find((s) => s.id === value) ?? null;
+  const selectedSource = sources.find((s) => s.id === value) ?? null;
   const currentLabel = selectedSource ? selectedSource.label : anyLinkLabel;
 
   // Close on outside click
@@ -91,7 +93,7 @@ export const SourceSelect: React.FC<SourceSelectProps> = ({
             <span className={styles.optionText}>{anyLinkLabel}</span>
           </button>
 
-          {VIDEO_SOURCES.map((s) => (
+          {sources.map((s) => (
             <button
               key={s.id}
               type="button"
