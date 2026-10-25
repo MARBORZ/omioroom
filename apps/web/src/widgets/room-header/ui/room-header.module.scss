@@ -276,6 +276,73 @@
   display: inline;
 }
 
+/* Phones: three even columns, logo on the left, room number and viewers centred, buttons on the right.
+   (leftSection dissolves so the logo and the capsule become grid items of the header.) */
+@media (max-width: 720px) {
+  .header[data-layout="room-header"] {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .leftSection {
+    display: contents;
+  }
+
+  .brand {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .roomBadge {
+    grid-column: 2;
+    justify-self: center;
+    max-width: 100%;
+  }
+
+  .rightSection {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  /* The global 44px touch-target rule made the capsule taller than the header; the capsule is the tap target */
+  /* A small capsule, not a big pill */
+  .roomBadge {
+    padding: 0 1px;
+    box-shadow: none;
+
+    .roomChip,
+    .people,
+    .peopleBtn {
+      min-height: 24px !important;
+      min-width: 0 !important;
+      padding: 0 7px !important;
+      gap: 4px;
+      font-size: 11px !important;
+    }
+
+    .roomNum {
+      letter-spacing: 0.02em;
+    }
+
+    .copyIcon,
+    .usersIcon {
+      width: 10px;
+      height: 10px;
+    }
+
+    .badgeDivider {
+      height: 10px;
+    }
+  }
+
+  .iconBtn,
+  .leaveBtn {
+    min-height: 34px !important;
+    min-width: 34px !important;
+  }
+}
+
 @media (max-width: 640px) {
   .header {
     padding: 0 var(--space-3);

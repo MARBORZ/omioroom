@@ -879,7 +879,47 @@
     }
   }
 
-  .roomContainer [data-layout="room-header"] {
-    display: none !important;
+  /* The header shrinks to a small pill with the room number and viewers, floating over the corner of the video */
+  .roomContainer[data-cinema="true"] [data-layout="room-header"] {
+    position: fixed !important;
+    top: max(6px, env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: auto;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none;
+    z-index: 100;
+    display: flex !important;
+    pointer-events: none;
+
+    [class*="brand"],
+    [class*="rightSection"] {
+      display: none !important;
+    }
+
+    [class*="roomBadge"] {
+      pointer-events: auto;
+      background-color: rgba(0, 0, 0, 0.55);
+      border-color: rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      padding: 0 2px;
+      opacity: 0.85;
+    }
+
+    [class*="roomChip"],
+    [class*="peopleBtn"],
+    [class*="people"] {
+      padding: 2px 8px !important;
+      font-size: 11px !important;
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    [class*="roomNum"] {
+      color: #fff !important;
+    }
   }
 }
