@@ -3,17 +3,17 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 export type ThemeMode = "system" | "dark" | "light";
 export type DensityMode = "default" | "compact";
 export type ReducedMotionMode = "system" | "reduce" | "normal";
-export type ChatTextSize = "small" | "default" | "large";
-
-const CHAT_TEXT_SCALE: Record<ChatTextSize, number> = { small: 0.9, default: 1, large: 1.18 };
+export const CHAT_TEXT_SCALE_MIN = 0.8;
+export const CHAT_TEXT_SCALE_MAX = 1.5;
 
 export interface SettingsState {
   theme: ThemeMode;
   density: DensityMode;
   reducedMotion: ReducedMotionMode;
   soundNotifications: boolean;
-  chatTextSize: ChatTextSize;
-  setChatTextSize: (size: ChatTextSize) => void;
+  /** Chat text and bubbles scale, 1 = normal. */
+  chatTextScale: number;
+  setChatTextScale: (scale: number) => void;
   setTheme: (theme: ThemeMode) => void;
   setDensity: (density: DensityMode) => void;
   setReducedMotion: (mode: ReducedMotionMode) => void;
@@ -71,22 +71,27 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return stored === null ? true : stored === "true";
   });
 
-  const [chatTextSize, setChatTextSizeState] = useState<ChatTextSize>(() => {
-    if (typeof localStorage === "undefined") return "default";
+  const [chatTextScale, setChatTextScaleState] = useState<number>(() => {
+    if (typeof localStorage === "undefined") return 1;
     const stored = localStorage.getItem(STORAGE_KEY_CHAT_TEXT);
-    return stored === "small" || stored === "large" ? stored : "default";
+    // Older versions stored "small" | "default" | "large"
+    if (stored === "small") return 0.9;
+    if (stored === "large") return 1.2;
+    const n = Number(stored);
+    return stored !== null && Number.isFinite(n) && n >= CHAT_TEXT_SCALE_MIN && n <= CHAT_TEXT_SCALE_MAX ? n : 1;
   });
 
-  const setChatTextSize = (size: ChatTextSize) => {
-    setChatTextSizeState(size);
+  const setChatTextScale = (scale: number) => {
+    const clamped = Math.min(Math.max(Math.round(scale * 100) / 100, CHAT_TEXT_SCALE_MIN), CHAT_TEXT_SCALE_MAX);
+    setChatTextScaleState(clamped);
     try {
-      localStorage.setItem(STORAGE_KEY_CHAT_TEXT, size);
+      localStorage.setItem(STORAGE_KEY_CHAT_TEXT, String(clamped));
     } catch {}
   };
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--chat-font-scale", String(CHAT_TEXT_SCALE[chatTextSize]));
-  }, [chatTextSize]);
+    document.documentElement.style.setProperty("--chat-font-scale", String(chatTextScale));
+  }, [chatTextScale]);
 
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
@@ -166,8 +171,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         density,
         reducedMotion,
         soundNotifications,
-        chatTextSize,
-        setChatTextSize,
+        chatTextScale,
+        setChatTextScale,
         setTheme,
         setDensity,
         setReducedMotion,
@@ -187,8 +192,8 @@ export function useSettings(): SettingsState {
       density: "default",
       reducedMotion: "system",
       soundNotifications: true,
-      chatTextSize: "default",
-      setChatTextSize: () => {},
+      chatTextScale: 1,
+      setChatTextScale: () => {},
       setTheme: () => {},
       setDensity: () => {},
       setReducedMotion: () => {},

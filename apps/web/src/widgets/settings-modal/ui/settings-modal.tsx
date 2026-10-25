@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Sun, Moon, Monitor, Eye, Zap, Globe, Volume2, VolumeX } from "lucide-react";
-import { useSettings } from "../../../shared/lib/settings/index.js";
+import { CHAT_TEXT_SCALE_MAX, CHAT_TEXT_SCALE_MIN, useSettings } from "../../../shared/lib/settings/index.js";
 import {
   CHAT_WIDTH_EVENT,
   CHAT_WIDTH_MAX,
@@ -27,8 +27,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     density,
     reducedMotion,
     soundNotifications,
-    chatTextSize,
-    setChatTextSize,
+    chatTextScale,
+    setChatTextScale,
     setTheme,
     setDensity,
     setReducedMotion,
@@ -189,22 +189,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                 </button>
               </div>
             )}
-            <div className={styles.rangeLabel}>{t.settings.chatTextSize}</div>
-            <div className={styles.segmentedGroup} role="radiogroup" aria-label={t.settings.chatTextSize}>
-              {(["small", "default", "large"] as const).map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  role="radio"
-                  aria-checked={chatTextSize === size}
-                  className={`${styles.segmentBtn} ${chatTextSize === size ? styles.active : ""}`}
-                  onClick={() => setChatTextSize(size)}
-                >
-                  <span>
-                    {size === "small" ? t.settings.chatTextSmall : size === "large" ? t.settings.chatTextLarge : t.settings.chatTextDefault}
-                  </span>
-                </button>
-              ))}
+            <div className={styles.rangeRow}>
+              <span className={styles.rangeLabel}>
+                {t.settings.chatTextSize}: {Math.round(chatTextScale * 100)}%
+              </span>
+              <input
+                type="range"
+                className={styles.range}
+                min={Math.round(CHAT_TEXT_SCALE_MIN * 100)}
+                max={Math.round(CHAT_TEXT_SCALE_MAX * 100)}
+                step={5}
+                value={Math.round(chatTextScale * 100)}
+                aria-label={t.settings.chatTextSize}
+                onChange={(e) => setChatTextScale(Number(e.target.value) / 100)}
+              />
+              <button
+                type="button"
+                className={styles.rangeReset}
+                disabled={chatTextScale === 1}
+                onClick={() => setChatTextScale(1)}
+              >
+                {t.settings.chatWidthDefault}
+              </button>
             </div>
           </div>
 
