@@ -152,7 +152,12 @@ async function uploadWithProgress(bucket: string, name: string, file: Blob, onPr
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
       let message = `Ошибка загрузки (${xhr.status})`;
       try {
-        message = JSON.parse(xhr.responseText).message ?? message;
+        const body = JSON.parse(xhr.responseText);
+        message = body.message ?? message;
+        // Storage answers 400 with the real status in the body
+        if (String(body.statusCode) === "413" || /maximum allowed size|too large/i.test(String(body.message))) {
+          message = "Файл больше лимита хранилища проекта (на бесплатном тарифе Supabase это 50 МБ)";
+        }
       } catch {
         /* keep the status message */
       }
