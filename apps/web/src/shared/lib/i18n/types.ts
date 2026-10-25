@@ -346,6 +346,13 @@ export interface Translations {
     density: string;
     densityDefault: string;
     densityCompact: string;
+    chatSection: string;
+    chatWidth: string;
+    chatWidthDefault: string;
+    chatTextSize: string;
+    chatTextSmall: string;
+    chatTextDefault: string;
+    chatTextLarge: string;
     reducedMotion: string;
     motionSystem: string;
     motionReduced: string;

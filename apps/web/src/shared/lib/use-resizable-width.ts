@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CHAT_WIDTH_EVENT, CHAT_WIDTH_KEY } from "./chat-layout.js";
 
 export function clampWidth(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -52,6 +53,17 @@ export function useResizableWidth(storageKey: string, defaultPx: number, minPx: 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [update]);
+
+  // The settings slider changes the same stored width (event carries null when it is reset to the default)
+  useEffect(() => {
+    const onExternal = (e: Event) => {
+      if (storageKey !== CHAT_WIDTH_KEY) return;
+      const detail = (e as CustomEvent<number | null>).detail;
+      update(detail ?? defaultPx, false);
+    };
+    window.addEventListener(CHAT_WIDTH_EVENT, onExternal);
+    return () => window.removeEventListener(CHAT_WIDTH_EVENT, onExternal);
+  }, [storageKey, defaultPx, update]);
 
   return {
     width,

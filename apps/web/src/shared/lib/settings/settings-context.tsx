@@ -3,12 +3,17 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 export type ThemeMode = "system" | "dark" | "light";
 export type DensityMode = "default" | "compact";
 export type ReducedMotionMode = "system" | "reduce" | "normal";
+export type ChatTextSize = "small" | "default" | "large";
+
+const CHAT_TEXT_SCALE: Record<ChatTextSize, number> = { small: 0.9, default: 1, large: 1.18 };
 
 export interface SettingsState {
   theme: ThemeMode;
   density: DensityMode;
   reducedMotion: ReducedMotionMode;
   soundNotifications: boolean;
+  chatTextSize: ChatTextSize;
+  setChatTextSize: (size: ChatTextSize) => void;
   setTheme: (theme: ThemeMode) => void;
   setDensity: (density: DensityMode) => void;
   setReducedMotion: (mode: ReducedMotionMode) => void;
@@ -19,6 +24,7 @@ const STORAGE_KEY_THEME = "omioroom_theme";
 const STORAGE_KEY_DENSITY = "omioroom_density";
 const STORAGE_KEY_MOTION = "omioroom_reduced_motion";
 const STORAGE_KEY_SOUND = "omioroom_sound_notifications";
+const STORAGE_KEY_CHAT_TEXT = "omioroom_chat_text_size";
 
 const SettingsContext = createContext<SettingsState | null>(null);
 
@@ -64,6 +70,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const stored = localStorage.getItem(STORAGE_KEY_SOUND);
     return stored === null ? true : stored === "true";
   });
+
+  const [chatTextSize, setChatTextSizeState] = useState<ChatTextSize>(() => {
+    if (typeof localStorage === "undefined") return "default";
+    const stored = localStorage.getItem(STORAGE_KEY_CHAT_TEXT);
+    return stored === "small" || stored === "large" ? stored : "default";
+  });
+
+  const setChatTextSize = (size: ChatTextSize) => {
+    setChatTextSizeState(size);
+    try {
+      localStorage.setItem(STORAGE_KEY_CHAT_TEXT, size);
+    } catch {}
+  };
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--chat-font-scale", String(CHAT_TEXT_SCALE[chatTextSize]));
+  }, [chatTextSize]);
 
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
@@ -143,6 +166,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         density,
         reducedMotion,
         soundNotifications,
+        chatTextSize,
+        setChatTextSize,
         setTheme,
         setDensity,
         setReducedMotion,
@@ -162,6 +187,8 @@ export function useSettings(): SettingsState {
       density: "default",
       reducedMotion: "system",
       soundNotifications: true,
+      chatTextSize: "default",
+      setChatTextSize: () => {},
       setTheme: () => {},
       setDensity: () => {},
       setReducedMotion: () => {},

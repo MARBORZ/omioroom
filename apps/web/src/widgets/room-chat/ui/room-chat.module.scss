@@ -235,7 +235,7 @@
   width: fit-content;
   min-width: 0;
   padding: 6px 12px 8px 12px;
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-font-scale, 1));
   line-height: 1.36;
   word-break: normal;
   overflow-wrap: break-word;
@@ -1085,7 +1085,7 @@
   background: transparent !important;
   color: var(--color-text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-font-scale, 1));
   line-height: 1.45;
   padding: 7px 8px 7px 4px;
   min-width: 0;

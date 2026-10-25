@@ -1,6 +1,14 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, Sun, Moon, Monitor, Eye, Zap, Globe, Volume2, VolumeX } from "lucide-react";
 import { useSettings } from "../../../shared/lib/settings/index.js";
+import {
+  CHAT_WIDTH_EVENT,
+  CHAT_WIDTH_MAX,
+  CHAT_WIDTH_MIN,
+  clearChatWidth,
+  readChatWidth,
+  writeChatWidth,
+} from "../../../shared/lib/chat-layout.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
@@ -19,6 +27,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     density,
     reducedMotion,
     soundNotifications,
+    chatTextSize,
+    setChatTextSize,
     setTheme,
     setDensity,
     setReducedMotion,
@@ -26,6 +36,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   } = useSettings();
   const { lang, setLang, t } = useI18n();
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Chat width: the same value the drag handle in the room edits (only meaningful beside the video, i.e. wide screens)
+  const [chatWidth, setChatWidth] = useState<number | null>(() => readChatWidth());
+  useEffect(() => {
+    if (!isOpen) return;
+    setChatWidth(readChatWidth());
+    const onChange = (e: Event) => setChatWidth((e as CustomEvent<number | null>).detail);
+    window.addEventListener(CHAT_WIDTH_EVENT, onChange);
+    return () => window.removeEventListener(CHAT_WIDTH_EVENT, onChange);
+  }, [isOpen]);
+  const [wideScreen, setWideScreen] = useState(() => typeof window !== "undefined" && window.innerWidth > 720);
+  useEffect(() => {
+    const onResize = () => setWideScreen(window.innerWidth > 720);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -133,6 +160,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
               >
                 <span>{t.settings.densityCompact}</span>
               </button>
+            </div>
+          </div>
+
+          {/* Chat size */}
+          <div className={styles.section}>
+            <label className={styles.sectionLabel}>{t.settings.chatSection}</label>
+            {wideScreen && (
+              <div className={styles.rangeRow}>
+                <span className={styles.rangeLabel}>{t.settings.chatWidth}</span>
+                <input
+                  type="range"
+                  className={styles.range}
+                  min={CHAT_WIDTH_MIN}
+                  max={CHAT_WIDTH_MAX}
+                  step={10}
+                  value={chatWidth ?? Math.min(420, Math.round(window.innerWidth * 0.38))}
+                  aria-label={t.settings.chatWidth}
+                  onChange={(e) => writeChatWidth(Number(e.target.value))}
+                />
+                <button
+                  type="button"
+                  className={styles.rangeReset}
+                  disabled={chatWidth === null}
+                  onClick={() => clearChatWidth()}
+                >
+                  {t.settings.chatWidthDefault}
+                </button>
+              </div>
+            )}
+            <div className={styles.rangeLabel}>{t.settings.chatTextSize}</div>
+            <div className={styles.segmentedGroup} role="radiogroup" aria-label={t.settings.chatTextSize}>
+              {(["small", "default", "large"] as const).map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  role="radio"
+                  aria-checked={chatTextSize === size}
+                  className={`${styles.segmentBtn} ${chatTextSize === size ? styles.active : ""}`}
+                  onClick={() => setChatTextSize(size)}
+                >
+                  <span>
+                    {size === "small" ? t.settings.chatTextSmall : size === "large" ? t.settings.chatTextLarge : t.settings.chatTextDefault}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
