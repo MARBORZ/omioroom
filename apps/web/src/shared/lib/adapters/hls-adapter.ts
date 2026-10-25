@@ -1,4 +1,4 @@
-import Hls from "hls.js";
+import type Hls from "hls.js";
 import type { MediaSourceInfo } from "@omioroom/contracts";
 import type { PlayerAdapter, PlayerAdapterEvent } from "./player-adapter.js";
 
@@ -109,11 +109,15 @@ export class HlsPlayerAdapter implements PlayerAdapter {
   async loadMedia(media: MediaSourceInfo): Promise<void> {
     if (!this.videoElement) return;
 
-    if (Hls.isSupported()) {
+    // hls.js is large and only needed for HLS rooms: load it on first use
+    const { default: HlsLib } = await import("hls.js");
+    if (!this.videoElement) return;
+
+    if (HlsLib.isSupported()) {
       if (this.hls) {
         this.hls.destroy();
       }
-      this.hls = new Hls({
+      this.hls = new HlsLib({
         enableWorker: true,
         // Watch-party videos are mostly long VODs: buffer well ahead, and drop what is far behind
         // so a five-hour video does not exhaust memory.
@@ -124,15 +128,30 @@ export class HlsPlayerAdapter implements PlayerAdapter {
       });
       this.hls.loadSource(media.canonicalUrl);
       this.hls.attachMedia(this.videoElement);
-      this.hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          this.emit({
-            type: "error",
-            currentTime: 0,
-            duration: 0,
-            error: `HLS fatal error: ${data.details}`,
-          });
+      let networkRetries = 0;
+      this.hls.on(HlsLib.Events.ERROR, (_event, data) => {
+        if (!data.fatal) return;
+        // Connection to the stream's server dropped or the decoder choked: let hls.js try to recover first
+        if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR && networkRetries < 8) {
+          networkRetries += 1;
+          const hls = this.hls;
+          setTimeout(() => hls?.startLoad(), Math.min(1500 * networkRetries, 10000));
+          return;
         }
+        if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR && networkRetries < 8) {
+          networkRetries += 1;
+          this.hls?.recoverMediaError();
+          return;
+        }
+        this.emit({
+          type: "error",
+          currentTime: 0,
+          duration: 0,
+          error: `HLS fatal error: ${data.details}`,
+        });
+      });
+      this.hls.on(HlsLib.Events.FRAG_LOADED, () => {
+        networkRetries = 0;
       });
     } else if (this.videoElement.canPlayType("application/vnd.apple.mpegurl")) {
       // Native Apple HLS (Safari)

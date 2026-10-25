@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "./providers/session-context.js";
 import ReactDOM from "react-dom/client";
 import { I18nProvider, useI18n } from "../shared/lib/i18n/index.js";
@@ -6,16 +6,16 @@ import { SettingsProvider } from "../shared/lib/settings/index.js";
 import { isBackendConfigured } from "../shared/api/supabase.js";
 import { backend } from "../shared/api/backend.js";
 import { SessionProvider } from "./providers/session-provider.js";
-import { HomePage } from "../pages/home/ui/home-page.js";
-import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
-import { RoomPage } from "../pages/room/ui/room-page.js";
-import { InvitePage } from "../pages/invite/ui/invite-page.js";
-import { IdentityPage } from "../pages/identity/ui/identity-page.js";
+const HomePage = lazy(() => import("../pages/home/ui/home-page.js").then((m) => ({ default: m.HomePage })));
+const MyRoomsPage = lazy(() => import("../pages/my-rooms/ui/my-rooms-page.js").then((m) => ({ default: m.MyRoomsPage })));
+const RoomPage = lazy(() => import("../pages/room/ui/room-page.js").then((m) => ({ default: m.RoomPage })));
+const InvitePage = lazy(() => import("../pages/invite/ui/invite-page.js").then((m) => ({ default: m.InvitePage })));
+const IdentityPage = lazy(() => import("../pages/identity/ui/identity-page.js").then((m) => ({ default: m.IdentityPage })));
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
 import { BootSplash } from "./boot-splash.js";
 import { DocumentMeta } from "./document-meta.js";
-import { ContentPage } from "../pages/content/ui/content-page.js";
+const ContentPage = lazy(() => import("../pages/content/ui/content-page.js").then((m) => ({ default: m.ContentPage })));
 import { findContentPage } from "../content/index.js";
 import { ConnectionNotice } from "../shared/ui/connection-notice/connection-notice.js";
 import { ToastContainer, showToast } from "../shared/ui/toast/toast.js";
@@ -303,7 +303,9 @@ const MainApp: React.FC = () => {
     <>
       <BootSplash ready={sessionReady} />
       <ConnectionNotice status={connectionStatus} />
-      <MainScreens />
+      <Suspense fallback={null}>
+        <MainScreens />
+      </Suspense>
       <ToastContainer />
     </>
   );
@@ -316,7 +318,9 @@ export const App: React.FC = () => {
     return (
       <SettingsProvider>
         <I18nProvider>
-          <ContentPage page={contentPage} />
+          <Suspense fallback={null}>
+            <ContentPage page={contentPage} />
+          </Suspense>
         </I18nProvider>
       </SettingsProvider>
     );

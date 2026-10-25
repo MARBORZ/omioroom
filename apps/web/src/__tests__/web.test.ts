@@ -383,9 +383,9 @@ describe("Web Utilities", () => {
     }
   });
 
-  it("verifies round component protection against collapsing into ovals, cinema light theme, and mobile chat styles", () => {
-    const fs = require("node:fs");
-    const path = require("node:path");
+  it("verifies round component protection against collapsing into ovals, cinema light theme, and mobile chat styles", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
 
     const chatScss = fs.readFileSync(
       path.resolve(__dirname, "../widgets/room-chat/ui/room-chat.module.scss"),

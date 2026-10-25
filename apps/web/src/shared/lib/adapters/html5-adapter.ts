@@ -1,12 +1,18 @@
 import type { MediaSourceInfo } from "@omioroom/contracts";
 import type { PlayerAdapter, PlayerAdapterEvent } from "./player-adapter.js";
 
+const MAX_RETRIES = 8;
+
 export class Html5PlayerAdapter implements PlayerAdapter {
   private videoElement: HTMLVideoElement | null = null;
   private listeners = new Set<(event: PlayerAdapterEvent) => void>();
   private bufferingState = false;
   private wantPlaying = false;
   private currentRate = 1;
+  private mediaUrl: string | null = null;
+  private retries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private resumeAt = 0;
 
   async attach(container: HTMLElement): Promise<void> {
     container.innerHTML = "";
@@ -109,6 +115,13 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     });
 
     video.addEventListener("error", () => {
+      // A dropped connection to the file server: give it a few chances to come back before reporting a failure.
+      // (code 2 = network, 4 = source not reachable/supported; 1 = aborted by us, 3 = decode: not retried)
+      const code = video.error?.code;
+      if ((code === 2 || code === 4) && this.mediaUrl && this.retries < MAX_RETRIES) {
+        this.scheduleRetry(video);
+        return;
+      }
       this.emit({
         type: "error",
         currentTime: video.currentTime,
@@ -116,10 +129,46 @@ export class Html5PlayerAdapter implements PlayerAdapter {
         error: video.error?.message || "Failed to load video",
       });
     });
+
+    video.addEventListener("canplay", () => {
+      this.retries = 0;
+    });
+  }
+
+  private scheduleRetry(video: HTMLVideoElement) {
+    if (this.retryTimer) return;
+    this.resumeAt = video.currentTime || this.resumeAt;
+    this.retries += 1;
+    this.bufferingState = true;
+    this.emit({ type: "buffering", currentTime: this.resumeAt, duration: video.duration || 0 });
+    const delay = Math.min(1500 * 2 ** (this.retries - 1), 15000);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (!this.videoElement || !this.mediaUrl) return;
+      const at = this.resumeAt;
+      const v = this.videoElement;
+      v.src = this.mediaUrl;
+      v.addEventListener(
+        "loadedmetadata",
+        () => {
+          if (at > 0) v.currentTime = at;
+          if (this.wantPlaying) void v.play().catch(() => {});
+        },
+        { once: true }
+      );
+      v.load();
+    }, delay);
   }
 
   async loadMedia(media: MediaSourceInfo): Promise<void> {
     if (!this.videoElement) return;
+    this.mediaUrl = media.canonicalUrl;
+    this.retries = 0;
+    this.resumeAt = 0;
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
     this.videoElement.src = media.canonicalUrl;
     this.videoElement.load();
   }
@@ -192,6 +241,9 @@ export class Html5PlayerAdapter implements PlayerAdapter {
   }
 
   destroy(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+    this.mediaUrl = null;
     if (this.videoElement) {
       this.videoElement.pause();
       this.videoElement.src = "";
