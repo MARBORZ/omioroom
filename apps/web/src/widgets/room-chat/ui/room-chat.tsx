@@ -138,8 +138,11 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   // The action bar (reactions, reply, copy...) opens on right-click, or on a long press on touch screens, as in Telegram
   const barOpenedAtRef = useRef(0);
   const messagePressRef = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  // The pressed bubble sinks slightly while a finger holds it, then springs back (as in Telegram)
+  const [pressedId, setPressedId] = useState<string | null>(null);
   const openActionBar = useCallback((msgId: string) => {
     barOpenedAtRef.current = Date.now();
+    setPressedId(null);
     setActiveMessageId(msgId);
     try {
       navigator.vibrate?.(8);
@@ -150,6 +153,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const cancelMessagePress = useCallback(() => {
     if (messagePressRef.current) clearTimeout(messagePressRef.current.timer);
     messagePressRef.current = null;
+    setPressedId(null);
   }, []);
   const PRESS_SKIP = `a, input, textarea, .${styles.actionBar}, .${styles.reactionBadge}, .${styles.reactionStack}`;
   const handleMessageContextMenu = useCallback(
@@ -166,6 +170,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       if (e.pointerType === "mouse") return;
       if ((e.target as HTMLElement | null)?.closest(PRESS_SKIP)) return;
       cancelMessagePress();
+      setPressedId(msgId);
       messagePressRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -738,6 +743,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
               key={m.id}
               id={`msg-${m.id}`}
               className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${shouldAnimate ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
+              data-pressed={pressedId === m.id ? "true" : undefined}
               onClick={(e) => handleMessageTap(e, m.id)}
               onContextMenu={(e) => handleMessageContextMenu(e, m.id)}
               onPointerDown={(e) => handleMessagePressStart(e, m.id)}
