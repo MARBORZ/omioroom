@@ -18,7 +18,7 @@ import { ResizeHandle } from "../../../shared/ui/resize-handle/resize-handle.js"
 import { useResizableWidth } from "../../../shared/lib/use-resizable-width.js";
 import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
-import { openRoomChannel, broadcastChatReaction, broadcastChatDeleted, type RoomChannelStatus } from "../../../shared/api/realtime.js";
+import { openRoomChannel, sendTyping, broadcastChatReaction, broadcastChatDeleted, type RoomChannelStatus } from "../../../shared/api/realtime.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
 import { clearStoredActiveRoom } from "../../../shared/lib/active-room.js";
 import {
@@ -60,6 +60,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [chatLoading, setChatLoading] = useState(true);
   const [channelStatus, setChannelStatus] = useState<RoomChannelStatus>("connecting");
   const [presentIds, setPresentIds] = useState<string[] | null>(null);
+  // Who is typing right now: userId -> name. Entries expire on their own if the "stopped" signal is lost.
+  const [typing, setTyping] = useState<Record<string, string>>({});
+  const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Default to media picker if no video is loaded and user can control; otherwise chat
   const canControl = snapshot.canControl;
@@ -395,7 +398,32 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
     const close = openRoomChannel(roomId, user.id, {
       onPlayback: applyPlayback,
+      onTyping: ({ userId: tUserId, name, typing: isTyping }) => {
+        if (tUserId === user.id) return;
+        clearTimeout(typingTimers.current[tUserId]);
+        if (!isTyping) {
+          setTyping((prev) => {
+            const { [tUserId]: _gone, ...rest } = prev;
+            return rest;
+          });
+          return;
+        }
+        setTyping((prev) => (prev[tUserId] === name ? prev : { ...prev, [tUserId]: name }));
+        typingTimers.current[tUserId] = setTimeout(() => {
+          setTyping((prev) => {
+            const { [tUserId]: _gone, ...rest } = prev;
+            return rest;
+          });
+        }, 5000);
+      },
       onChat: (msg) => {
+        // A sent message ends that person's "typing"
+        clearTimeout(typingTimers.current[msg.senderId]);
+        setTyping((prev) => {
+          if (!(msg.senderId in prev)) return prev;
+          const { [msg.senderId]: _gone, ...rest } = prev;
+          return rest;
+        });
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100)));
         if (msg.senderId !== user.id && !chatVisibleRef.current) setUnreadMessages((n) => n + 1);
       },
@@ -745,6 +773,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     }
   };
 
+  const handleTypingChange = useCallback(
+    (isTyping: boolean) => {
+      if (!user) return;
+      sendTyping(snapshot.room.id, { userId: user.id, name: user.displayName, typing: isTyping });
+    },
+    [user, snapshot.room.id]
+  );
+
   const handleSendChat = async (text: string, image: File | null) => {
     const path = image ? await backend.uploadChatImage(snapshot.room.id, image) : null;
     await backend.sendChat(snapshot.room.id, text, path);
@@ -836,6 +872,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   useEffect(() => {
     if (chatVisible) setUnreadMessages(0);
   }, [chatVisible, messages.length]);
+  // Only people who have the chat in front of them see who is typing
+  const [pageVisible, setPageVisible] = useState(() => typeof document === "undefined" || document.visibilityState === "visible");
+  useEffect(() => {
+    const onVis = () => setPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+  const typingNames = chatVisible && pageVisible ? Object.values(typing) : [];
   const unreadLabel = unreadMessages > 99 ? "99+" : String(unreadMessages);
 
   // Presence is live; fall back to the seat state from the database until it syncs
@@ -1153,6 +1197,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 onDeleteMessage={handleDeleteMessage}
                 isOwner={snapshot.isOwner}
                 canControl={canControl}
+                typingNames={typingNames}
+                onTypingChange={handleTypingChange}
               />
             </div>
 
@@ -1285,6 +1331,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 onDeleteMessage={handleDeleteMessage}
                 isOwner={snapshot.isOwner}
                 canControl={canControl}
+                typingNames={typingNames}
+                onTypingChange={handleTypingChange}
               />
             </div>
           </div>

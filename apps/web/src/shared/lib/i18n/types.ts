@@ -222,6 +222,9 @@ export interface Translations {
     replyTo: string;
     cancelReply: string;
     youAreMuted: string;
+    typingOne: string;
+    typingTwo: string;
+    typingMany: string;
     mutedNotice: string;
     linksNotAllowed: string;
     report: string;

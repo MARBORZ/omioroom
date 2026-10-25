@@ -24,6 +24,8 @@ export interface RoomChannelHandlers {
   onMemberChanged: () => void;
   /** Someone read the chat up to this time (read receipts). */
   onChatSeen?: (userId: string, seenAt: string) => void;
+  /** Someone started or stopped typing in the chat (broadcast, never stored). */
+  onTyping?: (data: { userId: string; name: string; typing: boolean }) => void;
   /** User ids currently present in the room channel. */
   onPresence: (userIds: string[]) => void;
   onStatus: (status: RoomChannelStatus) => void;
@@ -63,6 +65,8 @@ export function mapPlaybackRow(row: PlaybackRow): RoomPlaybackStateDto {
  * Subscribes to everything that changes in one room. Row changes are filtered by RLS on the
  * server, so only members receive them; presence only drives the "online" dots.
  */
+const openChannels = new Map<string, ReturnType<typeof supabase.channel>>();
+
 export function openRoomChannel(roomId: string, userId: string, handlers: RoomChannelHandlers): () => void {
   const channel = supabase.channel(`room:${roomId}`, { config: { presence: { key: userId } } });
 
@@ -92,6 +96,10 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
     )
     .on("broadcast", { event: "chat_reaction" }, (event) => {
       if (event.payload) handlers.onReactionBroadcast?.(event.payload);
+    })
+    .on("broadcast", { event: "typing" }, (event) => {
+      const p = event.payload as { userId?: string; name?: string; typing?: boolean } | undefined;
+      if (p?.userId && typeof p.name === "string") handlers.onTyping?.({ userId: p.userId, name: p.name, typing: Boolean(p.typing) });
     })
     .on("broadcast", { event: "chat_deleted" }, (event) => {
       if (event.payload?.messageId) handlers.onChatDeleted?.(event.payload.messageId);
@@ -147,9 +155,16 @@ export function openRoomChannel(roomId: string, userId: string, handlers: RoomCh
       }
     });
 
+  openChannels.set(roomId, channel);
   return () => {
+    if (openChannels.get(roomId) === channel) openChannels.delete(roomId);
     void supabase.removeChannel(channel);
   };
+}
+
+/** Tells the others in the room that this user is (or stopped) typing. Fire-and-forget; nothing is stored. */
+export function sendTyping(roomId: string, payload: { userId: string; name: string; typing: boolean }): void {
+  void openChannels.get(roomId)?.send({ type: "broadcast", event: "typing", payload });
 }
 
 export function broadcastChatReaction(

@@ -26,6 +26,10 @@ interface RoomChatProps {
   onDeleteMessage?: (messageId: string) => Promise<void>;
   isOwner?: boolean;
   canControl?: boolean;
+  /** Names of the people typing right now (already limited to when this chat is on screen). */
+  typingNames?: string[];
+  /** Called with true while the user is typing (throttled) and false when they stop or send. */
+  onTypingChange?: (typing: boolean) => void;
 }
 
 interface ReplyState {
@@ -85,6 +89,8 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   participants,
   roomId,
   isMuted = false,
+  typingNames = [],
+  onTypingChange,
   onReportMessage,
   onToggleReaction,
   onDeleteMessage,
@@ -214,6 +220,35 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // "Typing" is announced at most every 2.5 s while text is being entered, and withdrawn when it stops
+  const lastTypingSentRef = useRef(0);
+  const typingActiveRef = useRef(false);
+  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notifyTyping = useCallback(
+    (active: boolean) => {
+      if (!onTypingChange) return;
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      typingIdleRef.current = null;
+      if (!active) {
+        if (typingActiveRef.current) onTypingChange(false);
+        typingActiveRef.current = false;
+        lastTypingSentRef.current = 0;
+        return;
+      }
+      const now = Date.now();
+      if (!typingActiveRef.current || now - lastTypingSentRef.current > 2500) {
+        onTypingChange(true);
+        typingActiveRef.current = true;
+        lastTypingSentRef.current = now;
+      }
+      typingIdleRef.current = setTimeout(() => notifyTyping(false), 4000);
+    },
+    [onTypingChange]
+  );
+  useEffect(() => () => {
+    if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+  }, []);
   const isNearBottomRef = useRef(true);
   const lastMarkedIdRef = useRef<string | null>(null);
   const markSeenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -430,6 +465,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     if (isMuted || sending) return;
     const trimmed = text.trim();
     if (!trimmed && !image) return;
+    notifyTyping(false);
 
     let quoteSnippet = "";
     if (replyTo) {
@@ -924,6 +960,21 @@ export const RoomChat: React.FC<RoomChatProps> = ({
         </button>
       )}
 
+      {typingNames.length > 0 && (
+        <div className={styles.typingLabel} role="status" aria-live="polite">
+          <span className={styles.typingDots} aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+          {typingNames.length === 1
+            ? t.chat.typingOne.replace("{name}", typingNames[0]!)
+            : typingNames.length === 2
+              ? t.chat.typingTwo.replace("{a}", typingNames[0]!).replace("{b}", typingNames[1]!)
+              : t.chat.typingMany}
+        </div>
+      )}
+
       {/* Telegram-style Input Area */}
       <form onSubmit={handleSubmit} className={styles.form} onPaste={handlePaste}>
         {/* Reply preview bar */}
@@ -1032,7 +1083,11 @@ export const RoomChat: React.FC<RoomChatProps> = ({
             rows={1}
             value={text}
             maxLength={CHAT_MAX_TEXT_LENGTH}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              notifyTyping(e.target.value.trim().length > 0);
+            }}
+            onBlur={() => notifyTyping(false)}
             onKeyDown={handleKeyDown}
             placeholder={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
             aria-label={isMuted ? t.chat.youAreMuted : t.chat.placeholder}
