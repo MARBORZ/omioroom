@@ -225,6 +225,12 @@ export interface Translations {
     typingOne: string;
     typingTwo: string;
     typingMany: string;
+    reactionsTitle: string;
+    reactionsAll: string;
+    reactionsYou: string;
+    reactionsRemoveHint: string;
+    reactionsClose: string;
+    unknownMember: string;
     mutedNotice: string;
     linksNotAllowed: string;
     report: string;

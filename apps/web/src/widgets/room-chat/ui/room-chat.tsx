@@ -211,6 +211,30 @@ export const RoomChat: React.FC<RoomChatProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+  // Who reacted: the message whose reactions are open in the sheet, and the emoji filter inside it
+  const [reactionSheetId, setReactionSheetId] = useState<string | null>(null);
+  const [reactionFilter, setReactionFilter] = useState<string | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressedRef = useRef(false);
+  const nameOf = useCallback(
+    (userId: string) =>
+      userId === user?.id
+        ? t.chat.reactionsYou
+        : participants?.find((p) => p.userId === userId)?.displayName ?? t.chat.unknownMember,
+    [participants, user?.id, t.chat.reactionsYou, t.chat.unknownMember]
+  );
+  const openReactionSheet = useCallback((messageId: string, emoji: string | null = null) => {
+    setReactionFilter(emoji);
+    setReactionSheetId(messageId);
+  }, []);
+  useEffect(() => {
+    if (!reactionSheetId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setReactionSheetId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reactionSheetId]);
   const [isDragging, setIsDragging] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyState | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
@@ -285,7 +309,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       if (!isReadingNow()) return;
       lastMarkedIdRef.current = lastOther.id;
       backend.markChatSeen(roomId, lastOther.id).catch(() => {});
-    }, 1200);
+    }, 150);
   }, [messages, roomId, user?.id, isReadingNow]);
 
   // The chat appears (tab switched, panel opened) or the browser tab returns to the foreground
@@ -757,30 +781,86 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                   </div>
                 )}
 
-                {/* Reaction badges under bubble */}
-                {hasReactions && (
-                  <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
-                    {Object.entries(m.reactions).map(([emoji, uids]) => {
-                      if (!uids || uids.length === 0) return null;
-                      const hasReacted = Boolean(user?.id && uids.includes(user.id));
-                      return (
+                {/* Reaction badges under bubble: a few show as chips, many collapse into one stack that opens the list */}
+                {hasReactions && (() => {
+                  const entries = Object.entries(m.reactions).filter(([, uids]) => uids && uids.length > 0);
+                  if (entries.length === 0) return null;
+                  const total = entries.reduce((n, [, uids]) => n + uids.length, 0);
+                  const mine = entries.some(([, uids]) => Boolean(user?.id && uids.includes(user.id)));
+                  if (entries.length > 3) {
+                    const top = [...entries].sort((x, y) => y[1].length - x[1].length).slice(0, 3);
+                    return (
+                      <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
                         <button
-                          key={emoji}
                           type="button"
-                          className={`${styles.reactionBadge} ${hasReacted ? styles.reactionBadgeActive : ""}`}
+                          className={`${styles.reactionStack} ${mine ? styles.reactionBadgeActive : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            onToggleReaction?.(m.id, emoji);
+                            openReactionSheet(m.id);
                           }}
-                          title={`${emoji} (${uids.length})`}
+                          aria-label={`${t.chat.reactionsTitle}: ${total}`}
+                          title={`${t.chat.reactionsTitle}: ${total}`}
                         >
-                          <span className={styles.reactionEmoji}>{emoji}</span>
-                          <span className={styles.reactionCount}>{uids.length}</span>
+                          <span className={styles.reactionStackEmojis}>
+                            {top.map(([emoji]) => (
+                              <span key={emoji} className={styles.reactionStackEmoji}>
+                                {emoji}
+                              </span>
+                            ))}
+                          </span>
+                          <span className={styles.reactionCount}>{total}</span>
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className={`${styles.reactionsRow} ${isOwn ? styles.reactionsRowOwn : ""}`}>
+                      {entries.map(([emoji, uids]) => {
+                        const hasReacted = Boolean(user?.id && uids.includes(user.id));
+                        const startLongPress = () => {
+                          longPressedRef.current = false;
+                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = setTimeout(() => {
+                            longPressedRef.current = true;
+                            openReactionSheet(m.id, emoji);
+                          }, 450);
+                        };
+                        const cancelLongPress = () => {
+                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        };
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`${styles.reactionBadge} ${hasReacted ? styles.reactionBadgeActive : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // A long press already opened the list: do not also toggle the reaction
+                              if (longPressedRef.current) {
+                                longPressedRef.current = false;
+                                return;
+                              }
+                              onToggleReaction?.(m.id, emoji);
+                            }}
+                            onPointerDown={startLongPress}
+                            onPointerUp={cancelLongPress}
+                            onPointerLeave={cancelLongPress}
+                            onPointerCancel={cancelLongPress}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              openReactionSheet(m.id, emoji);
+                            }}
+                            title={`${emoji} ${uids.map(nameOf).join(", ")}`}
+                          >
+                            <span className={styles.reactionEmoji}>{emoji}</span>
+                            <span className={styles.reactionCount}>{uids.length}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Floating action bar: Reactions + Reply + Delete + Report */}
@@ -1106,6 +1186,88 @@ export const RoomChat: React.FC<RoomChatProps> = ({
           </button>
         </div>
       </form>
+
+      {reactionSheetId && (() => {
+        const target = messages.find((x) => x.id === reactionSheetId);
+        const entries = Object.entries(target?.reactions ?? {}).filter(([, uids]) => uids && uids.length > 0);
+        if (!target || entries.length === 0) return null;
+        const total = entries.reduce((n, [, uids]) => n + uids.length, 0);
+        const rows = entries
+          .filter(([emoji]) => reactionFilter === null || emoji === reactionFilter)
+          .flatMap(([emoji, uids]) => uids.map((uid) => ({ emoji, uid })));
+        return (
+          <div className={styles.reactionSheetBackdrop} onClick={() => setReactionSheetId(null)}>
+            <div
+              className={styles.reactionSheet}
+              role="dialog"
+              aria-label={t.chat.reactionsTitle}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={styles.reactionSheetGrip} aria-hidden />
+              <div className={styles.reactionSheetHead}>
+                <span className={styles.reactionSheetTitle}>{t.chat.reactionsTitle}</span>
+                <button
+                  type="button"
+                  className={styles.reactionSheetClose}
+                  onClick={() => setReactionSheetId(null)}
+                  aria-label={t.chat.reactionsClose}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className={styles.reactionSheetTabs} role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={reactionFilter === null}
+                  className={`${styles.reactionSheetTab} ${reactionFilter === null ? styles.reactionSheetTabActive : ""}`}
+                  onClick={() => setReactionFilter(null)}
+                >
+                  {t.chat.reactionsAll} {total}
+                </button>
+                {entries.map(([emoji, uids]) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    role="tab"
+                    aria-selected={reactionFilter === emoji}
+                    className={`${styles.reactionSheetTab} ${reactionFilter === emoji ? styles.reactionSheetTabActive : ""}`}
+                    onClick={() => setReactionFilter(emoji)}
+                  >
+                    {emoji} {uids.length}
+                  </button>
+                ))}
+              </div>
+              <ul className={styles.reactionSheetList}>
+                {rows.map(({ emoji, uid }) => {
+                  const isMine = uid === user?.id;
+                  const name = nameOf(uid);
+                  return (
+                    <li key={`${emoji}-${uid}`}>
+                      <button
+                        type="button"
+                        className={styles.reactionSheetRow}
+                        disabled={!isMine}
+                        title={isMine ? t.chat.reactionsRemoveHint : undefined}
+                        onClick={() => {
+                          if (isMine) void onToggleReaction?.(target.id, emoji);
+                        }}
+                      >
+                        <span className={styles.reactionSheetAvatar}>{(name.trim()[0] ?? "?").toUpperCase()}</span>
+                        <span className={styles.reactionSheetName}>
+                          {name}
+                          {isMine && <span className={styles.reactionSheetHint}>{t.chat.reactionsRemoveHint}</span>}
+                        </span>
+                        <span className={styles.reactionSheetEmoji}>{emoji}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        );
+      })()}
 
       {zoomUrl &&
         typeof document !== "undefined" &&

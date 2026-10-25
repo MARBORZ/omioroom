@@ -1632,3 +1632,228 @@
     opacity: 0.8;
   }
 }
+
+/* Many reactions collapse into one stack chip */
+.reactionStack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 12px;
+  background: var(--color-surface-raised, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+  animation: reaction-pop 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  transition: background 160ms ease, transform 160ms ease;
+
+  &:hover {
+    background: var(--color-surface-hover);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  &.reactionBadgeActive {
+    background: var(--color-accent-soft, rgba(230, 92, 59, 0.18));
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+}
+
+.reactionStackEmojis {
+  display: inline-flex;
+  align-items: center;
+}
+
+.reactionStackEmoji {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+
+  & + & {
+    margin-left: -8px;
+  }
+}
+
+/* Bottom sheet: who reacted with what */
+.reactionSheetBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: inherit;
+  animation: reaction-sheet-fade 160ms ease-out both;
+}
+
+.reactionSheet {
+  width: 100%;
+  max-height: 72%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-radius: 16px 16px 0 0;
+  padding: 6px var(--space-3) max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  animation: reaction-sheet-rise 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.reactionSheetGrip {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  margin: 2px auto 8px;
+}
+
+.reactionSheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.reactionSheetTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.reactionSheetClose {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+}
+
+.reactionSheetTabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.reactionSheetTab {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reactionSheetTabActive {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.reactionSheetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.reactionSheetRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--color-text);
+  text-align: left;
+  cursor: default;
+
+  &:not(:disabled) {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-surface-hover);
+    }
+  }
+}
+
+.reactionSheetAvatar {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-surface-active);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reactionSheetName {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reactionSheetHint {
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.reactionSheetEmoji {
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+@keyframes reaction-sheet-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes reaction-sheet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
