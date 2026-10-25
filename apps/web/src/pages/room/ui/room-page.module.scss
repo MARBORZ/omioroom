@@ -803,7 +803,7 @@
 
 /* Phone held sideways: nothing but the picture. No frame, no header; the controls shrink to one thin row laid over
    the bottom of the video. */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .mainContent[data-cinema="true"] {
     grid-template-columns: minmax(0, 1fr) !important;
 
@@ -850,6 +850,7 @@
 
       [class*="buttonsRow"] {
         flex: 0 0 auto;
+        width: auto !important;
         gap: 2px;
       }
 
@@ -922,4 +923,29 @@
       color: #fff !important;
     }
   }
+}
+
+/* Cinema controls fade away while nobody touches the player and come back on any movement or tap. */
+.mainContent[data-cinema="true"] .videoSection > [class*="controlsContainer"] {
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.mainContent[data-cinema="true"] .videoSection[data-controls="hidden"] {
+  cursor: none;
+
+  > [class*="controlsContainer"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* Players inside an iframe swallow pointer events; this strip catches them while the controls are hidden */
+.controlsHotzone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  z-index: 4;
+  touch-action: manipulation;
 }

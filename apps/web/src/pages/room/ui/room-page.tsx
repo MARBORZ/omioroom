@@ -267,6 +267,31 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const isPlaying = playback?.status === PlaybackStatus.PLAYING;
   const isLocalCommandRef = useRef(false);
   const videoSectionRef = useRef<HTMLDivElement>(null);
+
+  // Cinema controls fade out after a few idle seconds while the video plays; any movement or tap brings them back
+  const [controlsHidden, setControlsHidden] = useState(false);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeControls = useCallback(() => {
+    setControlsHidden(false);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => setControlsHidden(true), 3500);
+  }, []);
+  useEffect(() => {
+    if (cinema && isPlaying) {
+      wakeControls();
+    } else {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+      setControlsHidden(false);
+    }
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [cinema, isPlaying, wakeControls]);
+  useEffect(() => {
+    if (!cinema) return;
+    window.addEventListener("keydown", wakeControls);
+    return () => window.removeEventListener("keydown", wakeControls);
+  }, [cinema, wakeControls]);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 
   const prevTabRef = useRef<RoomTab>(activeTab);
@@ -949,7 +974,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         style={{ "--chat-width": `${chatSize.width}px` } as React.CSSProperties}
       >
         {/* Cinematic Video Player Section */}
-        <div className={styles.videoSection} ref={videoSectionRef} data-layout="room-video">
+        <div
+          className={styles.videoSection}
+          ref={videoSectionRef}
+          data-layout="room-video"
+          data-controls={cinema && controlsHidden ? "hidden" : undefined}
+          onPointerMove={cinema ? wakeControls : undefined}
+          onPointerDown={cinema ? wakeControls : undefined}
+          onTouchStart={cinema ? wakeControls : undefined}
+        >
           <VideoPlayerFrame
             ref={videoPlayerRef}
             playbackState={playback}
@@ -989,6 +1022,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             currentUserId={user?.id}
           />
 
+          {cinema && controlsHidden && (
+            <div className={styles.controlsHotzone} onPointerDown={wakeControls} onPointerMove={wakeControls} aria-hidden />
+          )}
           <PlaybackControls
             isPlaying={isPlaying}
             currentTime={currentTime}
