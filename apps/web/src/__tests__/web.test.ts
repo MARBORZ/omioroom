@@ -10,6 +10,7 @@ import { Skeleton } from "../shared/ui/skeleton/skeleton.js";
 import { Loader } from "../shared/ui/loader/loader.js";
 import { MediaType, parseMediaUrl } from "@omioroom/contracts";
 import { YouTubePlayerAdapter } from "../shared/lib/adapters/youtube-adapter.js";
+import { KodikPlayerAdapter } from "../shared/lib/adapters/kodik-adapter.js";
 import { snapSeekDelta } from "../widgets/video-player/ui/video-player-frame.js";
 import { parseMessageText } from "../widgets/room-chat/ui/room-chat.js";
 import { ChatImage } from "../widgets/room-chat/ui/chat-image.js";
@@ -201,6 +202,9 @@ describe("Web Utilities", () => {
   });
 
   it("YouTubePlayerAdapter uses cueVideoById on existing player and destroys cleanly", async () => {
+    const origWindow = (globalThis as any).window;
+    const origDocument = (globalThis as any).document;
+
     const cueFn = vi.fn();
     const loadFn = vi.fn();
     const destroyFn = vi.fn();
@@ -213,50 +217,170 @@ describe("Web Utilities", () => {
       getDuration: () => 120,
     };
 
-    (globalThis as any).window = globalThis;
-    (globalThis as any).document = {
-      getElementById: vi.fn(() => null),
-      createElement: vi.fn(() => ({})),
-      body: { appendChild: vi.fn() },
+    try {
+      (globalThis as any).window = globalThis;
+      (globalThis as any).document = {
+        getElementById: vi.fn(() => null),
+        createElement: vi.fn(() => ({})),
+        body: { appendChild: vi.fn() },
+      };
+      (globalThis as any).window.YT = {
+        Player: vi.fn((_target: any, options: any) => {
+          setTimeout(() => options?.events?.onReady?.(), 10);
+          return fakePlayer;
+        }),
+      };
+
+      const container = { innerHTML: "" } as unknown as HTMLElement;
+      const adapter = new YouTubePlayerAdapter();
+      await adapter.attach(container);
+
+      // Initial load creates player
+      const media1 = {
+        type: MediaType.YOUTUBE,
+        canonicalUrl: "https://www.youtube.com/watch?v=vid1",
+        sourceId: "vid1",
+      };
+      await adapter.loadMedia(media1);
+
+      // Simulate player ready
+      (adapter as any).player = fakePlayer;
+      (adapter as any).isReady = true;
+
+      // Load second media on existing ready player -> must use cueVideoById, NEVER loadVideoById
+      const media2 = {
+        type: MediaType.YOUTUBE,
+        canonicalUrl: "https://www.youtube.com/watch?v=vid2",
+        sourceId: "vid2",
+      };
+      await adapter.loadMedia(media2);
+
+      expect(cueFn).toHaveBeenCalledWith("vid2", 0);
+      expect(loadFn).not.toHaveBeenCalled();
+
+      // Destroy clears container and destroys player
+      adapter.destroy();
+      expect(destroyFn).toHaveBeenCalled();
+      expect(container.innerHTML).toBe("");
+    } finally {
+      (globalThis as any).window = origWindow;
+      (globalThis as any).document = origDocument;
+    }
+  });
+
+  it("KodikPlayerAdapter embeds iframe, sends kodik_player_api commands, and reacts to events", async () => {
+    const postMessageSpy = vi.fn();
+    const mockIframe = {
+      src: "",
+      style: { cssText: "" },
+      allow: "",
+      allowFullscreen: false,
+      contentWindow: {
+        postMessage: postMessageSpy,
+      },
     };
-    (globalThis as any).window.YT = {
-      Player: vi.fn((_target: any, options: any) => {
-        setTimeout(() => options?.events?.onReady?.(), 10);
-        return fakePlayer;
+
+    const container = {
+      innerHTML: "",
+      appendChild: vi.fn(),
+    } as unknown as HTMLElement;
+
+    const listeners: Record<string, ((e: any) => void)[]> = {};
+    const mockWindow = {
+      addEventListener: vi.fn((event: string, fn: any) => {
+        listeners[event] = listeners[event] || [];
+        listeners[event].push(fn);
+      }),
+      removeEventListener: vi.fn((event: string, fn: any) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((l) => l !== fn);
+        }
       }),
     };
 
-    const container = { innerHTML: "" } as unknown as HTMLElement;
-    const adapter = new YouTubePlayerAdapter();
-    await adapter.attach(container);
+    const origWindow = (globalThis as any).window;
+    const origDocument = (globalThis as any).document;
 
-    // Initial load creates player
-    const media1 = {
-      type: MediaType.YOUTUBE,
-      canonicalUrl: "https://www.youtube.com/watch?v=vid1",
-      sourceId: "vid1",
-    };
-    await adapter.loadMedia(media1);
+    try {
+      (globalThis as any).window = mockWindow;
+      (globalThis as any).document = {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName === "iframe") return mockIframe as any;
+          return origDocument?.createElement ? origDocument.createElement(tagName) : {};
+        }),
+      };
 
-    // Simulate player ready
-    (adapter as any).player = fakePlayer;
-    (adapter as any).isReady = true;
+      const adapter = new KodikPlayerAdapter();
+      await adapter.attach(container);
 
-    // Load second media on existing ready player -> must use cueVideoById, NEVER loadVideoById
-    const media2 = {
-      type: MediaType.YOUTUBE,
-      canonicalUrl: "https://www.youtube.com/watch?v=vid2",
-      sourceId: "vid2",
-    };
-    await adapter.loadMedia(media2);
+      const media = {
+        type: MediaType.KODIK,
+        sourceId: "91873_060cab655974d46835b3f4405807acc2",
+        canonicalUrl: "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p",
+      };
 
-    expect(cueFn).toHaveBeenCalledWith("vid2", 0);
-    expect(loadFn).not.toHaveBeenCalled();
+      await adapter.loadMedia(media);
+      expect(mockIframe.src).toBe(media.canonicalUrl);
+      expect(container.appendChild).toHaveBeenCalledWith(mockIframe);
 
-    // Destroy clears container and destroys player
-    adapter.destroy();
-    expect(destroyFn).toHaveBeenCalled();
-    expect(container.innerHTML).toBe("");
+      // Test commands
+      await adapter.play();
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        { key: "kodik_player_api", value: { method: "play" } },
+        "*"
+      );
+
+      await adapter.pause();
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        { key: "kodik_player_api", value: { method: "pause" } },
+        "*"
+      );
+
+      await adapter.seek(42);
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        { key: "kodik_player_api", value: { method: "seek", seconds: 42 } },
+        "*"
+      );
+
+      await adapter.setPlaybackRate(1.5);
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        { key: "kodik_player_api", value: { method: "speed", speed: 1.5 } },
+        "*"
+      );
+
+      adapter.setMuted(true);
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        { key: "kodik_player_api", value: { method: "mute" } },
+        "*"
+      );
+
+      // Test incoming events
+      const events: any[] = [];
+      adapter.onStateChange((e) => events.push(e));
+
+      // Simulate play event
+      const trigger = (data: any) => {
+        (listeners["message"] || []).forEach((fn) =>
+          fn({
+            source: mockIframe.contentWindow,
+            data,
+          })
+        );
+      };
+
+      trigger({ key: "kodik_player_play" });
+      expect(events.some((e) => e.type === "play")).toBe(true);
+
+      // Simulate time update
+      trigger({ key: "kodik_player_time_update", value: 30 });
+      expect(adapter.getCurrentTime()).toBeCloseTo(30, 0);
+
+      adapter.destroy();
+      expect(container.innerHTML).toBe("");
+    } finally {
+      (globalThis as any).window = origWindow;
+      (globalThis as any).document = origDocument;
+    }
   });
 
   it("verifies round component protection against collapsing into ovals, cinema light theme, and mobile chat styles", () => {
@@ -608,9 +732,9 @@ describe("Web Utilities", () => {
     const { VIDEO_SOURCES } = await import("../features/change-media/model/sources.js");
     const { parseAllowedMediaUrl } = await import("@omioroom/contracts");
 
-    // Only 4 platforms supported
+    // Supported platforms
     const sourceIds = VIDEO_SOURCES.map((s) => s.id);
-    expect(sourceIds).toEqual(["youtube", "vk", "rutube", "vimeo"]);
+    expect(sourceIds).toEqual(["youtube", "vk", "rutube", "vimeo", "kodik"]);
     expect(sourceIds).not.toContain("file");
     expect(sourceIds).not.toContain("hls");
 
@@ -619,6 +743,7 @@ describe("Web Utilities", () => {
     expect(parseAllowedMediaUrl("https://vk.com/video-12345_67890")).not.toBeNull();
     expect(parseAllowedMediaUrl("https://rutube.ru/video/a7ef5ba8f8f6a3f7d6b5aeb3ef2e7bbe/")).not.toBeNull();
     expect(parseAllowedMediaUrl("https://vimeo.com/12345678")).not.toBeNull();
+    expect(parseAllowedMediaUrl("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p")).not.toBeNull();
 
     // Direct files, HLS, or unsupported domains return null
     expect(parseAllowedMediaUrl("https://example.com/video.mp4")).toBeNull();

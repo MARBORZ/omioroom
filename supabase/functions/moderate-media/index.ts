@@ -65,6 +65,9 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
     }
     return { verdict: "unknown", reason: null, text: "" };
   }
+  if (type === "kodik") {
+    return { verdict: "ok", reason: null, text: "Kodik Player", title: "Kodik Player" };
+  }
   return { verdict: "unknown", reason: null, text: "" };
 }
 

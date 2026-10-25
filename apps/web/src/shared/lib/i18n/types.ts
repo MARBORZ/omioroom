@@ -57,6 +57,8 @@ export interface Translations {
     playerError: string;
     hintVk: string;
     hintRutube: string;
+    hintKodik: string;
+    hdrezkaNotEmbeddableHint: string;
     tapToJoin: string;
     standbyViewer: string;
     standbyViewerDesc: string;

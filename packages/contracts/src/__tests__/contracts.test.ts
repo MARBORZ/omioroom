@@ -106,6 +106,21 @@ describe("Contracts and Domain Logic", () => {
       canonicalUrl: "https://player.vimeo.com/video/76979871",
     });
 
+    // Kodik
+    const kodikMovie = parseMediaUrl("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p");
+    expect(kodikMovie).toEqual({
+      type: MediaType.KODIK,
+      sourceId: "91873_060cab655974d46835b3f4405807acc2",
+      canonicalUrl: "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p",
+    });
+
+    const kodikSeria = parseMediaUrl("https://kodik.info/seria/12345/abcdef0123456789?season=1&episode=2");
+    expect(kodikSeria).toEqual({
+      type: MediaType.KODIK,
+      sourceId: "12345_abcdef0123456789",
+      canonicalUrl: "https://kodik.info/seria/12345/abcdef0123456789?season=1&episode=2",
+    });
+
     // Invalid url
     expect(parseMediaUrl("not-a-url")).toBeNull();
     expect(parseMediaUrl("https://example.com/movie.avi")).toBeNull();
@@ -205,14 +220,17 @@ describe("Contracts and Domain Logic", () => {
     expect(parsed?.canonicalUrl).toContain("hash=abc123def");
     const ru = parseMediaUrl('<iframe src="//vkvideo.ru/video_ext.php?oid=1&id=2&hash=ff00"></iframe>');
     expect(ru?.canonicalUrl.startsWith("https://vkvideo.ru/")).toBe(true);
+    const kodikIframe = parseMediaUrl('<iframe src="//kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p" allowfullscreen></iframe>');
+    expect(kodikIframe?.type).toBe("kodik");
+    expect(kodikIframe?.canonicalUrl).toBe("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p");
   });
 
-
-  it("rooms accept only the four platforms: direct files and streams are refused", () => {
+  it("rooms accept platforms: direct files and streams are refused", () => {
     expect(parseAllowedMediaUrl("https://www.youtube.com/watch?v=jNQXAC9IVRw")?.type).toBe("youtube");
     expect(parseAllowedMediaUrl("https://vk.com/video-126483390_456239718")?.type).toBe("vk");
     expect(parseAllowedMediaUrl("https://rutube.ru/video/a7ef5ba8f8f6a3f7d6b5aeb3ef2e7bbe/")?.type).toBe("rutube");
     expect(parseAllowedMediaUrl("https://vimeo.com/22439234")?.type).toBe("vimeo");
+    expect(parseAllowedMediaUrl("https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p")?.type).toBe("kodik");
     expect(parseAllowedMediaUrl("https://example.com/movie.mp4")).toBeNull();
     expect(parseAllowedMediaUrl("https://example.com/stream/live.m3u8")).toBeNull();
     expect(parseAllowedMediaUrl("https://example.com/")).toBeNull();

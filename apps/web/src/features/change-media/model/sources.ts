@@ -14,4 +14,5 @@ export const VIDEO_SOURCES: readonly VideoSource[] = [
   { id: "vk", label: "VK Video", types: [MediaType.VK], example: "https://vk.com/video-123_456" },
   { id: "rutube", label: "RuTube", types: [MediaType.RUTUBE], example: "https://rutube.ru/video/…/" },
   { id: "vimeo", label: "Vimeo", types: [MediaType.VIMEO], example: "https://vimeo.com/…" },
+  { id: "kodik", label: "Кино и сериалы (Kodik / Rezka)", types: [MediaType.KODIK], example: "https://kodikplayer.com/video/…" },
 ] as const;

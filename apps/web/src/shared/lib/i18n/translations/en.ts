@@ -58,6 +58,8 @@ export const en: Translations = {
     playerError: "This video cannot be opened. It may be private, removed, or not allow embedding.",
     hintVk: "Open the video on VK → Share → Export and paste the whole code or the src address (it contains the hash). A regular video page link will not work.",
     hintRutube: "A regular link works. For private videos include the key (?p=…) in the link.",
+    hintKodik: "Paste a Kodik player link (kodikplayer.com / kodik.info / aniqit.com) or <iframe> code. It includes movies, TV shows, and HDRezka voiceovers with full synchronization.",
+    hdrezkaNotEmbeddableHint: "HDRezka directly blocks third-party player embedding. For this movie, please use a Kodik player link (which includes HDRezka voice acting) or copy the player's <iframe> embed code.",
     tapToJoin: "Tap to watch together",
     standbyViewer: "No video yet",
     standbyViewerDesc: "Whoever controls the room will add it.",

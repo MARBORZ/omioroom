@@ -18,6 +18,7 @@ export const MediaType = {
   RUTUBE: "rutube",
   VIMEO: "vimeo",
   HLS: "hls",
+  KODIK: "kodik",
 } as const;
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
@@ -109,7 +110,9 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
     const iframeSrc = trimmed.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
     if (iframeSrc?.[1]) {
       trimmed = iframeSrc[1].replace(/&amp;/g, "&");
-      if (trimmed.startsWith("//")) trimmed = `https:${trimmed}`;
+    }
+    if (trimmed.startsWith("//")) {
+      trimmed = `https:${trimmed}`;
     }
 
     const url = new URL(trimmed);
@@ -234,6 +237,30 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
           type: MediaType.VIMEO,
           sourceId: match[1],
           canonicalUrl: `https://player.vimeo.com/video/${match[1]}${hash ? `?h=${hash}` : ""}`,
+        };
+      }
+    }
+
+    // Kodik (movies, series, anime: /video/<id>/<hash>, /seria/<id>/<hash>, /serial/<id>/<hash>)
+    const hostLower = url.hostname.toLowerCase();
+    const isKodikHost =
+      hostLower.endsWith("kodikplayer.com") ||
+      hostLower.endsWith("kodik.info") ||
+      hostLower.endsWith("kodik.biz") ||
+      hostLower.endsWith("kodik.cc") ||
+      hostLower.endsWith("aniqit.com") ||
+      hostLower.endsWith("anivod.com");
+
+    if (isKodikHost) {
+      const match = url.pathname.match(/\/(video|seria|serial)\/(\d+)\/([a-zA-Z0-9]+)(?:\/([a-zA-Z0-9]+))?/);
+      if (match) {
+        const [, kind, id, hash, quality] = match;
+        const qualityPart = quality ? `/${quality}` : "";
+        const search = url.search || "";
+        return {
+          type: MediaType.KODIK,
+          sourceId: `${id}_${hash}`,
+          canonicalUrl: `https://${hostLower}/${kind}/${id}/${hash}${qualityPart}${search}`,
         };
       }
     }

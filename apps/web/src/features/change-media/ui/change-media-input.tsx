@@ -42,6 +42,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
   const hints: Record<string, string> = {
     vk: t.room.hintVk,
     rutube: t.room.hintRutube,
+    kodik: t.room.hintKodik,
   };
   const sourceHint = source ? hints[source.id] : undefined;
 
@@ -50,6 +51,11 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     setError(null);
 
     const trimmed = url.trim();
+    if (/https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:hdrezka|rezka)\.[a-z]+/i.test(trimmed)) {
+      setError(t.room.hdrezkaNotEmbeddableHint);
+      return;
+    }
+
     const parsed = parseAllowedMediaUrl(trimmed);
     if (!parsed) {
       setError(t.room.supportedPlatformsHint);
