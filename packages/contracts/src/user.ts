@@ -11,6 +11,15 @@ export type UserKind = (typeof UserKind)[keyof typeof UserKind];
 
 export const userKindSchema = z.nativeEnum(UserKind);
 
+export const UserRole = {
+  USER: "user",
+  ADMIN: "admin",
+} as const;
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const userRoleSchema = z.nativeEnum(UserRole);
+
 export const displayNameSchema = z
   .string()
   .trim()
@@ -24,6 +33,7 @@ export const displayNameSchema = z
 export const userSchema = z.object({
   id: z.string().uuid(),
   kind: userKindSchema,
+  role: userRoleSchema,
   displayName: displayNameSchema,
   normalizedName: z.string().min(1),
   createdAt: z.string().datetime(),

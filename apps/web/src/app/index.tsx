@@ -10,6 +10,7 @@ import { HomePage } from "../pages/home/ui/home-page.js";
 import { MyRoomsPage } from "../pages/my-rooms/ui/my-rooms-page.js";
 import { RoomPage } from "../pages/room/ui/room-page.js";
 import { InvitePage } from "../pages/invite/ui/invite-page.js";
+import { DashboardPage, isDashboardLocation } from "../pages/dashboard/ui/dashboard-page.js";
 import { IdentityPage } from "../pages/identity/ui/identity-page.js";
 import type { RoomSnapshotDto } from "@omioroom/contracts";
 import { applyMotionTokens } from "../shared/config/motion.js";
@@ -312,6 +313,19 @@ export const App: React.FC = () => {
       <SettingsProvider>
         <I18nProvider>
           <ContentPage page={contentPage} />
+        </I18nProvider>
+      </SettingsProvider>
+    );
+  }
+  if (isBackendConfigured && isDashboardLocation()) {
+    // Admin-only area: /dashboard, or the root of dashboard.<domain>. Access is enforced by RLS, not by hiding the page.
+    return (
+      <SettingsProvider>
+        <I18nProvider>
+          <SessionProvider>
+            <DashboardPage />
+            <ToastContainer />
+          </SessionProvider>
         </I18nProvider>
       </SettingsProvider>
     );

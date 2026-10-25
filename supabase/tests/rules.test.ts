@@ -1005,13 +1005,21 @@ describe("maintenance", () => {
       expect(await send(r.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("MEDIA_UNSUPPORTED");
     }
 
-    // Direct files and streams are permitted for account Mar
-    const marUser = await t.newUser({ anonymous: false, username: "mar" });
-    const marRoom = await room(marUser, "private");
-    const sendMar = (roomId: string, media: object) =>
-      code(t.as(marUser).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
-    expect(await sendMar(marRoom.id, { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" })).toBe("OK");
-    expect(await sendMar(marRoom.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("OK");
+    // Direct files and streams are permitted only for admins; a display name never grants it
+    const fake = await t.newUser({ anonymous: false, username: "mar" });
+    // roles are granted from the SQL editor (no signed-in user), never by a client
+    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'user' where id = '${fake}'`);
+    const fakeRoom = await room(fake, "private");
+    const direct = { type: "html5", sourceId: "x", canonicalUrl: "https://example.com/v.mp4" };
+    const sendAs = (u: string, roomId: string, media: object) =>
+      code(t.as(u).rpc("player_command", { p_room_id: roomId, p_command_id: randomUUID(), p_type: "change-media", p_media: media }));
+    expect(await sendAs(fake, fakeRoom.id, direct)).toBe("MEDIA_UNSUPPORTED");
+
+    const admin = await t.newUser({ anonymous: false, username: "boss" });
+    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
+    const adminRoom = await room(admin, "private");
+    expect(await sendAs(admin, adminRoom.id, direct)).toBe("OK");
+    expect(await sendAs(admin, adminRoom.id, { type: "hls", sourceId: "x", canonicalUrl: "https://example.com/a.m3u8" })).toBe("OK");
 
     await t.db.exec("create or replace function public.direct_media_allowed() returns boolean language sql immutable as $$ select true $$");
   });

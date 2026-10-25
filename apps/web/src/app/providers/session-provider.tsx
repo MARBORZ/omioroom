@@ -9,6 +9,7 @@ import { SessionContext } from "./session-context.js";
 interface ProfileRow {
   id: string;
   kind: User["kind"];
+  role: User["role"];
   display_name: string;
   username: string | null;
   created_at: string;
@@ -19,6 +20,7 @@ function toUser(row: ProfileRow): User {
   return {
     id: row.id,
     kind: row.kind,
+    role: row.role ?? "user",
     displayName: row.display_name,
     normalizedName: row.display_name.trim().toLowerCase(),
     createdAt: row.created_at,
