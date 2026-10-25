@@ -225,6 +225,7 @@ export interface Translations {
     typingOne: string;
     typingTwo: string;
     typingMany: string;
+    copy: string;
     reactionsTitle: string;
     reactionsAll: string;
     reactionsYou: string;

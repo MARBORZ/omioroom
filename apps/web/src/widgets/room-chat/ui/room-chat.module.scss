@@ -555,8 +555,7 @@
   left: 10px;
 }
 
-.messageRow:hover .actionBar,
-.messageRow:focus-within .actionBar,
+.messageRow:has(:focus-visible) .actionBar,
 .actionBarActive {
   opacity: 1;
   visibility: visible;
@@ -1855,5 +1854,14 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+/* Touch screens: a long press opens the action bar, so the system text-selection callout must stay out of the way */
+@media (pointer: coarse) {
+  .messageRow {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag, Trash2, Clock } from "lucide-react";
+import { ImagePlus, SendHorizontal, X, UploadCloud, MessageSquare, Reply, ChevronDown, Check, CheckCheck, MicOff, Flag, Trash2, Clock, Copy } from "lucide-react";
 import { CHAT_MAX_TEXT_LENGTH, CHAT_IMAGE_MIME_TYPES, type ChatMessageDto, type ParticipantDto } from "@omioroom/contracts";
 import { useSession } from "../../../app/providers/session-context.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
@@ -135,6 +135,57 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     });
   }, [messages]);
 
+  // The action bar (reactions, reply, copy...) opens on right-click, or on a long press on touch screens, as in Telegram
+  const barOpenedAtRef = useRef(0);
+  const messagePressRef = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  const openActionBar = useCallback((msgId: string) => {
+    barOpenedAtRef.current = Date.now();
+    setActiveMessageId(msgId);
+    try {
+      navigator.vibrate?.(8);
+    } catch {
+      // vibration is optional
+    }
+  }, []);
+  const cancelMessagePress = useCallback(() => {
+    if (messagePressRef.current) clearTimeout(messagePressRef.current.timer);
+    messagePressRef.current = null;
+  }, []);
+  const PRESS_SKIP = `a, input, textarea, .${styles.actionBar}, .${styles.reactionBadge}, .${styles.reactionStack}`;
+  const handleMessageContextMenu = useCallback(
+    (e: React.MouseEvent, msgId: string) => {
+      if ((e.target as HTMLElement | null)?.closest(PRESS_SKIP)) return;
+      e.preventDefault();
+      openActionBar(msgId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openActionBar]
+  );
+  const handleMessagePressStart = useCallback(
+    (e: React.PointerEvent, msgId: string) => {
+      if (e.pointerType === "mouse") return;
+      if ((e.target as HTMLElement | null)?.closest(PRESS_SKIP)) return;
+      cancelMessagePress();
+      messagePressRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        timer: setTimeout(() => {
+          messagePressRef.current = null;
+          openActionBar(msgId);
+        }, 480),
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openActionBar, cancelMessagePress]
+  );
+  const handleMessagePressMove = useCallback(
+    (e: React.PointerEvent) => {
+      const press = messagePressRef.current;
+      if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelMessagePress();
+    },
+    [cancelMessagePress]
+  );
+
   const handleMessageTap = useCallback(
     (e: React.MouseEvent, msgId: string) => {
       // Don't trigger if clicked on an interactive child
@@ -166,19 +217,14 @@ export const RoomChat: React.FC<RoomChatProps> = ({
       }
 
       lastTapRef.current = { id: msgId, time: now };
-
-      // Single tap: toggle action bar
-      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-      tapTimerRef.current = setTimeout(() => {
-        setActiveMessageId((prev) => (prev === msgId ? null : msgId));
-        tapTimerRef.current = null;
-      }, 240);
     },
     [onToggleReaction]
   );
 
   useEffect(() => {
     const handleOutsideClick = () => {
+      // The click that ends a long press must not close the bar it just opened
+      if (Date.now() - barOpenedAtRef.current < 500) return;
       setActiveMessageId(null);
       setConfirmDeleteId(null);
     };
@@ -693,6 +739,12 @@ export const RoomChat: React.FC<RoomChatProps> = ({
               id={`msg-${m.id}`}
               className={`${styles.messageRow} ${isOwn ? styles.ownRow : styles.otherRow} ${shouldAnimate ? (isOwn ? styles.ownNew : styles.otherNew) : ""} ${groupClass} ${isHighlighted ? styles.highlighted : ""}`}
               onClick={(e) => handleMessageTap(e, m.id)}
+              onContextMenu={(e) => handleMessageContextMenu(e, m.id)}
+              onPointerDown={(e) => handleMessagePressStart(e, m.id)}
+              onPointerMove={handleMessagePressMove}
+              onPointerUp={cancelMessagePress}
+              onPointerCancel={cancelMessagePress}
+              onPointerLeave={cancelMessagePress}
             >
               <div className={`${styles.bubbleWrapper} ${isOwn ? styles.bubbleWrapperOwn : styles.bubbleWrapperOther}`}>
                 {/* Double-tap burst reaction animation */}
@@ -849,6 +901,7 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                             onPointerCancel={cancelLongPress}
                             onContextMenu={(e) => {
                               e.preventDefault();
+                              e.stopPropagation();
                               openReactionSheet(m.id, emoji);
                             }}
                             title={`${emoji} ${uids.map(nameOf).join(", ")}`}
@@ -919,6 +972,20 @@ export const RoomChat: React.FC<RoomChatProps> = ({
                     >
                       <Reply size={13} />
                     </button>
+                    {parsed.body && (
+                      <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(parsed.body).then(() => showToast(t.common.copied, { id: "chat-copied" })).catch(() => {});
+                          setActiveMessageId(null);
+                        }}
+                        title={t.chat.copy}
+                        aria-label={t.chat.copy}
+                      >
+                        <Copy size={13} />
+                      </button>
+                    )}
                     {(isOwn || isOwner || canControl) && onDeleteMessage && (
                       <button
                         type="button"

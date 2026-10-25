@@ -231,6 +231,7 @@ export const en: Translations = {
     typingOne: "{name} is typing…",
     typingTwo: "{a} and {b} are typing…",
     typingMany: "Several people are typing…",
+    copy: "Copy",
     reactionsTitle: "Reactions",
     reactionsAll: "All",
     reactionsYou: "You",

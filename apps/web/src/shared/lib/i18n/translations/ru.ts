@@ -231,6 +231,7 @@ export const ru: Translations = {
     typingOne: "{name} печатает…",
     typingTwo: "{a} и {b} печатают…",
     typingMany: "Несколько человек печатают…",
+    copy: "Копировать",
     reactionsTitle: "Реакции",
     reactionsAll: "Все",
     reactionsYou: "Вы",
