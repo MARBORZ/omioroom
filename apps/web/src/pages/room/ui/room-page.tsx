@@ -473,6 +473,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           clearStoredActiveRoom();
           showToast(tRef.current.room.bannedNotice, { id: "room-banned" });
           onLeaveRef.current();
+        } else if (state === "ROOM_FULL") {
+          // Our seat was taken while we were away
+          clearStoredActiveRoom();
+          showToast(tRef.current.home.errors.roomFull, { id: "room-full" });
+          onLeaveRef.current();
         } else if (state === "NOT_MEMBER") {
           if (initialSnapshot.room.visibility === "public") {
             try {

@@ -1086,6 +1086,41 @@ describe("maintenance", () => {
     expect(await set(priv, yt("bbbbbbbbbbb"))).toBe("OK");
     expect((await t.as(owner).rpc("get_room_snapshot", { p_room_id: priv.id })).playback.media).not.toBeNull();
   });
+  it("a member whose seat lapsed cannot come back into a full room, but the owner always can", async () => {
+    const owner = await t.newUser();
+    const a = await t.newUser();
+    const b = await t.newUser();
+    const r = await room(owner, "public");
+    await t.as(owner).rpc("update_room_settings", { p_room_id: r.id, p_max_participants: 2, p_control_mode: "owner" });
+    expect(await code(t.as(a).rpc("join_room", { p_global_id: r.globalId }))).toBe("OK");
+    // a goes to a background tab: the seat lapses and b takes it
+    await t.db.exec(`reset role; update public.member_activity set last_active_at = now() - interval '5 minutes' where user_id = '${a}'`);
+    expect(await code(t.as(b).rpc("join_room", { p_global_id: r.globalId }))).toBe("OK");
+    expect(await t.as(a).rpc("heartbeat_room", { p_room_id: r.id })).toBe("ROOM_FULL");
+    expect(await code(t.as(a).rpc("resume_room", { p_room_id: r.id }))).toBe("ROOM_FULL");
+    // the owner's own seat lapses too, and they still get back in
+    await t.db.exec(`reset role; update public.member_activity set last_active_at = now() - interval '5 minutes' where user_id = '${owner}'`);
+    expect(await t.as(owner).rpc("heartbeat_room", { p_room_id: r.id })).toBe("OK");
+  });
+  it("making a room public keeps its video and puts the room into the recommendations", async () => {
+    const admin = await t.newUser({ anonymous: false, username: "boss3" });
+    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
+    const viewer = await t.newUser();
+    const r = await room(admin, "private");
+    const url = "https://x.supabase.co/storage/v1/object/public/videos/ab12-film.mp4";
+    await t.db.exec(`insert into public.videos (title, storage_path, mime_type, size_bytes, duration_seconds, thumbnail_path) values ('Мой фильм', 'ab12-film.mp4', 'video/mp4', 10, 60, 'ab12-film.jpg')`);
+    expect(await code(t.as(admin).rpc("player_command", { p_room_id: r.id, p_command_id: randomUUID(), p_type: "change-media", p_media: { type: "html5", sourceId: url, canonicalUrl: url } }))).toBe("OK");
+
+    await t.as(admin).rpc("set_visibility", { p_room_id: r.id, p_visibility: "public" });
+    expect((await t.as(admin).rpc("get_room_snapshot", { p_room_id: r.id })).playback.media.canonicalUrl).toBe(url);
+
+    const list = await t.as(viewer).rpc("get_recommendations");
+    expect(list.find((x: any) => x.globalId === r.globalId)).toMatchObject({
+      title: "Мой фильм",
+      platform: "html5",
+      thumbnailUrl: "https://x.supabase.co/storage/v1/object/public/video-thumbnails/ab12-film.jpg",
+    });
+  });
   it("recommendations list open rooms in use with a video on, rank them simply, and respect privacy, bans and reports", async () => {
     const o1 = await t.newUser();
     const o2 = await t.newUser();

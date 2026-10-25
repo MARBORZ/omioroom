@@ -60,7 +60,7 @@ export const backend = {
    * the room is gone, closed, or the user is no longer in it.
    */
   resumeRoom: (roomId: string) => rpc<RoomSnapshotDto>("resume_room", { p_room_id: roomId }),
-  /** Heartbeat that reports the state: "OK" | "ROOM_NOT_FOUND" | "ROOM_CLOSED" | "NOT_MEMBER" | "BANNED". */
+  /** Heartbeat that reports the state: "OK" | "ROOM_NOT_FOUND" | "ROOM_CLOSED" | "NOT_MEMBER" | "BANNED" | "ROOM_FULL". */
   heartbeatRoom: (roomId: string) => rpc<string>("heartbeat_room", { p_room_id: roomId }),
   /** Open rooms being watched right now, ranked for this viewer, for the home page. */
   getRecommendations: (limit = 12) => rpc<RecommendationDto[]>("get_recommendations", { p_limit: limit }),

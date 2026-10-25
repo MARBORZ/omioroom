@@ -176,6 +176,11 @@ const MainScreens: React.FC = () => {
         showToast(t.room.bannedNotice, { id: "room-banned" });
         setIsResuming(false);
         setScreen("home");
+      } else if (err?.code === "ROOM_FULL") {
+        clearStoredActiveRoom();
+        showToast(t.home.errors.roomFull, { id: "room-full" });
+        setIsResuming(false);
+        setScreen("home");
       } else if (err?.code === "NOT_MEMBER") {
         clearStoredActiveRoom();
         showToast(t.room.notMemberNotice, { id: "room-not-member" });
