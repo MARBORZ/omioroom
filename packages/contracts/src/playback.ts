@@ -283,7 +283,18 @@ export function parseAllowedMediaUrl(
   options?: { allowDirectMedia?: boolean }
 ): MediaSourceInfo | null {
   const parsed = parseMediaUrl(inputUrl);
+  if (options?.allowDirectMedia) {
+    if (parsed && /^https?:\/\//i.test(parsed.canonicalUrl)) return parsed;
+    // Admins are not limited to known platforms: any http(s) address is played as a file (or an HLS stream)
+    try {
+      const url = new URL(inputUrl.trim());
+      if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+      const type = url.pathname.toLowerCase().includes(".m3u8") ? MediaType.HLS : MediaType.HTML5;
+      return { type, sourceId: url.toString(), canonicalUrl: url.toString() };
+    } catch {
+      return null;
+    }
+  }
   if (!parsed) return null;
-  if (options?.allowDirectMedia) return parsed;
   return !DIRECT_MEDIA_TYPES.includes(parsed.type) ? parsed : null;
 }

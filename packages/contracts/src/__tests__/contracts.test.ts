@@ -236,5 +236,10 @@ describe("Contracts and Domain Logic", () => {
     expect(parseAllowedMediaUrl("https://example.com/movie.mp4", { allowDirectMedia: true })?.type).toBe("html5");
     expect(parseAllowedMediaUrl("https://example.com/stream/live.m3u8", { allowDirectMedia: true })?.type).toBe("hls");
     expect(parseAllowedMediaUrl("https://example.com/")).toBeNull();
+    // admins: any http(s) address plays as a file
+    expect(parseAllowedMediaUrl("https://abc.trycloudflare.com/film.mkv", { allowDirectMedia: true })?.type).toBe("html5");
+    expect(parseAllowedMediaUrl("https://example.com/", { allowDirectMedia: true })?.type).toBe("html5");
+    expect(parseAllowedMediaUrl("ftp://example.com/a.mp4", { allowDirectMedia: true })).toBeNull();
+    expect(parseAllowedMediaUrl("not a url", { allowDirectMedia: true })).toBeNull();
   });
 });
