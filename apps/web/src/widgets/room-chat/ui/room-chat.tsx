@@ -514,7 +514,8 @@ export const RoomChat: React.FC<RoomChatProps> = ({
     textareaRef.current?.focus();
 
     setError(null);
-    setSending(true);
+    // Text goes out without blocking the next message (the server rate-limits); only an image upload is exclusive
+    if (currentImage) setSending(true);
     try {
       await onSend(finalText, currentImage);
       isNearBottomRef.current = true;

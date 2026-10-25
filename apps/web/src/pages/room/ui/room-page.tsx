@@ -828,7 +828,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   const handleSendChat = async (text: string, image: File | null) => {
     const path = image ? await backend.uploadChatImage(snapshot.room.id, image) : null;
-    await backend.sendChat(snapshot.room.id, text, path);
+    const sent = await backend.sendChat(snapshot.room.id, text, path);
+    // The reply already is the stored message: show it now instead of waiting for the realtime echo
+    if (sent?.id) {
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, { ...sent, reactions: sent.reactions ?? {} }].slice(-100)));
+    }
   };
 
   const handleToggleReaction = useCallback(
