@@ -50,7 +50,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     rutube: t.room.hintRutube,
     kodik: t.room.hintKodik,
     dzen: t.room.hintDzen,
-    ok: t.room.hintUnsynced,
+    ok: t.room.hintOk,
     dailymotion: t.room.hintUnsynced,
     file: t.room.hintFile,
   };

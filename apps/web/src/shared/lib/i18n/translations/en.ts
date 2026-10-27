@@ -58,6 +58,7 @@ export const en: Translations = {
     playerError: "This video cannot be opened. It may be private, removed, or not allow embedding.",
     hintVk: "Open the video on VK → Share → Export and paste the whole code or the src address (it contains the hash). A regular video page link will not work.",
     hintDzen: "Needs an embed link: under the video press Share → Embed and paste the dzen.ru/embed/… address or the whole code.",
+    hintOk: "A regular ok.ru/video/… link works. This platform has no playback speed control.",
     hintUnsynced: "This platform's player has no remote control: everyone presses play in the player themselves; chat and voice are shared.",
     dzenNeedsEmbed: "A regular Dzen link cannot be embedded. Under the video press Share → Embed and paste the dzen.ru/embed/… address.",
     groupRu: "Russia",

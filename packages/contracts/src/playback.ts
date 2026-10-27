@@ -24,8 +24,8 @@ export const MediaType = {
   DAILYMOTION: "dailymotion",
 } as const;
 
-/** Players that offer no control API: the room shows them but cannot start, pause or seek them for everyone. */
-export const UNSYNCED_MEDIA_TYPES: readonly MediaType[] = [MediaType.DZEN, MediaType.OK, MediaType.DAILYMOTION];
+/** Players with no control API: the room shows them but cannot start, pause or seek them for everyone (VK, RuTube, Odnoklassniki and the rest are controlled). */
+export const UNSYNCED_MEDIA_TYPES: readonly MediaType[] = [MediaType.DZEN, MediaType.DAILYMOTION];
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
 
