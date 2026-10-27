@@ -3,7 +3,7 @@ import type { PlayerAdapter, PlayerAdapterEvent } from "./player-adapter.js";
 import { PositionClock } from "./position-clock.js";
 
 /**
- * For platforms whose embed has no control API (Dzen, Odnoklassniki, Dailymotion): the video is shown in an iframe
+ * For platforms whose embed has no control API (Dzen, Dailymotion): the video is shown in an iframe
  * but cannot be started, paused or seeked from here, so each viewer presses play themselves. The clock simply follows
  * the room's state, which keeps the player from fighting the room over a position it cannot change.
  */
