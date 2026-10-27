@@ -21,7 +21,6 @@ import { VkPlayerAdapter } from "../../../shared/lib/adapters/vk-adapter.js";
 import { RutubePlayerAdapter } from "../../../shared/lib/adapters/rutube-adapter.js";
 import { VimeoPlayerAdapter } from "../../../shared/lib/adapters/vimeo-adapter.js";
 import { OkPlayerAdapter } from "../../../shared/lib/adapters/ok-adapter.js";
-import { EmbedPlayerAdapter } from "../../../shared/lib/adapters/embed-adapter.js";
 import { KodikPlayerAdapter } from "../../../shared/lib/adapters/kodik-adapter.js";
 import { Skeleton } from "../../../shared/ui/skeleton/skeleton.js";
 import styles from "./video-player-frame.module.scss";
@@ -540,10 +539,6 @@ export const VideoPlayerFrame = forwardRef<VideoPlayerHandle, VideoPlayerFramePr
         break;
       case MediaType.OK:
         adapter = new OkPlayerAdapter();
-        break;
-      case MediaType.DZEN:
-      case MediaType.DAILYMOTION:
-        adapter = new EmbedPlayerAdapter();
         break;
       case MediaType.HTML5:
       default:

@@ -18,9 +18,7 @@ function getSourceIcon(id: string | null) {
       return <Play size={14} />;
     case "vk":
     case "rutube":
-    case "dzen":
     case "ok":
-    case "dailymotion":
     case "kodik":
       return <Film size={14} />;
     case "vimeo":

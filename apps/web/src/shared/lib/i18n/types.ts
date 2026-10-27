@@ -58,10 +58,7 @@ export interface Translations {
     hintVk: string;
     hintRutube: string;
     hintKodik: string;
-    hintDzen: string;
-    hintUnsynced: string;
     hintOk: string;
-    dzenNeedsEmbed: string;
     groupRu: string;
     groupWorld: string;
     groupAdmin: string;

@@ -49,9 +49,7 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     vk: t.room.hintVk,
     rutube: t.room.hintRutube,
     kodik: t.room.hintKodik,
-    dzen: t.room.hintDzen,
     ok: t.room.hintOk,
-    dailymotion: t.room.hintUnsynced,
     file: t.room.hintFile,
   };
   const sourceHint = source ? hints[source.id] : undefined;
@@ -63,11 +61,6 @@ export const ChangeMediaInput: React.FC<ChangeMediaInputProps> = ({
     const trimmed = url.trim();
     if (/https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:hdrezka|rezka)\.[a-z]+/i.test(trimmed)) {
       setError(t.room.hdrezkaNotEmbeddableHint);
-      return;
-    }
-
-    if (/^https?:\/\/(?:www\.)?dzen\.ru\/(?!embed\/)/i.test(trimmed) && !trimmed.includes("<")) {
-      setError(t.room.dzenNeedsEmbed);
       return;
     }
 

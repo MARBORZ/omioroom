@@ -19,13 +19,8 @@ export const MediaType = {
   VIMEO: "vimeo",
   HLS: "hls",
   KODIK: "kodik",
-  DZEN: "dzen",
   OK: "ok",
-  DAILYMOTION: "dailymotion",
 } as const;
-
-/** Players with no control API: the room shows them but cannot start, pause or seek them for everyone (VK, RuTube, Odnoklassniki and the rest are controlled). */
-export const UNSYNCED_MEDIA_TYPES: readonly MediaType[] = [MediaType.DZEN, MediaType.DAILYMOTION];
 
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
 
@@ -247,30 +242,11 @@ export function parseMediaUrl(inputUrl: string): MediaSourceInfo | null {
       }
     }
 
-    // Dzen: only the embed address works (Share -> Embed under the video); /video/watch/ links cannot be embedded
-    if (["dzen.ru", "www.dzen.ru", "zen.yandex.ru"].includes(url.hostname)) {
-      const match = url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{6,64})\/?$/);
-      if (match?.[1]) {
-        return { type: MediaType.DZEN, sourceId: match[1], canonicalUrl: `https://dzen.ru/embed/${match[1]}` };
-      }
-    }
-
     // Odnoklassniki: /video/<id>, /videoembed/<id>
     if (["ok.ru", "www.ok.ru", "m.ok.ru"].includes(url.hostname)) {
       const match = url.pathname.match(/^\/(?:video|videoembed)\/(\d{5,20})\/?$/);
       if (match?.[1]) {
         return { type: MediaType.OK, sourceId: match[1], canonicalUrl: `https://ok.ru/videoembed/${match[1]}` };
-      }
-    }
-
-    // Dailymotion: /video/<id>, /embed/video/<id>, dai.ly/<id>, geo.dailymotion.com/player.html?video=<id>
-    if (url.hostname === "dai.ly" || url.hostname === "dailymotion.com" || url.hostname.endsWith(".dailymotion.com")) {
-      const id =
-        url.hostname === "dai.ly"
-          ? url.pathname.slice(1)
-          : (url.pathname.match(/^\/(?:embed\/)?video\/([A-Za-z0-9]+)/)?.[1] ?? url.searchParams.get("video") ?? "");
-      if (/^[A-Za-z0-9]{5,20}$/.test(id)) {
-        return { type: MediaType.DAILYMOTION, sourceId: id, canonicalUrl: `https://www.dailymotion.com/embed/video/${id}` };
       }
     }
 

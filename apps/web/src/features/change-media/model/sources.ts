@@ -15,12 +15,10 @@ export interface VideoSource {
 export const VIDEO_SOURCES: readonly VideoSource[] = [
   { id: "vk", label: "VK Видео", group: "ru", types: [MediaType.VK], example: "https://vk.com/video-123_456" },
   { id: "rutube", label: "RuTube", group: "ru", types: [MediaType.RUTUBE], example: "https://rutube.ru/video/…/" },
-  { id: "dzen", label: "Дзен", group: "ru", types: [MediaType.DZEN], example: "https://dzen.ru/embed/…" },
   { id: "ok", label: "Одноклассники", group: "ru", types: [MediaType.OK], example: "https://ok.ru/video/…" },
   { id: "kodik", label: "Кино и сериалы (Kodik)", group: "ru", types: [MediaType.KODIK], example: "https://kodikplayer.com/video/…" },
   { id: "youtube", label: "YouTube", group: "world", types: [MediaType.YOUTUBE], example: "https://www.youtube.com/watch?v=…" },
   { id: "vimeo", label: "Vimeo", group: "world", types: [MediaType.VIMEO], example: "https://vimeo.com/…" },
-  { id: "dailymotion", label: "Dailymotion", group: "world", types: [MediaType.DAILYMOTION], example: "https://www.dailymotion.com/video/…" },
 ] as const;
 
 export const FILE_SOURCE: VideoSource = {

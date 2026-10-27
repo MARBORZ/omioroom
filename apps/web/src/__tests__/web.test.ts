@@ -734,7 +734,7 @@ describe("Web Utilities", () => {
 
     // Supported platforms
     const sourceIds = VIDEO_SOURCES.map((s) => s.id);
-    expect(sourceIds).toEqual(["vk", "rutube", "dzen", "ok", "kodik", "youtube", "vimeo", "dailymotion"]);
+    expect(sourceIds).toEqual(["vk", "rutube", "ok", "kodik", "youtube", "vimeo"]);
     expect(sourceIds).not.toContain("file");
     expect(sourceIds).not.toContain("hls");
     expect(getVideoSources(true).map((s) => s.id)).toContain("file");
@@ -751,9 +751,9 @@ describe("Web Utilities", () => {
     expect(parseAllowedMediaUrl("https://example.com/stream.m3u8")).toBeNull();
     expect(parseAllowedMediaUrl("https://example.com/video.mp4", { allowDirectMedia: true })?.type).toBe("html5");
     expect(parseAllowedMediaUrl("https://example.com/stream.m3u8", { allowDirectMedia: true })?.type).toBe("hls");
-    expect(parseAllowedMediaUrl("https://dailymotion.com/video/x8abc12")?.type).toBe("dailymotion");
-    expect(parseAllowedMediaUrl("https://dzen.ru/embed/vAbCdEf123")?.type).toBe("dzen");
-    expect(parseAllowedMediaUrl("https://dzen.ru/video/watch/64a1b2c3d4e5f6a7b8c9d0e1")).toBeNull();
+    expect(parseAllowedMediaUrl("https://ok.ru/video/1234567890")?.type).toBe("ok");
+    expect(parseAllowedMediaUrl("https://dzen.ru/embed/vAbCdEf123")).toBeNull();
+    expect(parseAllowedMediaUrl("https://www.dailymotion.com/video/x8abc12")).toBeNull();
   });
 
   it("verifies public feed and report modal rendering", async () => {
