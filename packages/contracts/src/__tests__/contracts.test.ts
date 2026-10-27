@@ -121,6 +121,24 @@ describe("Contracts and Domain Logic", () => {
       canonicalUrl: "https://kodik.info/seria/12345/abcdef0123456789?season=1&episode=2",
     });
 
+    // Dzen (embed address only), Odnoklassniki, Dailymotion
+    expect(parseMediaUrl("https://dzen.ru/embed/vAbCdEf123")).toEqual({
+      type: MediaType.DZEN,
+      sourceId: "vAbCdEf123",
+      canonicalUrl: "https://dzen.ru/embed/vAbCdEf123",
+    });
+    expect(parseMediaUrl('<iframe src="https://dzen.ru/embed/vAbCdEf123?from_block=partner"></iframe>')?.type).toBe("dzen");
+    expect(parseMediaUrl("https://dzen.ru/video/watch/64a1b2c3d4e5f6a7b8c9d0e1")).toBeNull();
+    expect(parseMediaUrl("https://ok.ru/video/1234567890")).toEqual({
+      type: MediaType.OK,
+      sourceId: "1234567890",
+      canonicalUrl: "https://ok.ru/videoembed/1234567890",
+    });
+    expect(parseMediaUrl("https://www.dailymotion.com/video/x8abc12")?.canonicalUrl).toBe(
+      "https://www.dailymotion.com/embed/video/x8abc12"
+    );
+    expect(parseMediaUrl("https://dai.ly/x8abc12")?.sourceId).toBe("x8abc12");
+
     // Invalid url
     expect(parseMediaUrl("not-a-url")).toBeNull();
     expect(parseMediaUrl("https://example.com/movie.avi")).toBeNull();

@@ -58,6 +58,12 @@ export interface Translations {
     hintVk: string;
     hintRutube: string;
     hintKodik: string;
+    hintDzen: string;
+    hintUnsynced: string;
+    dzenNeedsEmbed: string;
+    groupRu: string;
+    groupWorld: string;
+    groupAdmin: string;
     hintFile: string;
     hdrezkaNotEmbeddableHint: string;
     tapToJoin: string;

@@ -20,6 +20,14 @@ function formatPlatformName(type?: string | null): string {
       return "RuTube";
     case "vimeo":
       return "Vimeo";
+    case "dzen":
+      return "Дзен";
+    case "ok":
+      return "Одноклассники";
+    case "dailymotion":
+      return "Dailymotion";
+    case "kodik":
+      return "Kodik";
     default:
       return type.toUpperCase();
   }

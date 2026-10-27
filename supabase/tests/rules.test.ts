@@ -335,6 +335,13 @@ describe("playback", () => {
 
     expect(await code(change({ type: "html5", sourceId: "x", canonicalUrl: "javascript:alert(1)" }))).toBe("MEDIA_UNSUPPORTED");
     expect(await code(change({ type: "evil", sourceId: "x", canonicalUrl: "https://a.com/v.mp4" }))).toBe("MEDIA_UNSUPPORTED");
+    // Embeds without a control API are allowed only for their own hosts and id shapes
+    expect(await code(change({ type: "dzen", sourceId: "vAbCdEf123", canonicalUrl: "https://evil.example/embed/vAbCdEf123" }))).toBe("MEDIA_UNSUPPORTED");
+    expect(await code(change({ type: "ok", sourceId: "12", canonicalUrl: "https://ok.ru/videoembed/12" }))).toBe("MEDIA_UNSUPPORTED");
+    expect((await change({ type: "dzen", sourceId: "vAbCdEf123", canonicalUrl: "https://dzen.ru/embed/vAbCdEf123" })).media.type).toBe("dzen");
+    expect((await change({ type: "kodik", sourceId: "91873_060cab655974d46835b3f4405807acc2", canonicalUrl: "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p" })).media.type).toBe("kodik");
+    expect((await change({ type: "ok", sourceId: "1234567890", canonicalUrl: "https://ok.ru/videoembed/1234567890" })).media.type).toBe("ok");
+    expect((await change({ type: "dailymotion", sourceId: "x8abc12", canonicalUrl: "https://www.dailymotion.com/embed/video/x8abc12" })).media.type).toBe("dailymotion");
     const ok = await change({ type: "html5", sourceId: "x", canonicalUrl: "https://a.com/v.mp4" });
     expect(ok.media.canonicalUrl).toBe("https://a.com/v.mp4");
     expect(ok.status).toBe("paused");

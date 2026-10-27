@@ -65,6 +65,13 @@ async function lookup(type: string, sourceId: string): Promise<Found> {
     }
     return { verdict: "unknown", reason: null, text: "" };
   }
+  if (type === "dailymotion") {
+    const { body } = await getJson(
+      `https://www.dailymotion.com/services/oembed?format=json&url=${encodeURIComponent("https://www.dailymotion.com/video/" + sourceId)}`
+    );
+    if (body) return { verdict: "ok", reason: null, text: `${str(body.title)} ${str(body.author_name)}`, title: str(body.title), thumbnail: str(body.thumbnail_url) };
+    return { verdict: "unknown", reason: null, text: "" };
+  }
   if (type === "kodik") {
     return { verdict: "ok", reason: null, text: "Kodik Player", title: "Kodik Player" };
   }
@@ -87,10 +94,10 @@ Deno.serve(async (req) => {
   if (!input.roomId || !input.type || !input.sourceId) return new Response("bad request", { status: 400 });
 
   let found = await lookup(input.type, input.sourceId);
-  // Platforms whose titles cannot be read (VK needs an API key) are not allowed in open rooms until they can be checked.
+  // Platforms whose titles cannot be read (VK needs an API key; Dzen and OK have no public lookup) are not allowed in open rooms until they can be checked.
   // Set the function secret UNVERIFIED_ALLOWED to a comma-separated list of types to allow them anyway.
   const allowedUnverified = (Deno.env.get("UNVERIFIED_ALLOWED") ?? "").split(",").map((x) => x.trim());
-  if (found.verdict === "unknown" && input.type === "vk" && !allowedUnverified.includes("vk")) {
+  if (found.verdict === "unknown" && ["vk", "dzen", "ok"].includes(input.type) && !allowedUnverified.includes(input.type)) {
     found = { verdict: "blocked", reason: "unverifiable", text: "" };
   }
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {

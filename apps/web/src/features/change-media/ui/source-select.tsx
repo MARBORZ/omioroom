@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, Globe, Play, Film, Video, FileVideo } from "lucide-react";
-import { VIDEO_SOURCES, type VideoSource } from "../model/sources.js";
+import { VIDEO_SOURCES, type SourceGroup, type VideoSource } from "../model/sources.js";
 import styles from "./source-select.module.scss";
 
 interface SourceSelectProps {
   value: string | null;
   onChange: (sourceId: string | null) => void;
   anyLinkLabel: string;
+  groupLabels: Record<SourceGroup, string>;
   sources?: readonly VideoSource[];
   disabled?: boolean;
 }
@@ -17,6 +18,9 @@ function getSourceIcon(id: string | null) {
       return <Play size={14} />;
     case "vk":
     case "rutube":
+    case "dzen":
+    case "ok":
+    case "dailymotion":
     case "kodik":
       return <Film size={14} />;
     case "vimeo":
@@ -32,6 +36,7 @@ export const SourceSelect: React.FC<SourceSelectProps> = ({
   value,
   onChange,
   anyLinkLabel,
+  groupLabels,
   sources = VIDEO_SOURCES,
   disabled = false,
 }) => {
@@ -93,18 +98,24 @@ export const SourceSelect: React.FC<SourceSelectProps> = ({
             <span className={styles.optionText}>{anyLinkLabel}</span>
           </button>
 
-          {sources.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`${styles.option} ${value === s.id ? styles.optionSelected : ""}`}
-              role="option"
-              aria-selected={value === s.id}
-              onClick={() => handleSelect(s.id)}
-            >
-              <span className={styles.optionIcon}>{getSourceIcon(s.id)}</span>
-              <span className={styles.optionText}>{s.label}</span>
-            </button>
+          {sources.map((s, i) => (
+            <React.Fragment key={s.id}>
+              {sources[i - 1]?.group !== s.group && (
+                <div className={styles.groupLabel} role="presentation">
+                  {groupLabels[s.group]}
+                </div>
+              )}
+              <button
+                type="button"
+                className={`${styles.option} ${value === s.id ? styles.optionSelected : ""}`}
+                role="option"
+                aria-selected={value === s.id}
+                onClick={() => handleSelect(s.id)}
+              >
+                <span className={styles.optionIcon}>{getSourceIcon(s.id)}</span>
+                <span className={styles.optionText}>{s.label}</span>
+              </button>
+            </React.Fragment>
           ))}
         </div>
       )}
