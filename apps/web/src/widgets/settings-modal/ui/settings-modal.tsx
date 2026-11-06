@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { X, Sun, Moon, Monitor, Eye, Zap, Globe, Volume2, VolumeX } from "lucide-react";
 import { CHAT_TEXT_SCALE_MAX, CHAT_TEXT_SCALE_MIN, useSettings } from "../../../shared/lib/settings/index.js";
 import {
@@ -10,6 +10,9 @@ import {
   writeChatWidth,
 } from "../../../shared/lib/chat-layout.js";
 import { useI18n } from "../../../shared/lib/i18n/index.js";
+import { SessionContext } from "../../../app/providers/session-context.js";
+import { buildArchiveZip, localDay } from "../../../shared/lib/chat-archive/index.js";
+import { showToast } from "../../../shared/ui/toast/toast.js";
 import { Button } from "../../../shared/ui/button/button.js";
 import { Logo } from "../../../shared/ui/logo/logo.js";
 import { BlacklistPanel } from "../../../widgets/blacklist-panel/index.js";
@@ -22,6 +25,27 @@ export interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, isOwner = false }) => {
+  // Not useSession(): this modal also renders where no session exists (and in tests)
+  const user = useContext(SessionContext)?.user ?? null;
+  const [exporting, setExporting] = useState(false);
+  const exportChatArchive = async () => {
+    setExporting(true);
+    try {
+      const zip = await buildArchiveZip(t.settings.archiveImage);
+      if (!zip) {
+        showToast(t.settings.archiveEmpty, { id: "chat-archive-empty" });
+        return;
+      }
+      const url = URL.createObjectURL(zip.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `omioroom-chat-${localDay(new Date().toISOString())}.zip`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } finally {
+      setExporting(false);
+    }
+  };
   const {
     theme,
     density,
@@ -303,6 +327,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
               </button>
             </div>
           </div>
+
+          {/* Chat copy kept in this browser for rooms an admin owns */}
+          {user?.role === "admin" && (
+            <div className={styles.section}>
+              <label className={styles.sectionLabel}>{t.settings.archiveSection}</label>
+              <p className={styles.rangeLabel}>{t.settings.archiveHint}</p>
+              <Button variant="secondary" size="md" onClick={() => void exportChatArchive()} loading={exporting}>
+                {t.settings.archiveExport}
+              </Button>
+            </div>
+          )}
 
           {/* Owner Blacklist */}
           {isOwner && (

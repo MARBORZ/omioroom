@@ -377,5 +377,10 @@ export const ru: Translations = {
     soundNotifications: "Звук сообщений",
     soundOn: "Включён",
     soundOff: "Выключен",
+    archiveSection: "Архив чата",
+    archiveHint: "Сообщения комнат, где вы владелец, сохраняются в этом браузере (сервер хранит только последние 100 и стирает чат при закрытии комнаты). ZIP: по файлу на каждый день, YYYY-MM-DD.txt.",
+    archiveExport: "Скачать ZIP",
+    archiveEmpty: "Пока нечего экспортировать: архив пополняется, пока вы в своей комнате.",
+    archiveImage: "[картинка]",
   },
 };

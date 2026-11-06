@@ -371,5 +371,10 @@ export interface Translations {
     soundNotifications: string;
     soundOn: string;
     soundOff: string;
+    archiveSection: string;
+    archiveHint: string;
+    archiveExport: string;
+    archiveEmpty: string;
+    archiveImage: string;
   };
 }

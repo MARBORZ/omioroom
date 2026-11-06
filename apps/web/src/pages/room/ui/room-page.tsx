@@ -20,6 +20,7 @@ import { availableRates } from "../../../shared/lib/adapters/playback-rates.js";
 import { backend, generateClientRequestId } from "../../../shared/api/backend.js";
 import { openRoomChannel, sendTyping, broadcastChatReaction, broadcastChatDeleted, type RoomChannelStatus } from "../../../shared/api/realtime.js";
 import { showToast } from "../../../shared/ui/toast/toast.js";
+import { saveToArchive } from "../../../shared/lib/chat-archive/index.js";
 import { clearStoredActiveRoom } from "../../../shared/lib/active-room.js";
 import {
   PlaybackStatus,
@@ -58,6 +59,28 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [codeRevoked, setCodeRevoked] = useState(false);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
   const [chatLoading, setChatLoading] = useState(true);
+
+  // The server keeps only the last 100 messages and drops the chat with the room. An admin who owns the room
+  // keeps a copy in this browser (exported from Settings), so every message is saved once as it comes in.
+  const archivedIdsRef = useRef<Set<string>>(new Set());
+  const keepChatCopy = snapshot.isOwner && user?.role === "admin";
+  useEffect(() => {
+    if (!keepChatCopy) return;
+    const fresh = messages.filter((m) => !archivedIdsRef.current.has(m.id));
+    if (fresh.length === 0) return;
+    for (const m of fresh) archivedIdsRef.current.add(m.id);
+    void saveToArchive(
+      fresh.map((m) => ({
+        id: m.id,
+        roomId: m.roomId,
+        roomLabel: `${snapshot.room.globalId}`,
+        senderName: m.senderName,
+        text: m.text,
+        hasAttachment: m.attachmentPath !== null,
+        createdAt: m.createdAt,
+      }))
+    );
+  }, [messages, keepChatCopy, snapshot.room.globalId]);
   const [channelStatus, setChannelStatus] = useState<RoomChannelStatus>("connecting");
   const [presentIds, setPresentIds] = useState<string[] | null>(null);
   // Who is typing right now: userId -> name. Entries expire on their own if the "stopped" signal is lost.

@@ -376,6 +376,11 @@ export const en: Translations = {
     motionFull: "Full motion",
     soundNotifications: "Message sounds",
     soundOn: "On",
+    archiveSection: "Chat archive",
+    archiveHint: "Messages from rooms you own are saved in this browser (the server keeps only the last 100 and erases the chat when the room closes). ZIP: one YYYY-MM-DD.txt file per day.",
+    archiveExport: "Download ZIP",
+    archiveEmpty: "Nothing to export yet: the archive fills while you are in your own room.",
+    archiveImage: "[image]",
     soundOff: "Off",
   },
 };
