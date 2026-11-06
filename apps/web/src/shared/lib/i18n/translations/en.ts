@@ -377,7 +377,7 @@ export const en: Translations = {
     soundNotifications: "Message sounds",
     soundOn: "On",
     archiveSection: "Chat archive",
-    archiveHint: "Messages from rooms you own are saved in this browser (the server keeps only the last 100 and erases the chat when the room closes). ZIP: one YYYY-MM-DD.txt file per day.",
+    archiveHint: "In rooms you own the server does not trim the chat to 100 messages (it is erased only when the room closes), and a copy is saved in this browser. ZIP: one YYYY-MM-DD.txt file per day.",
     archiveExport: "Download ZIP",
     archiveEmpty: "Nothing to export yet: the archive fills while you are in your own room.",
     archiveImage: "[image]",

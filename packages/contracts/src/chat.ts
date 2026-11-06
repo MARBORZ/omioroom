@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const CHAT_MAX_TEXT_LENGTH = 1000;
 export const CHAT_HISTORY_LIMIT = 100;
+/** What an admin who owns the room loads and keeps on screen: the server does not trim those rooms. */
+export const CHAT_HISTORY_LIMIT_OWNER = 1000;
 
 /** Chat attachments are images (and gifs) uploaded from the device; nothing else. */
 export const CHAT_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"] as const;

@@ -23,6 +23,8 @@ import { showToast } from "../../../shared/ui/toast/toast.js";
 import { saveToArchive } from "../../../shared/lib/chat-archive/index.js";
 import { clearStoredActiveRoom } from "../../../shared/lib/active-room.js";
 import {
+  CHAT_HISTORY_LIMIT,
+  CHAT_HISTORY_LIMIT_OWNER,
   PlaybackStatus,
   type ChatMessageDto,
   type RoomSnapshotDto,
@@ -64,6 +66,9 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   // keeps a copy in this browser (exported from Settings), so every message is saved once as it comes in.
   const archivedIdsRef = useRef<Set<string>>(new Set());
   const keepChatCopy = snapshot.isOwner && user?.role === "admin";
+  // Admin-owned rooms are not trimmed by the server, so show and load more than the usual last 100
+  const chatLimitRef = useRef(100);
+  chatLimitRef.current = keepChatCopy ? CHAT_HISTORY_LIMIT_OWNER : CHAT_HISTORY_LIMIT;
   useEffect(() => {
     if (!keepChatCopy) return;
     const fresh = messages.filter((m) => !archivedIdsRef.current.has(m.id));
@@ -443,7 +448,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const reloadAll = async () => {
       await reloadSnapshot();
       try {
-        const history = await backend.chatHistory(roomId);
+        const history = await backend.chatHistory(roomId, chatLimitRef.current);
         if (disposed) return;
         setMessages(history);
       } catch {
@@ -492,7 +497,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           const { [msg.senderId]: _gone, ...rest } = prev;
           return rest;
         });
-        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-100)));
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-chatLimitRef.current)));
         if (msg.senderId !== user.id && !chatVisibleRef.current) setUnreadMessages((n) => n + 1);
       },
       onChatUpdated: (msg) => {
@@ -854,7 +859,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const sent = await backend.sendChat(snapshot.room.id, text, path);
     // The reply already is the stored message: show it now instead of waiting for the realtime echo
     if (sent?.id) {
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, { ...sent, reactions: sent.reactions ?? {} }].slice(-100)));
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, { ...sent, reactions: sent.reactions ?? {} }].slice(-chatLimitRef.current)));
     }
   };
 
@@ -914,7 +919,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         showToast(tRef.current.chat.deletedNotice, { id: "msg-deleted" });
       } catch (err) {
         console.error("Failed to delete message:", err);
-        void backend.chatHistory(snapshot.room.id).then(setMessages).catch(() => {});
+        void backend.chatHistory(snapshot.room.id, chatLimitRef.current).then(setMessages).catch(() => {});
       }
     },
     [snapshot.room.id]

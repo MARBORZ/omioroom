@@ -510,6 +510,17 @@ describe("chat", () => {
       .then(() => path);
   };
 
+  it("rooms owned by an admin keep the whole chat instead of the last 100", async () => {
+    const admin = await t.newUser();
+    await t.db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${admin}'`);
+    const r = await room(admin, "public");
+    for (let i = 0; i < 105; i++) {
+      await t.db.query("delete from public.rate_events");
+      await t.as(admin).rpc("send_chat", { p_room_id: r.id, p_text: `m${i}` });
+    }
+    expect(await t.as(admin).query("select * from public.chat_messages where room_id = $1", [r.id])).toHaveLength(105);
+  });
+
   it("members chat; outsiders cannot; history is capped at 100", async () => {
     const owner = await t.newUser();
     const stranger = await t.newUser();

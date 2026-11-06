@@ -154,13 +154,13 @@ export const backend = {
     const paths = (data ?? []).map((o) => `${roomId}/${o.name}`);
     if (paths.length > 0) await supabase.storage.from(CHAT_BUCKET).remove(paths);
   },
-  chatHistory: async (roomId: string): Promise<ChatMessageDto[]> => {
+  chatHistory: async (roomId: string, limit = 100): Promise<ChatMessageDto[]> => {
     const { data, error } = await supabase
       .from("chat_messages")
       .select("id, room_id, sender_id, sender_name, body, attachment_path, attachment_type, created_at, reactions")
       .eq("room_id", roomId)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(limit);
     if (error) throw error;
     return (data ?? []).reverse().map(mapChatRow);
   },
