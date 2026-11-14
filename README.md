@@ -1,5 +1,7 @@
 # OMIOROOM
 
+English · [Norsk](README.no.md)
+
 Watch party for friends – 2 to 32 people in one room, video plays in sync for everyone. No own server: React on Vercel + Supabase (Auth, Postgres, Realtime).
 
 - Anonymous, nickname or registered accounts
@@ -41,4 +43,3 @@ Tests in `supabase/tests` run the real migrations on embedded Postgres (PGlite) 
 
 Voice chat behind strict NAT needs a TURN server: `VITE_TURN_URL`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`.
 
-Specs are in `docs/`.
